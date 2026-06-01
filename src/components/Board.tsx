@@ -29,7 +29,12 @@ import {
 } from '@hello-pangea/dnd';
 import { COLUMN_IDS, type ColumnId, type Repo } from '../types';
 import { useBoardStore } from '../store/useBoardStore';
+import { useViewStore } from '../store/useViewStore';
+import { applyView } from '../utils/filterSort';
+import { isViewActive } from '../view';
 import { RepoCard } from './RepoCard';
+import { RepoDetail } from './RepoDetail';
+import { Toolbar } from './Toolbar';
 
 /** Human-readable column headers, keyed by ColumnId. */
 const COLUMN_LABELS: Record<ColumnId, string> = {
@@ -50,12 +55,27 @@ export function Board() {
   const repos = useBoardStore((s) => s.repos);
   const moveCard = useBoardStore((s) => s.moveCard);
 
+  const search = useViewStore((s) => s.search);
+  const filters = useViewStore((s) => s.filters);
+  const sort = useViewStore((s) => s.sort);
+  const selectedPath = useViewStore((s) => s.selectedPath);
+  const detailPath = useViewStore((s) => s.detailPath);
+  const setDetail = useViewStore((s) => s.setDetail);
+
   // Fast path lookup: repo path -> live Repo (from the latest scan).
   // Memoised on repos so the Map is not rebuilt on every render.
   const repoByPath = useMemo<Map<string, Repo>>(
     () => new Map(repos.map((r) => [r.path, r])),
     [repos],
   );
+
+  // Drag is only safe in pure manual order with no active filter/search:
+  // otherwise the rendered subset's indices no longer map onto the persisted
+  // column array and a drop would corrupt the saved order.
+  const dragEnabled = !isViewActive({ search, filters, sort });
+
+  // The repo whose detail modal is open (if it still exists in the scan).
+  const detailRepo = detailPath !== null ? repoByPath.get(detailPath) ?? null : null;
 
   const onDragEnd = useCallback((result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -84,61 +104,78 @@ export function Board() {
   }, [moveCard]);
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="grid grid-cols-5 gap-4 p-4 flex-1 min-h-0">
-        {COLUMN_IDS.map((columnId) => {
-          const paths = board[columnId];
-          return (
-            <section
-              key={columnId}
-              className="flex flex-col min-h-0 bg-cream/60 backdrop-blur-sm border border-navy/10"
-            >
-              <header className="px-3 py-2 border-b border-navy/15 shrink-0">
-                <h2 className="text-navy font-semibold text-sm uppercase tracking-wide flex items-center justify-between">
-                  <span>{COLUMN_LABELS[columnId]}</span>
-                  <span className="text-navy-light font-normal tabular-nums">
-                    {paths.length}
-                  </span>
-                </h2>
-              </header>
+    <div className="flex flex-col flex-1 min-h-0">
+      <Toolbar />
 
-              <Droppable droppableId={columnId}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={[
-                      'flex-1 min-h-0 overflow-y-auto p-2 space-y-2 transition-colors',
-                      snapshot.isDraggingOver ? 'bg-sage-light/40' : '',
-                    ].join(' ')}
-                  >
-                    {paths
-                      .filter((path) => repoByPath.has(path))
-                      .map((path, index) => {
-                        // Safe: filter above guarantees the entry exists.
-                        const repo = repoByPath.get(path) as Repo;
-                        return (
-                          <Draggable key={path} draggableId={path} index={index}>
-                            {(dragProvided) => (
-                              <div
-                                ref={dragProvided.innerRef}
-                                {...dragProvided.draggableProps}
-                                {...dragProvided.dragHandleProps}
-                              >
-                                <RepoCard repo={repo} />
-                              </div>
-                            )}
-                          </Draggable>
-                        );
-                      })}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </section>
-          );
-        })}
-      </div>
-    </DragDropContext>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="grid grid-cols-5 gap-4 p-4 flex-1 min-h-0">
+          {COLUMN_IDS.map((columnId) => {
+            // All live repos in this column (persisted order), then the view
+            // transform (search + filters + sort). `manual` sort keeps order.
+            const allRepos = board[columnId]
+              .map((path) => repoByPath.get(path))
+              .filter((r): r is Repo => r !== undefined);
+            const visible = applyView(allRepos, { search, filters, sort });
+
+            return (
+              <section
+                key={columnId}
+                className="flex flex-col min-h-0 bg-cream/60 backdrop-blur-sm border border-navy/10"
+              >
+                <header className="px-3 py-2 border-b border-navy/15 shrink-0">
+                  <h2 className="text-navy font-semibold text-sm uppercase tracking-wide flex items-center justify-between">
+                    <span>{COLUMN_LABELS[columnId]}</span>
+                    <span className="text-navy-light font-normal tabular-nums">
+                      {visible.length === allRepos.length
+                        ? allRepos.length
+                        : `${visible.length}/${allRepos.length}`}
+                    </span>
+                  </h2>
+                </header>
+
+                <Droppable droppableId={columnId} isDropDisabled={!dragEnabled}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={[
+                        'flex-1 min-h-0 overflow-y-auto p-2 space-y-2 transition-colors',
+                        snapshot.isDraggingOver ? 'bg-sage-light/40' : '',
+                      ].join(' ')}
+                    >
+                      {visible.map((repo, index) => (
+                        <Draggable
+                          key={repo.path}
+                          draggableId={repo.path}
+                          index={index}
+                          isDragDisabled={!dragEnabled}
+                        >
+                          {(dragProvided) => (
+                            <div
+                              ref={dragProvided.innerRef}
+                              {...dragProvided.draggableProps}
+                              {...dragProvided.dragHandleProps}
+                            >
+                              <RepoCard repo={repo} selected={repo.path === selectedPath} />
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </section>
+            );
+          })}
+        </div>
+      </DragDropContext>
+
+      {/* Single detail modal, lifted out of RepoCard so the keyboard ⏎
+          shortcut can open the selected repo. */}
+      {detailRepo !== null && (
+        <RepoDetail repo={detailRepo} onClose={() => setDetail(null)} />
+      )}
+    </div>
   );
 }

@@ -14,11 +14,12 @@ import { Command } from '@tauri-apps/plugin-shell';
 import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from '../store/useBoardStore';
-import { RepoDetail } from './RepoDetail';
+import { useViewStore } from '../store/useViewStore';
 import type { Repo, CiStatus } from '../types';
 
 interface RepoCardProps {
   repo: Repo;
+  selected?: boolean;
 }
 
 /** Compact relative age like "3d" / "5h" / "2w" from an ISO timestamp. */
@@ -54,12 +55,12 @@ function ciColor(status: CiStatus): string | null {
   }
 }
 
-export function RepoCard({ repo }: RepoCardProps) {
+export function RepoCard({ repo, selected = false }: RepoCardProps) {
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
   const terminalApp = useBoardStore((s) => s.settings.terminalApp);
+  const setDetail = useViewStore((s) => s.setDetail);
 
-  const [detailOpen, setDetailOpen] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
 
   async function openInEditor() {
@@ -96,7 +97,10 @@ export function RepoCard({ repo }: RepoCardProps) {
 
   return (
     <article
-      className="bg-warm-gray border border-navy/10 p-3 flex flex-col gap-2 shadow-sm"
+      className={[
+        'bg-warm-gray border p-3 flex flex-col gap-2 shadow-sm transition-shadow',
+        selected ? 'border-sage ring-2 ring-sage' : 'border-navy/10',
+      ].join(' ')}
       data-path={repo.path}
     >
       {/* ── Header row: name + action buttons ── */}
@@ -123,7 +127,7 @@ export function RepoCard({ repo }: RepoCardProps) {
 
           <button
             type="button"
-            onClick={() => setDetailOpen(true)}
+            onClick={() => setDetail(repo.path)}
             className="p-1 text-navy-light hover:text-sage transition-colors"
             title="View README & files"
             aria-label="View README and files"
@@ -168,10 +172,6 @@ export function RepoCard({ repo }: RepoCardProps) {
         <p className="text-[11px] text-terracotta leading-snug" role="alert">
           {openError}
         </p>
-      )}
-
-      {detailOpen && (
-        <RepoDetail repo={repo} onClose={() => setDetailOpen(false)} />
       )}
 
       {/* ── Meta row: branch + dirty badge ── */}

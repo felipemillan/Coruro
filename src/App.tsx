@@ -11,7 +11,12 @@
 
 import { useEffect, useState } from 'react';
 import { X, Settings as SettingsIcon } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from './store/useBoardStore';
+import { useViewStore } from './store/useViewStore';
+import { applyView } from './utils/filterSort';
+import { safeOpenUrl } from './utils/openUrl';
+import { COLUMN_IDS, type Repo } from './types';
 import { Setup } from './components/Setup';
 import { Board } from './components/Board';
 import { Settings } from './components/Settings';
@@ -40,6 +45,102 @@ export default function App() {
         setSettingsOpen((o) => !o);
       }
     };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Board keyboard navigation. Reads fresh state via getState() inside the
+  // handler so it never goes stale and needs no dependency array.
+  useEffect(() => {
+    // Flatten the currently-visible cards across columns, in board order, so
+    // j/k step through exactly what the user sees (same transform as Board).
+    const flatVisible = (): Repo[] => {
+      const { board, repos } = useBoardStore.getState();
+      const { search, filters, sort } = useViewStore.getState();
+      const byPath = new Map(repos.map((r) => [r.path, r]));
+      const out: Repo[] = [];
+      for (const col of COLUMN_IDS) {
+        const colRepos = board[col]
+          .map((p) => byPath.get(p))
+          .filter((r): r is Repo => r !== undefined);
+        out.push(...applyView(colRepos, { search, filters, sort }));
+      }
+      return out;
+    };
+
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+      const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+      const view = useViewStore.getState();
+
+      // '/' focuses the search box.
+      if (e.key === '/' && !typing) {
+        e.preventDefault();
+        document.getElementById('repo-search')?.focus();
+        return;
+      }
+
+      // Escape: close modal → blur field → clear active view.
+      if (e.key === 'Escape') {
+        if (view.detailPath !== null) {
+          view.setDetail(null);
+          return;
+        }
+        if (typing) (document.activeElement as HTMLElement | null)?.blur();
+        if (view.search !== '' || view.filters.size > 0 || view.sort !== 'manual') {
+          view.resetView();
+        }
+        return;
+      }
+
+      // The rest are single-key shortcuts; never hijack typing or modifier combos.
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === 'j' || e.key === 'k') {
+        const list = flatVisible();
+        if (list.length === 0) return;
+        e.preventDefault();
+        const cur = list.findIndex((r) => r.path === view.selectedPath);
+        const next =
+          cur === -1
+            ? e.key === 'j'
+              ? 0
+              : list.length - 1
+            : e.key === 'j'
+              ? Math.min(cur + 1, list.length - 1)
+              : Math.max(cur - 1, 0);
+        const path = list[next].path;
+        view.setSelected(path);
+        requestAnimationFrame(() => {
+          document
+            .querySelector(`[data-path="${CSS.escape(path)}"]`)
+            ?.scrollIntoView({ block: 'nearest' });
+        });
+        return;
+      }
+
+      // Action keys operate on the selected card.
+      if (view.selectedPath === null) return;
+      const { repos, settings } = useBoardStore.getState();
+      const repo = repos.find((r) => r.path === view.selectedPath);
+      if (repo === undefined) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        view.setDetail(repo.path);
+      } else if (e.key === 'e') {
+        void invoke('open_in_editor', {
+          command: settings.editorCommand,
+          app: settings.editorApp,
+          path: repo.path,
+        });
+      } else if (e.key === 't') {
+        void invoke('open_in_terminal', { app: settings.terminalApp, path: repo.path });
+      } else if (e.key === 'o') {
+        if (repo.gh?.htmlUrl) void safeOpenUrl(repo.gh.htmlUrl);
+      }
+    };
+
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
