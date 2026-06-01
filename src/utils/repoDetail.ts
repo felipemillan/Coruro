@@ -111,3 +111,32 @@ export async function getFileTree(repoPath: string): Promise<FileTreeResult> {
   const root = await walk(repoPath, 0);
   return { root, total: state.count, truncated: state.truncated };
 }
+
+/**
+ * Pure. Prune a file tree to markdown only: keep `.md` leaves and any
+ * directory that has a `.md` descendant (so nesting is preserved). Drops
+ * empty directories and non-markdown files.
+ */
+export function pruneToMarkdown(nodes: TreeNode[]): TreeNode[] {
+  const out: TreeNode[] = [];
+  for (const node of nodes) {
+    if (node.isDir) {
+      const children = pruneToMarkdown(node.children ?? []);
+      if (children.length > 0) out.push({ ...node, children });
+    } else if (node.name.toLowerCase().endsWith('.md')) {
+      out.push(node);
+    }
+  }
+  return out;
+}
+
+/** Build the full tree, then prune to markdown only. Caps/truncation reused. */
+export async function getMarkdownTree(repoPath: string): Promise<FileTreeResult> {
+  const full = await getFileTree(repoPath);
+  return { ...full, root: pruneToMarkdown(full.root) };
+}
+
+/** Read one markdown file's text for the preview pane. */
+export async function getMarkdownFile(path: string): Promise<string> {
+  return readTextFile(path);
+}
