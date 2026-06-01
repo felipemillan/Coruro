@@ -110,7 +110,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
   return (
     <article
       className={[
-        'bg-warm-gray border p-3 flex flex-col gap-2 shadow-sm transition-shadow',
+        'bg-warm-gray border p-3 flex flex-col gap-2 shadow-sm transition-shadow rounded-xl',
         selected ? 'border-sage ring-2 ring-sage' : 'border-navy/10',
       ].join(' ')}
       data-path={repo.path}
@@ -129,7 +129,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
             type="button"
             onClick={() => { void refreshGitHub(); }}
             disabled={refreshing}
-            className="p-1 text-navy-light hover:text-sage transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh GitHub data"
             aria-label="Refresh GitHub data"
           >
@@ -140,7 +140,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
             <button
               type="button"
               onClick={() => { if (gh.htmlUrl) void safeOpenUrl(gh.htmlUrl); }}
-              className="p-1 text-navy-light hover:text-sage transition-colors"
+              className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
               title="Open on GitHub"
               aria-label="Open repository on GitHub"
             >
@@ -151,7 +151,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           <button
             type="button"
             onClick={() => setDetail(repo.path)}
-            className="p-1 text-navy-light hover:text-sage transition-colors"
+            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
             title="View README & files"
             aria-label="View README and files"
           >
@@ -161,7 +161,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           <button
             type="button"
             onClick={() => { void openInEditor(); }}
-            className="p-1 text-navy-light hover:text-sage transition-colors"
+            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
             title={`Open in IDE (${editorCommand || editorApp})`}
             aria-label="Open in IDE"
           >
@@ -171,7 +171,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           <button
             type="button"
             onClick={() => { void openInTerminal(); }}
-            className="p-1 text-navy-light hover:text-sage transition-colors"
+            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
             title={`Open in terminal (${terminalApp})`}
             aria-label="Open in terminal"
           >
@@ -181,7 +181,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           <button
             type="button"
             onClick={() => { void revealInFinder(); }}
-            className="p-1 text-navy-light hover:text-sage transition-colors"
+            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
             title="Reveal in Finder"
             aria-label="Reveal in Finder"
           >
@@ -205,7 +205,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
 
         <span
           className={[
-            'text-xs px-1.5 py-0.5 font-medium leading-none',
+            'text-xs px-1.5 py-0.5 font-medium leading-none rounded-full',
             repo.dirty ? 'bg-terracotta/20 text-terracotta' : 'bg-sage/20 text-sage',
           ].join(' ')}
           aria-label={repo.dirty ? 'Uncommitted changes' : 'Working tree clean'}
@@ -214,7 +214,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
         </span>
 
         {((repo.ahead ?? 0) > 0 || (repo.behind ?? 0) > 0) && (
-          <span className="flex items-center gap-1.5 text-xs leading-none" title="Ahead / behind upstream">
+          <span className="flex items-center gap-1.5 text-xs leading-none rounded-full" title="Ahead / behind upstream">
             {(repo.ahead ?? 0) > 0 && (
               <span className="flex items-center gap-0.5 text-sage">
                 <ArrowUp size={11} strokeWidth={2} />{repo.ahead}
@@ -229,12 +229,12 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
         )}
 
         {gh?.isPrivate && (
-          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
+          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none rounded-full">
             private
           </span>
         )}
         {gh?.archived && (
-          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
+          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none rounded-full">
             archived
           </span>
         )}
@@ -250,7 +250,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
             </span>
           )}
           {gh.prCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-dusty-pink/30 text-navy-light font-medium leading-none">
+            <span className="px-1.5 py-0.5 bg-dusty-pink/30 text-navy-light font-medium leading-none rounded-full">
               {gh.prCount} PR{gh.prCount === 1 ? '' : 's'}
             </span>
           )}
@@ -277,7 +277,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
             </span>
           )}
           {gh.fork && (
-            <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
+            <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none rounded-full">
               fork
             </span>
           )}

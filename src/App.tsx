@@ -223,9 +223,9 @@ export default function App() {
         className="
           fixed bottom-4 right-4 z-40
           flex items-center justify-center
-          w-10 h-10
+          w-10 h-10 rounded-full
           bg-cream/90 backdrop-blur-md
-          border border-warm-gray shadow-sm
+          border border-warm-gray shadow-md
           text-navy-light hover:text-navy hover:bg-warm-gray
           transition-colors duration-150
           cursor-pointer

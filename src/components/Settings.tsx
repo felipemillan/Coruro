@@ -221,7 +221,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 className="
                   flex items-center justify-center
                   w-6 h-6
-                  text-navy-light hover:text-navy hover:bg-navy/10
+                  rounded-full
+                  text-navy-light hover:text-navy hover:bg-navy/8
                   transition-colors duration-150
                   cursor-pointer
                 "
@@ -253,6 +254,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 <div className="
                   flex items-center
                   px-3 py-2 mb-3
+                  rounded-lg
                   bg-warm-gray border border-warm-gray/80
                   text-[12px] font-mono text-navy-light
                   overflow-hidden
@@ -271,6 +273,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   className="
                     flex items-center gap-2
                     px-4 py-2
+                    rounded-full
                     bg-navy text-cream
                     text-[12px] font-medium
                     hover:bg-navy-light
@@ -300,14 +303,14 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   {hasToken ? (
                     <>
                       <CheckCircle2 size={13} strokeWidth={1.5} className="text-sage" />
-                      <span className="text-[12px] text-sage font-medium select-none">
+                      <span className="text-[12px] text-sage font-medium select-none rounded-full">
                         Token saved
                       </span>
                     </>
                   ) : (
                     <>
                       <Circle size={13} strokeWidth={1.5} className="text-navy-light/40" />
-                      <span className="text-[12px] text-navy-light/50 select-none">
+                      <span className="text-[12px] text-navy-light/50 select-none rounded-full">
                         No token set
                       </span>
                     </>
@@ -336,6 +339,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                       spellCheck={false}
                       className="
                         w-full pl-8 pr-3 py-2
+                        rounded-lg
                         bg-warm-gray border border-warm-gray/80
                         text-[12px] font-mono text-navy
                         placeholder:text-navy-light/40
@@ -352,6 +356,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     disabled={tokenSaving || tokenInput.trim().length === 0}
                     className="
                       px-4 py-2
+                      rounded-full
                       bg-sage text-cream
                       text-[12px] font-medium
                       hover:bg-sage-light hover:text-navy
@@ -401,6 +406,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   autoComplete="off"
                   className="
                     w-full px-3 py-2 mb-3
+                    rounded-lg
                     bg-warm-gray border border-warm-gray/80
                     text-[12px] font-mono text-navy
                     placeholder:text-navy-light/40
@@ -422,6 +428,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   autoComplete="off"
                   className="
                     w-full px-3 py-2
+                    rounded-lg
                     bg-warm-gray border border-warm-gray/80
                     text-[12px] font-mono text-navy
                     placeholder:text-navy-light/40
@@ -469,6 +476,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     autoComplete="off"
                     className="
                       w-full pl-8 pr-3 py-2
+                      rounded-lg
                       bg-warm-gray border border-warm-gray/80
                       text-[12px] font-mono text-navy
                       placeholder:text-navy-light/40
@@ -501,6 +509,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   onChange={(e) => { void setRefreshInterval(Number(e.target.value)); }}
                   className="
                     w-full px-3 py-2
+                    rounded-lg
                     bg-warm-gray border border-warm-gray/80
                     text-[12px] text-navy
                     focus:outline-none focus:border-navy/40 focus:bg-cream
@@ -526,6 +535,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 {/* Live readout */}
                 <div className="
                   px-3 py-2 mb-3
+                  rounded-lg
                   bg-warm-gray border border-warm-gray/80
                   text-[11px] font-mono text-navy-light
                   flex flex-col gap-1
@@ -553,6 +563,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   className="
                     flex items-center justify-between w-full
                     px-3 py-2 mb-3
+                    rounded-lg
                     bg-warm-gray/60 hover:bg-warm-gray border border-warm-gray/80
                     text-[12px] text-navy
                     transition-colors duration-150 cursor-pointer
@@ -564,6 +575,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   </span>
                   <span className={`
                     px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide
+                    rounded-full
                     ${debugBannerEnabled ? 'bg-sage text-cream' : 'bg-navy/10 text-navy-light'}
                   `}>
                     {debugBannerEnabled ? 'On' : 'Off'}
@@ -578,6 +590,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   className="
                     flex items-center gap-2
                     px-4 py-2
+                    rounded-full
                     bg-navy text-cream text-[12px] font-medium
                     hover:bg-navy-light
                     disabled:opacity-50 disabled:cursor-not-allowed

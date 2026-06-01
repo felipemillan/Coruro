@@ -50,6 +50,7 @@ export function Toolbar() {
           autoComplete="off"
           className="
             w-64 pl-8 pr-3 py-1.5
+            rounded-full
             bg-warm-gray border border-warm-gray/80
             text-[12px] font-mono text-navy
             placeholder:text-navy-light/40
@@ -70,7 +71,7 @@ export function Toolbar() {
               onClick={() => toggleFilter(key)}
               className={[
                 'text-[11px] px-2 py-1 leading-none font-medium',
-                'transition-colors duration-150 cursor-pointer',
+                'rounded-full transition-colors duration-150 cursor-pointer',
                 active
                   ? 'bg-sage text-cream'
                   : 'bg-warm-gray text-navy-light hover:bg-warm-gray/70',
@@ -96,6 +97,7 @@ export function Toolbar() {
             useViewStore.getState().setSort(val);
           }}
           className="
+            rounded-lg
             bg-warm-gray border border-warm-gray/80
             text-[12px] text-navy
             px-2 py-1.5
@@ -119,6 +121,7 @@ export function Toolbar() {
           onClick={() => resetView()}
           className="
             flex items-center gap-1
+            rounded-full
             text-[11px] text-navy-light hover:text-navy
             transition-colors duration-150 cursor-pointer
           "

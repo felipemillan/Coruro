@@ -108,7 +108,7 @@ function TreeRow({
       <button
         type="button"
         onClick={() => onSelect(node)}
-        className={`flex items-center gap-1.5 w-full py-0.5 text-[12px] font-mono truncate text-left transition-colors cursor-pointer ${
+        className={`flex items-center gap-1.5 w-full py-0.5 text-[12px] font-mono truncate text-left transition-colors cursor-pointer rounded-lg ${
           active ? 'bg-sage/20 text-navy' : 'text-navy-light hover:bg-warm-gray'
         }`}
         style={pad}
@@ -125,7 +125,7 @@ function TreeRow({
       <button
         type="button"
         onClick={() => toggle(node.path)}
-        className="flex items-center gap-1 w-full py-0.5 text-[12px] text-navy font-mono hover:bg-warm-gray transition-colors cursor-pointer truncate"
+        className="flex items-center gap-1 w-full py-0.5 text-[12px] text-navy font-mono hover:bg-warm-gray transition-colors cursor-pointer truncate rounded-lg"
         style={pad}
         title={node.path}
       >
@@ -489,7 +489,8 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-[85vw] h-[85vh] bg-cream border border-warm-gray shadow-xl flex flex-col overflow-hidden">
+      {/* Modal panel — M3: rounded-2xl shadow-lg */}
+      <div className="relative w-[85vw] h-[85vh] bg-cream border border-warm-gray shadow-lg rounded-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 bg-warm-gray border-b border-warm-gray/60 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -497,18 +498,19 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
             <span className="text-[13px] font-semibold text-navy truncate">{repo.name}</span>
             <span className="text-[11px] font-mono text-navy-light/60 truncate">{repo.path}</span>
           </div>
+          {/* Icon-only close button — M3: rounded-full */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex items-center justify-center w-7 h-7 text-navy-light hover:text-navy hover:bg-navy/10 transition-colors cursor-pointer shrink-0"
+            className="flex items-center justify-center w-7 h-7 text-navy-light hover:text-navy hover:bg-navy/8 rounded-full transition-colors cursor-pointer shrink-0"
           >
             <X size={15} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* GitHub overview band */}
-        <div className="shrink-0 px-5 py-2.5 bg-cream/60 border-b border-warm-gray text-[12px] text-navy-light flex items-center gap-3 flex-wrap min-h-[40px]">
+        {/* GitHub overview band — M3: rounded-xl surface */}
+        <div className="shrink-0 px-5 py-2.5 bg-cream/60 border-b border-warm-gray text-[12px] text-navy-light flex items-center gap-3 flex-wrap min-h-[40px] rounded-xl mx-2 mt-1.5 mb-0">
           {repo.gh ? (
             <>
               {repo.gh.htmlUrl && (
@@ -551,7 +553,8 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               {repo.gh.topics.length > 0 && (
                 <span className="flex items-center gap-1 flex-wrap">
                   {repo.gh.topics.slice(0, 5).map((t) => (
-                    <span key={t} className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">{t}</span>
+                    // Topic chips — M3: rounded-full
+                    <span key={t} className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">{t}</span>
                   ))}
                 </span>
               )}
@@ -559,7 +562,8 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               {relativeAge(repo.gh.updatedAt) && <span title={`Updated ${repo.gh.updatedAt}`}>updated {relativeAge(repo.gh.updatedAt)}</span>}
               <span className="font-mono">{formatSize(repo.gh.size)}</span>
               <span className="font-mono">branch: {repo.gh.defaultBranch}</span>
-              {repo.gh.disabled && <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light text-[10px]">disabled</span>}
+              {/* Badge — M3: rounded-full */}
+              {repo.gh.disabled && <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light text-[10px] rounded-full">disabled</span>}
               {repo.gh.fork && repo.gh.parent && (
                 <button
                   type="button"
@@ -582,9 +586,10 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               )}
               {(repo.gh.hasIssues || repo.gh.hasWiki || repo.gh.hasPages) && (
                 <span className="flex items-center gap-1">
-                  {repo.gh.hasIssues && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">issues</span>}
-                  {repo.gh.hasWiki && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">wiki</span>}
-                  {repo.gh.hasPages && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">pages</span>}
+                  {/* Feature-presence chips — M3: rounded-full */}
+                  {repo.gh.hasIssues && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">issues</span>}
+                  {repo.gh.hasWiki && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">wiki</span>}
+                  {repo.gh.hasPages && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">pages</span>}
                 </span>
               )}
             </>
@@ -593,8 +598,8 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           )}
         </div>
 
-        {/* Branches panel */}
-        <div className="shrink-0 px-5 py-2 bg-warm-gray border-b border-warm-gray/60 flex items-start gap-3">
+        {/* Branches panel — M3: rounded-xl surface */}
+        <div className="shrink-0 px-5 py-2 bg-warm-gray border-b border-warm-gray/60 flex items-start gap-3 rounded-xl mx-2 mt-1.5 mb-0">
           <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
             <GitBranch size={12} strokeWidth={1.5} className="text-navy-light/60" />
             <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
@@ -608,9 +613,10 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               branches.map((b) => {
                 const isCurrent = b === repo.branch;
                 return (
+                  // Branch pills — M3: rounded-full
                   <span
                     key={b}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono ${
+                    className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono rounded-full ${
                       isCurrent
                         ? 'bg-sage/20 text-navy font-semibold'
                         : 'text-navy-light'
@@ -631,13 +637,14 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               <span className="text-[11px] text-terracotta font-mono ml-1">{fetchError}</span>
             )}
           </div>
+          {/* Fetch button — M3: rounded-full filled/primary */}
           <button
             type="button"
             onClick={() => { void handleFetch(); }}
             disabled={fetching}
             aria-label="Fetch remote refs"
             title="Fetch remote refs"
-            className="flex items-center gap-1 shrink-0 text-[11px] text-navy-light hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="flex items-center gap-1 shrink-0 text-[11px] text-navy-light hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer rounded-full px-2 py-0.5"
           >
             <RefreshCw
               size={12}
@@ -649,9 +656,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         </div>
 
         {/* Body: md tree / activity | (preview / timeline) */}
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 mt-1.5">
           {/* Left pane: Files | Activity tabs */}
-          <aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0">
+          <aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0 rounded-xl mx-2 mb-2">
             {/* Tab bar */}
             <div className="shrink-0 flex border-b border-warm-gray">
               <button
@@ -714,9 +721,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           </aside>
 
           {/* Right: preview (top) + timeline (bottom) */}
-          <section className="flex-1 flex flex-col min-h-0">
-            {/* Preview */}
-            <div className="flex-1 min-h-0 flex flex-col border-b border-warm-gray">
+          <section className="flex-1 flex flex-col min-h-0 mr-2 mb-2">
+            {/* Preview pane wrapper — M3: rounded-xl surface */}
+            <div className="flex-1 min-h-0 flex flex-col border border-warm-gray rounded-xl overflow-hidden mb-1.5">
               <div className="shrink-0 px-5 py-2 bg-cream/60 border-b border-warm-gray text-[10px] font-mono text-navy-light/50 truncate select-none">
                 {previewTitle}
               </div>
@@ -739,8 +746,8 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               </div>
             </div>
 
-            {/* Timeline */}
-            <div className="h-[38%] shrink-0 flex flex-col min-h-0 bg-cream/40">
+            {/* Notes timeline container — M3: rounded-xl surface */}
+            <div className="h-[38%] shrink-0 flex flex-col min-h-0 bg-cream/40 border border-warm-gray rounded-xl overflow-hidden">
               <div className="shrink-0 px-5 py-2 flex items-center justify-between border-b border-warm-gray">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
                   Notes timeline
@@ -760,12 +767,14 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   </p>
                 ) : (
                   timeline.notes.map((n) => (
+                    // Note card — M3: rounded-xl
                     <div
                       key={n.id}
-                      className="group bg-cream border border-navy/10 px-3 py-2 text-[13px] text-navy"
+                      className="group bg-cream border border-navy/10 px-3 py-2 text-[13px] text-navy rounded-xl"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-sage">
+                        {/* Type-label chip — M3: rounded-full */}
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-sage px-1.5 py-0.5 bg-sage/10 rounded-full">
                           {TYPE_LABEL[n.type]}
                         </span>
                         <div className="flex items-center gap-2">
@@ -790,11 +799,12 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
 
               {/* Composer */}
               <div className="shrink-0 border-t border-warm-gray px-5 py-2 flex items-end gap-2">
+                {/* Note type selector — M3: rounded-lg */}
                 <select
                   value={composerType}
                   onChange={(e) => setComposerType(e.target.value as NoteType)}
                   aria-label="Note type"
-                  className="text-[12px] font-mono bg-cream border border-navy/10 px-2 py-1.5 focus:outline-none focus:border-sage/60 cursor-pointer"
+                  className="text-[12px] font-mono bg-cream border border-navy/10 px-2 py-1.5 focus:outline-none focus:border-sage/60 cursor-pointer rounded-lg"
                 >
                   {NOTE_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -802,6 +812,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                     </option>
                   ))}
                 </select>
+                {/* Note body textarea — M3: rounded-lg */}
                 <textarea
                   value={composerBody}
                   onChange={(e) => setComposerBody(e.target.value)}
@@ -813,14 +824,15 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   }}
                   placeholder="New note… (⌘/Ctrl+Enter to add)"
                   rows={2}
-                  className="flex-1 resize-none text-[13px] text-navy font-mono leading-relaxed bg-cream border border-navy/10 px-3 py-2 placeholder:text-navy/30 focus:outline-none focus:border-sage/60 transition-colors"
+                  className="flex-1 resize-none text-[13px] text-navy font-mono leading-relaxed bg-cream border border-navy/10 px-3 py-2 placeholder:text-navy/30 focus:outline-none focus:border-sage/60 transition-colors rounded-lg"
                   aria-label="New note body"
                 />
+                {/* Add note button — M3: rounded-full filled/primary */}
                 <button
                   type="button"
                   onClick={addNote}
                   disabled={composerBody.trim() === ''}
-                  className="flex items-center gap-1 text-[12px] font-semibold text-cream bg-navy px-3 py-2 hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                  className="flex items-center gap-1 text-[12px] font-semibold text-cream bg-navy px-3 py-2 hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0 rounded-full"
                 >
                   <Plus size={13} strokeWidth={2} />
                   New note

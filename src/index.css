@@ -1,65 +1,102 @@
 @import "tailwindcss";
 
 /*
- * Tailwind v4 theme — indie pastel / Wes Anderson palette.
- * Content glob scanning is automatic via @tailwindcss/vite (no tailwind.config.js needed).
- * Covers: index.html root + all TypeScript/TSX files under src.
+ * Tailwind v4 theme — Material 3 (Material You), sage-green seed (#8FAF8A).
  *
- * Color roles:
- *   cream      — primary background (#FDFBF7)
- *   sage       — active / selected state (#8FAF8A)
- *   sage-light — hover / subtle highlight (#B5CDB1)
- *   terracotta — dirty-git / warning badge (#C07A5A)
- *   navy       — primary type / foreground (#1E2A3A)
- *   navy-light — secondary type / muted text (#2E3F56)
- *   dusty-pink — accent / tag surface (#D4A8A0)
- *   warm-gray  — card / panel background (#E8E3DC)
+ * A green-forward M3 light scheme generated around the original sage accent.
+ * The legacy token names (cream/sage/navy/warm-gray/terracotta/dusty-pink) are
+ * RETAINED but remapped onto M3 roles, so existing component classes keep
+ * working while the whole app shifts to the Material palette:
  *
- * Backdrop-blur usage:
- *   Tailwind v4 exposes backdrop-blur-* utilities out of the box.
- *   Use `backdrop-blur-sm` / `backdrop-blur-md` on floating panels
- *   (column headers, modals) to achieve translucency over cream bg.
- *   Pair with `bg-cream/80` (80% opacity) for the frosted-glass look.
- *   Example: <div class="backdrop-blur-sm bg-cream/80 ...">
+ *   cream      -> surface / background        (greenish white)
+ *   warm-gray  -> surface-container           (card / panel)
+ *   navy       -> on-surface                  (primary text)
+ *   navy-light -> on-surface-variant          (muted text)
+ *   sage       -> primary                     (deep olive green)
+ *   sage-light -> primary-container           (pale green)
+ *   terracotta -> error                       (M3 red)
+ *   dusty-pink -> tertiary-container          (pale teal)
  *
- * Border-radius contract:
- *   --radius: 0px enforces rounded-none aesthetic globally.
- *   The * selector below hard-overrides any component-level radius.
+ * New code should prefer the M3 role tokens (primary, surface, on-surface,
+ * surface-container-*, outline, …) defined below.
+ *
+ * Shape: M3 scale (sm 8 / md 12 / lg 16 / xl 28 / full pill).
+ * Elevation: --shadow-sm/md/lg approximate M3 levels 1–3.
  */
 
 @theme {
-  /* --- Core palette --- */
-  --color-cream: #FDFBF7;
-  --color-sage: #8FAF8A;
-  --color-sage-light: #B5CDB1;
-  --color-terracotta: #C07A5A;
-  --color-navy: #1E2A3A;
-  --color-navy-light: #2E3F56;
-  --color-dusty-pink: #D4A8A0;
-  --color-warm-gray: #E8E3DC;
+  /* ── M3 roles — primary (sage-seed) ── */
+  --color-primary: #4C662B;
+  --color-on-primary: #FFFFFF;
+  --color-primary-container: #CDEDA3;
+  --color-on-primary-container: #354E16;
 
-  /* --- Radius: zero everywhere (rounded-none default) --- */
-  --radius: 0px;
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-full: 0px;
+  /* ── secondary ── */
+  --color-secondary: #586249;
+  --color-on-secondary: #FFFFFF;
+  --color-secondary-container: #DCE7C8;
+  --color-on-secondary-container: #404A33;
+
+  /* ── tertiary (teal accent) ── */
+  --color-tertiary: #386663;
+  --color-on-tertiary: #FFFFFF;
+  --color-tertiary-container: #BCECE7;
+  --color-on-tertiary-container: #1F4E4B;
+
+  /* ── error ── */
+  --color-error: #BA1A1A;
+  --color-on-error: #FFFFFF;
+  --color-error-container: #FFDAD6;
+  --color-on-error-container: #410002;
+
+  /* ── surfaces / background / outline ── */
+  --color-background: #F9FAEF;
+  --color-on-background: #1A1C16;
+  --color-surface: #F9FAEF;
+  --color-on-surface: #1A1C16;
+  --color-surface-variant: #E1E4D5;
+  --color-on-surface-variant: #44483D;
+  --color-outline: #75796C;
+  --color-outline-variant: #C5C8BA;
+
+  /* ── M3 tonal surface containers (elevation surfaces) ── */
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low: #F3F4E9;
+  --color-surface-container: #EDEEE3;
+  --color-surface-container-high: #E8E9DD;
+  --color-surface-container-highest: #E2E3D8;
+
+  /* ── Legacy aliases (remapped onto M3 roles) ── */
+  --color-cream: #F9FAEF;
+  --color-warm-gray: #EDEEE3;
+  --color-navy: #1A1C16;
+  --color-navy-light: #44483D;
+  --color-sage: #4C662B;
+  --color-sage-light: #CDEDA3;
+  --color-terracotta: #BA1A1A;
+  --color-dusty-pink: #BCECE7;
+
+  /* ── Shape: M3 corner scale ── */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+  --radius-2xl: 28px;
+  --radius-full: 9999px;
+
+  /* ── Elevation: M3 levels 1–3 ── */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.10);
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.10);
+  --shadow-md: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 2px 6px 2px rgb(0 0 0 / 0.10);
+  --shadow-lg: 0 4px 8px 3px rgb(0 0 0 / 0.10), 0 1px 3px 0 rgb(0 0 0 / 0.12);
 }
 
-/* Hard override: no rounded corners anywhere */
-*,
-*::before,
-*::after {
-  border-radius: 0 !important;
-}
-
-/* Base: body uses cream background and navy type */
+/* Base: M3 surface background + on-surface type. Roboto if present, else Inter. */
 body {
-  background-color: var(--color-cream);
-  color: var(--color-navy);
-  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
+  font-family: "Roboto", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -77,7 +114,7 @@ html {
  * explicit rules. Scoped under .markdown-body to avoid leaking globally.
  */
 .markdown-body {
-  color: var(--color-navy);
+  color: var(--color-on-surface);
   font-size: 14px;
   line-height: 1.65;
   word-wrap: break-word;
@@ -90,12 +127,12 @@ html {
   line-height: 1.25;
   margin: 1.4em 0 0.6em;
 }
-.markdown-body h1 { font-size: 1.7em; border-bottom: 1px solid var(--color-warm-gray); padding-bottom: 0.3em; }
-.markdown-body h2 { font-size: 1.35em; border-bottom: 1px solid var(--color-warm-gray); padding-bottom: 0.25em; }
+.markdown-body h1 { font-size: 1.7em; border-bottom: 1px solid var(--color-outline-variant); padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.35em; border-bottom: 1px solid var(--color-outline-variant); padding-bottom: 0.25em; }
 .markdown-body h3 { font-size: 1.15em; }
 .markdown-body h4 { font-size: 1em; }
 .markdown-body p { margin: 0.7em 0; }
-.markdown-body a { color: var(--color-terracotta); text-decoration: underline; }
+.markdown-body a { color: var(--color-primary); text-decoration: underline; }
 .markdown-body ul,
 .markdown-body ol { margin: 0.7em 0; padding-left: 1.6em; }
 .markdown-body ul { list-style: disc; }
@@ -104,25 +141,27 @@ html {
 .markdown-body code {
   font-family: "SFMono-Regular", ui-monospace, Menlo, monospace;
   font-size: 0.86em;
-  background: var(--color-warm-gray);
+  background: var(--color-surface-container-high);
   padding: 0.12em 0.4em;
+  border-radius: 4px;
 }
 .markdown-body pre {
-  background: var(--color-warm-gray);
+  background: var(--color-surface-container-high);
   padding: 0.9em 1em;
   overflow-x: auto;
   margin: 0.8em 0;
+  border-radius: var(--radius-md);
 }
 .markdown-body pre code { background: none; padding: 0; font-size: 0.85em; }
 .markdown-body blockquote {
-  border-left: 3px solid var(--color-sage);
+  border-left: 3px solid var(--color-primary);
   padding-left: 1em;
   margin: 0.8em 0;
-  color: var(--color-navy-light);
+  color: var(--color-on-surface-variant);
 }
 .markdown-body table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
 .markdown-body th,
-.markdown-body td { border: 1px solid var(--color-warm-gray); padding: 0.4em 0.7em; text-align: left; }
-.markdown-body th { background: var(--color-warm-gray); font-weight: 600; }
+.markdown-body td { border: 1px solid var(--color-outline-variant); padding: 0.4em 0.7em; text-align: left; }
+.markdown-body th { background: var(--color-surface-container-high); font-weight: 600; }
 .markdown-body img { max-width: 100%; }
-.markdown-body hr { border: none; border-top: 1px solid var(--color-warm-gray); margin: 1.2em 0; }
+.markdown-body hr { border: none; border-top: 1px solid var(--color-outline-variant); margin: 1.2em 0; }
