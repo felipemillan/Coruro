@@ -396,9 +396,14 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   const previewTitle = selected ? selected.name : (readme?.name ?? 'README');
 
   // Lazily fetch PRs/commits/issues the first time the Activity tab opens.
+  // NOTE: activityLoading is deliberately NOT in the deps/guard. Including it
+  // caused the effect to re-run the moment setActivityLoading(true) flipped the
+  // dep, whose cleanup set cancelled=true on the in-flight fetch — so the result
+  // was discarded and the pane was stuck on "Loading…" forever.
   useEffect(() => {
-    if (tab !== 'activity' || activity !== null || activityLoading) return;
+    if (tab !== 'activity' || activity !== null) return;
     const coords = repo.remoteUrl ? parseRemote(repo.remoteUrl) : null;
+    console.debug('[activity] load start', { remoteUrl: repo.remoteUrl, coords });
     if (coords === null) {
       setActivity({ prs: [], commits: [], issues: [] });
       return;
@@ -408,17 +413,25 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     setActivityError(null);
     (async () => {
       try {
-        const token = await invoke<string | null>('get_token').catch(() => null);
+        const token = await invoke<string | null>('get_token').catch((e: unknown) => {
+          console.debug('[activity] get_token failed', e);
+          return null;
+        });
+        console.debug('[activity] token', token ? `present(len ${token.length})` : 'none');
         const result = await fetchActivity(coords, token ?? undefined);
+        console.debug('[activity] result', {
+          prs: result.prs.length, commits: result.commits.length, issues: result.issues.length, cancelled,
+        });
         if (!cancelled) setActivity(result);
       } catch (e: unknown) {
+        console.debug('[activity] error', e);
         if (!cancelled) setActivityError(e instanceof Error ? e.message : String(e));
       } finally {
         if (!cancelled) setActivityLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [tab, activity, activityLoading, repo.remoteUrl]);
+  }, [tab, activity, repo.remoteUrl]);
 
   // Reset tab + activity when switching repos.
   useEffect(() => {
