@@ -26,12 +26,18 @@ describe('mapRepoMeta', () => {
       description: 'hi', topics: ['a', 'b'], language: 'TypeScript',
       license: { spdx_id: 'MIT' }, default_branch: 'main',
       pushed_at: '2026-06-01T00:00:00Z', open_issues_count: 7,
+      subscribers_count: 5, updated_at: '2026-05-30T00:00:00Z', disabled: false,
+      fork: true, parent: { full_name: 'up/stream', html_url: 'https://github.com/up/stream' },
+      homepage: 'https://x.dev', has_issues: true, has_wiki: false, has_pages: true, size: 2048,
     };
     expect(mapRepoMeta(json)).toEqual({
       stars: 12, forks: 3, isPrivate: true, archived: false,
       description: 'hi', topics: ['a', 'b'], language: 'TypeScript',
       license: 'MIT', defaultBranch: 'main',
       pushedAt: '2026-06-01T00:00:00Z', openIssuesRaw: 7,
+      watchers: 5, updatedAt: '2026-05-30T00:00:00Z', disabled: false,
+      fork: true, parent: { fullName: 'up/stream', url: 'https://github.com/up/stream' },
+      homepage: 'https://x.dev', hasIssues: true, hasWiki: false, hasPages: true, size: 2048,
     });
   });
   test('NOASSERTION license → null; missing fields → defaults', () => {
@@ -40,9 +46,19 @@ describe('mapRepoMeta', () => {
     expect(r.stars).toBe(0);
     expect(r.topics).toEqual([]);
     expect(r.description).toBeNull();
+    expect(r.watchers).toBe(0);
+    expect(r.fork).toBe(false);
+    expect(r.parent).toBeNull();
+    expect(r.homepage).toBeNull();
+    expect(r.hasIssues).toBe(false);
+    expect(r.size).toBe(0);
+    expect(r.updatedAt).toBe('');
   });
   test('non-object → all defaults', () => {
     expect(mapRepoMeta(null).stars).toBe(0);
+  });
+  test('empty homepage string → null', () => {
+    expect(mapRepoMeta({ homepage: '' }).homepage).toBeNull();
   });
 });
 

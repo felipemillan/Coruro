@@ -62,6 +62,16 @@ export interface RepoMetaSlice {
   defaultBranch: string;
   pushedAt: string;
   openIssuesRaw: number;
+  watchers: number;
+  updatedAt: string;
+  disabled: boolean;
+  fork: boolean;
+  parent: { fullName: string; url: string } | null;
+  homepage: string | null;
+  hasIssues: boolean;
+  hasWiki: boolean;
+  hasPages: boolean;
+  size: number;
 }
 
 /** Pure. Map a /repos/{o}/{r} payload to RepoMetaSlice. Defaults on missing fields. */
@@ -72,6 +82,19 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
     typeof licObj === 'object' && licObj !== null && typeof (licObj as Record<string, unknown>).spdx_id === 'string'
       ? ((licObj as Record<string, unknown>).spdx_id as string)
       : null;
+  const parentObj = o.parent;
+  const parent =
+    typeof parentObj === 'object' && parentObj !== null && typeof (parentObj as Record<string, unknown>).full_name === 'string'
+      ? {
+          fullName: (parentObj as Record<string, unknown>).full_name as string,
+          url:
+            typeof (parentObj as Record<string, unknown>).html_url === 'string'
+              ? ((parentObj as Record<string, unknown>).html_url as string)
+              : '',
+        }
+      : null;
+  const homepageRaw = o.homepage;
+  const homepage = typeof homepageRaw === 'string' && homepageRaw.length > 0 ? homepageRaw : null;
   return {
     stars: typeof o.stargazers_count === 'number' ? o.stargazers_count : 0,
     forks: typeof o.forks_count === 'number' ? o.forks_count : 0,
@@ -84,6 +107,16 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
     defaultBranch: typeof o.default_branch === 'string' ? o.default_branch : '',
     pushedAt: typeof o.pushed_at === 'string' ? o.pushed_at : '',
     openIssuesRaw: typeof o.open_issues_count === 'number' ? o.open_issues_count : 0,
+    watchers: typeof o.subscribers_count === 'number' ? o.subscribers_count : 0,
+    updatedAt: typeof o.updated_at === 'string' ? o.updated_at : '',
+    disabled: o.disabled === true,
+    fork: o.fork === true,
+    parent,
+    homepage,
+    hasIssues: o.has_issues === true,
+    hasWiki: o.has_wiki === true,
+    hasPages: o.has_pages === true,
+    size: typeof o.size === 'number' ? o.size : 0,
   };
 }
 
@@ -148,5 +181,15 @@ export async function fetchRepoCard(coords: GitHubCoords, token?: string): Promi
     license: m.license,
     defaultBranch: m.defaultBranch,
     pushedAt: m.pushedAt,
+    watchers: m.watchers,
+    updatedAt: m.updatedAt,
+    disabled: m.disabled,
+    fork: m.fork,
+    parent: m.parent,
+    homepage: m.homepage,
+    hasIssues: m.hasIssues,
+    hasWiki: m.hasWiki,
+    hasPages: m.hasPages,
+    size: m.size,
   };
 }
