@@ -24,6 +24,7 @@ import {
   Circle,
   Bug,
   RefreshCw,
+  TerminalSquare,
 } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useBoardStore } from '../store/useBoardStore';
@@ -44,7 +45,17 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 // Main component
 // ---------------------------------------------------------------------------
 
-export function Settings() {
+/**
+ * Settings is a controlled modal: open state is owned by the parent (App),
+ * which exposes it via a floating gear button and the ⌘, shortcut. Settings
+ * renders nothing but the modal — no trigger of its own.
+ */
+interface SettingsProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function Settings({ isOpen, onClose }: SettingsProps) {
   const rootDirectory = useBoardStore((s) => s.settings.rootDirectory);
   const hasToken = useBoardStore((s) => s.settings.hasToken);
   const setRootDirectory = useBoardStore((s) => s.setRootDirectory);
@@ -56,10 +67,11 @@ export function Settings() {
   const repoCount = useBoardStore((s) => s.repos.length);
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
+  const terminalApp = useBoardStore((s) => s.settings.terminalApp);
   const setEditorCommand = useBoardStore((s) => s.setEditorCommand);
   const setEditorApp = useBoardStore((s) => s.setEditorApp);
+  const setTerminalApp = useBoardStore((s) => s.setTerminalApp);
 
-  const [isOpen, setIsOpen] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [tokenSaving, setTokenSaving] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
@@ -67,23 +79,25 @@ export function Settings() {
   const [rescanning, setRescanning] = useState(false);
   const [editorCmdInput, setEditorCmdInput] = useState('');
   const [editorAppInput, setEditorAppInput] = useState('');
+  const [terminalAppInput, setTerminalAppInput] = useState('');
 
   // ---- Handlers ------------------------------------------------------------
 
-  const handleOpenModal = useCallback(() => {
-    setIsOpen(true);
+  // Seed transient inputs from persisted settings each time the modal opens.
+  useEffect(() => {
+    if (!isOpen) return;
     setTokenInput('');
     setTokenError(null);
-    // Seed editor inputs from the persisted settings on open.
     setEditorCmdInput(editorCommand);
     setEditorAppInput(editorApp);
-  }, [editorCommand, editorApp]);
+    setTerminalAppInput(terminalApp);
+  }, [isOpen, editorCommand, editorApp, terminalApp]);
 
   const handleCloseModal = useCallback(() => {
-    setIsOpen(false);
     setTokenInput('');
     setTokenError(null);
-  }, []);
+    onClose();
+  }, [onClose]);
 
   const handlePickDirectory = useCallback(async () => {
     if (dirPicking) return;
@@ -166,25 +180,8 @@ export function Settings() {
 
   return (
     <>
-      {/* Gear toggle button — rendered wherever Settings is placed in the tree */}
-      <button
-        type="button"
-        onClick={handleOpenModal}
-        aria-label="Open settings"
-        className="
-          flex items-center justify-center
-          w-8 h-8
-          text-navy-light
-          hover:text-navy hover:bg-warm-gray
-          transition-colors duration-150
-          cursor-pointer
-        "
-      >
-        <SettingsIcon size={16} strokeWidth={1.5} />
-      </button>
-
-      {/* Modal — portalled to <body> so the header's backdrop-blur (a
-          containing block for fixed children) cannot clip or cover it. */}
+      {/* Modal — portalled to <body>. Open state owned by App (floating gear
+          button + ⌘, shortcut). */}
       {isOpen && createPortal(
         <div
           role="dialog"
@@ -436,6 +433,53 @@ export function Settings() {
                   <span className="font-mono">antigravity</span> · App:{' '}
                   <span className="font-mono">Antigravity</span>,{' '}
                   <span className="font-mono">Cursor</span>.
+                </p>
+              </section>
+
+              {/* Divider */}
+              <div className="border-t border-warm-gray" />
+
+              {/* ---- Section: Terminal ---- */}
+              <section>
+                <SectionHeading>Terminal</SectionHeading>
+                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                  The “open in terminal” button on each card launches this macOS
+                  app rooted at the repo
+                  (<code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">open -a</code>).
+                </p>
+
+                <label className="block text-[11px] text-navy-light mb-1">macOS app name</label>
+                <div className="relative">
+                  <TerminalSquare
+                    size={13}
+                    strokeWidth={1.5}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-light/40 pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={terminalAppInput}
+                    onChange={(e) => setTerminalAppInput(e.target.value)}
+                    onBlur={() => {
+                      if (terminalAppInput !== terminalApp) void setTerminalApp(terminalAppInput.trim());
+                    }}
+                    placeholder="Terminal"
+                    spellCheck={false}
+                    autoComplete="off"
+                    className="
+                      w-full pl-8 pr-3 py-2
+                      bg-warm-gray border border-warm-gray/80
+                      text-[12px] font-mono text-navy
+                      placeholder:text-navy-light/40
+                      focus:outline-none focus:border-navy/40 focus:bg-cream
+                      transition-colors duration-150
+                    "
+                  />
+                </div>
+                <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">
+                  Examples: <span className="font-mono">Terminal</span>,{' '}
+                  <span className="font-mono">iTerm</span>,{' '}
+                  <span className="font-mono">Ghostty</span>,{' '}
+                  <span className="font-mono">Warp</span>.
                 </p>
               </section>
 

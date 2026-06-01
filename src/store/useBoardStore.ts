@@ -86,6 +86,8 @@ interface BoardStore extends AppState {
   setEditorCommand: (command: string) => Promise<void>;
   /** Set the macOS editor app name (open -a fallback) and persist. */
   setEditorApp: (app: string) => Promise<void>;
+  /** Set the macOS terminal app name (open -a) and persist. */
+  setTerminalApp: (app: string) => Promise<void>;
 
   /** Store a PAT in the Keychain and flip hasToken; persists the flag. */
   storeToken: (token: string) => Promise<void>;
@@ -138,6 +140,7 @@ function validateAppState(raw: unknown): AppState {
     if (typeof s.debugBannerEnabled === 'boolean') settings.debugBannerEnabled = s.debugBannerEnabled;
     if (typeof s.editorCommand === 'string' && s.editorCommand.length > 0) settings.editorCommand = s.editorCommand;
     if (typeof s.editorApp === 'string' && s.editorApp.length > 0) settings.editorApp = s.editorApp;
+    if (typeof s.terminalApp === 'string' && s.terminalApp.length > 0) settings.terminalApp = s.terminalApp;
   }
 
   // board: every column must be a string[]; coerce anything else to [].
@@ -377,6 +380,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
   setEditorApp: async (app) => {
     set((s) => ({ settings: { ...s.settings, editorApp: app } }));
+    await get().save();
+  },
+
+  setTerminalApp: async (app) => {
+    set((s) => ({ settings: { ...s.settings, terminalApp: app } }));
     await get().save();
   },
 

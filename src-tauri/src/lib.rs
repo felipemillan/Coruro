@@ -10,7 +10,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::store_token,
             commands::get_token,
-            commands::open_in_editor
+            commands::open_in_editor,
+            commands::open_in_terminal
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

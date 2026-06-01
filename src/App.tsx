@@ -4,13 +4,13 @@
 //  1. Call store.load() on mount; show a minimal loader while !loaded.
 //  2. Render <Setup> when settings.rootDirectory is null (first run).
 //  3. Render <Board> once a root is configured.
-//  4. Top bar: symmetrical, translucent (backdrop-blur-md + bg-cream/80),
-//     app name centred, gear icon right-aligned (opens <Settings>).
-//  5. <Settings> owns its own open/closed toggle and renders the gear icon
-//     trigger — App just places it in the top bar.
+//  4. No top header bar. Settings open via the ⌘, shortcut or a small
+//     floating gear button pinned bottom-right. App owns the open state and
+//     passes it to the controlled <Settings> modal.
+//  5. An optional debug strip renders at the very top when enabled.
 
-import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Settings as SettingsIcon } from 'lucide-react';
 import { useBoardStore } from './store/useBoardStore';
 import { Setup } from './components/Setup';
 import { Board } from './components/Board';
@@ -26,9 +26,23 @@ export default function App() {
   const lastScanError = useBoardStore((s) => s.lastScanError);
   const repoCount = useBoardStore((s) => s.repos.length);
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Global ⌘, (and Ctrl+,) toggles Settings — the macOS-standard shortcut.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setSettingsOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // After load completes, populate the runtime repo list so the Board renders.
   // scanAndDistribute is idempotent: repos already in a column keep their
@@ -42,28 +56,6 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-cream text-navy">
-      {/* ── Top bar ───────────────────────────────────────────── */}
-      <header
-        className="
-          sticky top-0 z-40
-          h-10 px-4
-          flex items-center justify-between
-          backdrop-blur-md bg-cream/80
-          border-b border-warm-gray
-        "
-      >
-        {/* Left spacer — mirrors the gear button width for symmetry */}
-        <div className="w-8" aria-hidden="true" />
-
-        {/* App name — centred */}
-        <span className="text-navy font-semibold text-sm tracking-wide select-none">
-          MyGITdash
-        </span>
-
-        {/* Settings gear — self-contained, renders its own trigger button */}
-        <Settings />
-      </header>
-
       {/* Banner. Priority:
           1. Scan error — always shown (blocking), cannot be dismissed.
           2. Debug info — shown only while debugBannerEnabled; dismissible
@@ -106,6 +98,29 @@ export default function App() {
           <Board />
         )}
       </main>
+
+      {/* Floating settings gear — bottom-right. Also openable via ⌘, */}
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        aria-label="Open settings"
+        title="Settings (⌘,)"
+        className="
+          fixed bottom-4 right-4 z-40
+          flex items-center justify-center
+          w-10 h-10
+          bg-cream/90 backdrop-blur-md
+          border border-warm-gray shadow-sm
+          text-navy-light hover:text-navy hover:bg-warm-gray
+          transition-colors duration-150
+          cursor-pointer
+        "
+      >
+        <SettingsIcon size={18} strokeWidth={1.5} />
+      </button>
+
+      {/* Controlled settings modal */}
+      <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

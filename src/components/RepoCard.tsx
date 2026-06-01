@@ -9,7 +9,7 @@
 // Arg arrays only — no shell string interpolation.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink } from 'lucide-react';
+import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink, TerminalSquare } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
@@ -57,6 +57,7 @@ function ciColor(status: CiStatus): string | null {
 export function RepoCard({ repo }: RepoCardProps) {
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
+  const terminalApp = useBoardStore((s) => s.settings.terminalApp);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
@@ -67,6 +68,18 @@ export function RepoCard({ repo }: RepoCardProps) {
       await invoke('open_in_editor', {
         command: editorCommand,
         app: editorApp,
+        path: repo.path,
+      });
+    } catch (e: unknown) {
+      setOpenError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function openInTerminal() {
+    setOpenError(null);
+    try {
+      await invoke('open_in_terminal', {
+        app: terminalApp,
         path: repo.path,
       });
     } catch (e: unknown) {
@@ -122,10 +135,20 @@ export function RepoCard({ repo }: RepoCardProps) {
             type="button"
             onClick={() => { void openInEditor(); }}
             className="p-1 text-navy-light hover:text-sage transition-colors"
-            title={`Open in editor (${editorCommand || editorApp})`}
-            aria-label="Open in editor"
+            title={`Open in IDE (${editorCommand || editorApp})`}
+            aria-label="Open in IDE"
           >
             <Code2 size={14} strokeWidth={1.75} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { void openInTerminal(); }}
+            className="p-1 text-navy-light hover:text-sage transition-colors"
+            title={`Open in terminal (${terminalApp})`}
+            aria-label="Open in terminal"
+          >
+            <TerminalSquare size={14} strokeWidth={1.75} />
           </button>
 
           <button

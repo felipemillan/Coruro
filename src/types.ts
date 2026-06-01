@@ -40,6 +40,11 @@ export interface Settings {
    */
   editorCommand: string;
   editorApp: string;
+  /**
+   * Terminal app launched by the card's "Open in terminal" button via
+   * `open -a <terminalApp> <repo>` (e.g. "Terminal"/"iTerm"/"Ghostty").
+   */
+  terminalApp: string;
 }
 
 /**
@@ -115,6 +120,7 @@ export function createEmptyAppState(): AppState {
       debugBannerEnabled: true,
       editorCommand: 'code',
       editorApp: 'Visual Studio Code',
+      terminalApp: 'Terminal',
     },
     board: {
       inbox: [],

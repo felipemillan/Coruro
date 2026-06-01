@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "notes": [
+    {
+      "id": "2ec5e3d5-c391-416f-ab8a-436af05f261e",
+      "type": "thought",
+      "body": "update readme file",
+      "createdAt": "2026-06-01T09:36:29.205Z"
+    },
+    {
+      "id": "4f200bc4-b58b-4909-a6c1-344f0587ed12",
+      "type": "todo",
+      "body": "Sd",
+      "createdAt": "2026-06-01T09:38:00.062Z"
+    }
+  ]
+}

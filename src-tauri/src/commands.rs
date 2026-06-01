@@ -76,3 +76,26 @@ pub fn open_in_editor(command: String, app: String, path: String) -> Result<(), 
         Err(e) => Err(format!("Failed to run `open -a \"{app_name}\"`: {e}")),
     }
 }
+
+/// Open `path` in the user's terminal app via `open -a <app> <path>`.
+///
+/// macOS `open -a Terminal <dir>` opens a new terminal window rooted at the
+/// directory (Terminal/iTerm/Ghostty all honour this). Distinct from
+/// `open_in_editor`: no CLI step, just the GUI launcher. `app` comes from
+/// local Settings (default "Terminal"). Args are an array — `path` is never
+/// shell-interpreted.
+#[tauri::command]
+pub fn open_in_terminal(app: String, path: String) -> Result<(), String> {
+    let app_name = app.trim();
+    if app_name.is_empty() {
+        return Err("No terminal app name is set (Settings → Terminal).".to_string());
+    }
+    match Command::new("open").args(["-a", app_name, &path]).status() {
+        Ok(status) if status.success() => Ok(()),
+        Ok(status) => Err(format!(
+            "`open -a \"{app_name}\"` failed (exit {:?}). Is the terminal installed and the name exact?",
+            status.code()
+        )),
+        Err(e) => Err(format!("Failed to run `open -a \"{app_name}\"`: {e}")),
+    }
+}
