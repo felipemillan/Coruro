@@ -1,0 +1,79 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        { "path": "$HOME/.repo_dashboard_state.json" },
+        { "path": "$HOME/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        { "path": "$HOME/.repo_dashboard_state.json" },
+        { "path": "$HOME/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "$HOME/.repo_dashboard_state.json" },
+        { "path": "$HOME/**" },
+        { "path": "$HOME/*/.git" },
+        { "path": "$HOME/**/.git" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [{ "path": "$HOME/**" }]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "git-branch",
+          "cmd": "git",
+          "args": ["branch", "--show-current"],
+          "sidecar": false
+        },
+        {
+          "name": "git-status",
+          "cmd": "git",
+          "args": ["status", "--porcelain"],
+          "sidecar": false
+        },
+        {
+          "name": "git-remote-url",
+          "cmd": "git",
+          "args": ["config", "--get", "remote.origin.url"],
+          "sidecar": false
+        },
+        {
+          "name": "code",
+          "cmd": "code",
+          "args": [
+            { "validator": "^--$", "raw": true },
+            { "validator": "^/.+", "raw": true }
+          ],
+          "sidecar": false
+        },
+        {
+          "name": "open",
+          "cmd": "open",
+          "args": [
+            { "validator": "^--$", "raw": true },
+            { "validator": "^/.+", "raw": true }
+          ],
+          "sidecar": false
+        }
+      ]
+    },
+    "dialog:default"
+  ]
+}
