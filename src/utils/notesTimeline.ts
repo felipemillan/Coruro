@@ -62,4 +62,47 @@ export function parseTimeline(raw: string): NotesTimeline {
   return data as NotesTimeline;
 }
 
-// --- I/O wrappers implemented in Task 4 ---
+/**
+ * Read a repo's timeline JSON. Returns null when the file is absent.
+ * Throws (via parseTimeline) on corrupt JSON — callers surface the error
+ * inline and MUST NOT overwrite the file while in an error state.
+ */
+export async function readTimeline(repoPath: string): Promise<NotesTimeline | null> {
+  const full = await join(repoPath, TIMELINE_FILENAME);
+  if (!(await exists(full))) return null;
+  const raw = await readTextFile(full);
+  return parseTimeline(raw);
+}
+
+/**
+ * Persist the timeline: write the JSON (source of truth) AND regenerate
+ * mygitdash_notes.md as a rendered export. Writing both flips the repo's
+ * dirty badge until committed — expected, the point is to commit notes.
+ */
+export async function writeTimeline(
+  repoPath: string,
+  repoName: string,
+  timeline: NotesTimeline,
+): Promise<void> {
+  const jsonPath = await join(repoPath, TIMELINE_FILENAME);
+  await writeTextFile(jsonPath, `${JSON.stringify(timeline, null, 2)}\n`);
+  const mdPath = await join(repoPath, LEGACY_MD_FILENAME);
+  await writeTextFile(mdPath, renderTimelineMarkdown(timeline, repoName));
+}
+
+/**
+ * One-time migration: if no JSON exists but a legacy mygitdash_notes.md has
+ * non-empty content, return a timeline seeded from it. Returns null when there
+ * is nothing to migrate. Does NOT write — the caller persists it.
+ */
+export async function migrateLegacy(
+  repoPath: string,
+  id: string,
+  createdAt: string,
+): Promise<NotesTimeline | null> {
+  const full = await join(repoPath, LEGACY_MD_FILENAME);
+  if (!(await exists(full))) return null;
+  const content = (await readTextFile(full)).trim();
+  if (content === '') return null;
+  return seedFromLegacy(content, id, createdAt);
+}
