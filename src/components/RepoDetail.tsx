@@ -406,6 +406,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     setTab('files');
     setActivity(null);
     setActivityError(null);
+    setActivityLoading(false);
   }, [repo.path]);
 
   const openUrl = useCallback((url: string) => {
