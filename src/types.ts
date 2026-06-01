@@ -90,3 +90,29 @@ export function createEmptyAppState(): AppState {
     repoMetadata: {},
   };
 }
+
+/** Fixed note categories for the per-repo notes timeline. */
+export type NoteType = 'thought' | 'idea' | 'todo' | 'bug' | 'question';
+
+/** Ordered list of note types — single source of truth for the type selector. */
+export const NOTE_TYPES: readonly NoteType[] = [
+  'thought',
+  'idea',
+  'todo',
+  'bug',
+  'question',
+] as const;
+
+/** One entry in a repo's notes timeline. */
+export interface TimelineNote {
+  id: string; // crypto.randomUUID()
+  type: NoteType;
+  body: string;
+  createdAt: string; // ISO 8601 (new Date().toISOString())
+}
+
+/** Full shape persisted to <repo>/mygitdash_notes.json. */
+export interface NotesTimeline {
+  version: 1;
+  notes: TimelineNote[];
+}
