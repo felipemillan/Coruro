@@ -71,6 +71,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const setEditorCommand = useBoardStore((s) => s.setEditorCommand);
   const setEditorApp = useBoardStore((s) => s.setEditorApp);
   const setTerminalApp = useBoardStore((s) => s.setTerminalApp);
+  const refreshIntervalMin = useBoardStore((s) => s.settings.refreshIntervalMin);
+  const setRefreshInterval = useBoardStore((s) => s.setRefreshInterval);
 
   const [tokenInput, setTokenInput] = useState('');
   const [tokenSaving, setTokenSaving] = useState(false);
@@ -481,6 +483,37 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   <span className="font-mono">Ghostty</span>,{' '}
                   <span className="font-mono">Warp</span>.
                 </p>
+              </section>
+
+              {/* Divider */}
+              <div className="border-t border-warm-gray" />
+
+              {/* ---- Section: Auto-refresh ---- */}
+              <section>
+                <SectionHeading>Auto-refresh</SectionHeading>
+                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                  How often to refresh GitHub data in the background. Per-card refresh and
+                  rescan always work regardless of this setting.
+                </p>
+                <label className="block text-[11px] text-navy-light mb-1">Interval</label>
+                <select
+                  value={refreshIntervalMin}
+                  onChange={(e) => { void setRefreshInterval(Number(e.target.value)); }}
+                  className="
+                    w-full px-3 py-2
+                    bg-warm-gray border border-warm-gray/80
+                    text-[12px] text-navy
+                    focus:outline-none focus:border-navy/40 focus:bg-cream
+                    transition-colors duration-150 cursor-pointer
+                  "
+                >
+                  <option value={0}>Off</option>
+                  <option value={5}>Every 5 minutes</option>
+                  <option value={10}>Every 10 minutes</option>
+                  <option value={15}>Every 15 minutes</option>
+                  <option value={30}>Every 30 minutes</option>
+                  <option value={60}>Every hour</option>
+                </select>
               </section>
 
               {/* Divider */}

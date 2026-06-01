@@ -80,6 +80,12 @@ interface BoardStore extends AppState {
    */
   enrichGitHub: () => Promise<void>;
 
+  /** Refresh GitHub data for a single repo (per-card refresh button). */
+  enrichOne: (path: string) => Promise<void>;
+
+  /** Set the auto-refresh interval (minutes; 0 = off) and persist. */
+  setRefreshInterval: (min: number) => Promise<void>;
+
   /** Toggle the top-bar debug banner on/off and persist the choice. */
   setDebugBannerEnabled: (enabled: boolean) => Promise<void>;
   /** Set the editor CLI command (tried first) and persist. */
@@ -101,6 +107,7 @@ function serialise(state: AppState): string {
     settings: state.settings,
     board: state.board,
     repoMetadata: state.repoMetadata,
+    ghCache: state.ghCache,
   };
   return JSON.stringify(snapshot, null, 2);
 }
@@ -141,6 +148,9 @@ function validateAppState(raw: unknown): AppState {
     if (typeof s.editorCommand === 'string' && s.editorCommand.length > 0) settings.editorCommand = s.editorCommand;
     if (typeof s.editorApp === 'string' && s.editorApp.length > 0) settings.editorApp = s.editorApp;
     if (typeof s.terminalApp === 'string' && s.terminalApp.length > 0) settings.terminalApp = s.terminalApp;
+    if (typeof s.refreshIntervalMin === 'number' && Number.isFinite(s.refreshIntervalMin) && s.refreshIntervalMin >= 0) {
+      settings.refreshIntervalMin = s.refreshIntervalMin;
+    }
   }
 
   // board: every column must be a string[]; coerce anything else to [].
@@ -168,7 +178,23 @@ function validateAppState(raw: unknown): AppState {
     }
   }
 
-  return { settings, board, repoMetadata };
+  // ghCache: keep only entries shaped { gh: object, fetchedAt: string }.
+  // The nested gh is trusted as-is (it is recomputed on every refresh anyway);
+  // a malformed entry is simply dropped rather than crashing hydration.
+  const ghCache = base.ghCache;
+  const rawCache = parsed.ghCache;
+  if (typeof rawCache === 'object' && rawCache !== null) {
+    for (const [key, value] of Object.entries(rawCache as Record<string, unknown>)) {
+      if (typeof value === 'object' && value !== null) {
+        const entry = value as Record<string, unknown>;
+        if (typeof entry.gh === 'object' && entry.gh !== null && typeof entry.fetchedAt === 'string') {
+          ghCache[key] = { gh: entry.gh as RepoGitHub, fetchedAt: entry.fetchedAt };
+        }
+      }
+    }
+  }
+
+  return { settings, board, repoMetadata, ghCache };
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
@@ -192,6 +218,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           settings: state.settings,
           board: state.board,
           repoMetadata: state.repoMetadata,
+          ghCache: state.ghCache,
           loaded: true,
         });
       } else {
@@ -212,8 +239,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (!get().loaded) return Promise.resolve();
     // Serialise the snapshot now (synchronously), but commit the disk write
     // through writeChain so concurrent saves never interleave partial writes.
-    const { settings, board, repoMetadata } = get();
-    const payload = serialise({ settings, board, repoMetadata });
+    const { settings, board, repoMetadata, ghCache } = get();
+    const payload = serialise({ settings, board, repoMetadata, ghCache });
     writeChain = writeChain.then(() =>
       writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),
     );
@@ -287,7 +314,21 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return;
     }
     set({ lastScanError: null });
-    get().setRepos(repos);
+
+    // Hydrate gh from the persisted cache so badges render instantly, before
+    // the background refresh resolves. Also prune cache entries for repos that
+    // no longer exist, so the file can't grow without bound.
+    const cache = get().ghCache;
+    const hydrated = repos.map((r) => ({ ...r, gh: cache[r.path]?.gh ?? null }));
+    get().setRepos(hydrated);
+    set(() => {
+      const valid = new Set(repos.map((r) => r.path));
+      const pruned: typeof cache = {};
+      for (const [path, entry] of Object.entries(cache)) {
+        if (valid.has(path)) pruned[path] = entry;
+      }
+      return { ghCache: pruned };
+    });
 
     // Hydrate notes from each repo's mygitdash_notes.md — the repo file is
     // authoritative and overrides the central cache. Repos without the file
@@ -363,9 +404,46 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     );
 
     // Merge by path against the LATEST repo list (a newer scan may have run).
+    // A repo that failed this round keeps its previous gh (don't blank badges
+    // on a transient error). Successful fetches update the persisted cache.
+    const fetchedAt = new Date().toISOString();
+    set((s) => {
+      const ghCache = { ...s.ghCache };
+      for (const [path, gh] of ghByPath) ghCache[path] = { gh, fetchedAt };
+      return {
+        repos: s.repos.map((r) => ({ ...r, gh: ghByPath.get(r.path) ?? r.gh ?? null })),
+        ghCache,
+      };
+    });
+    void get().save();
+  },
+
+  enrichOne: async (path) => {
+    const repo = get().repos.find((r) => r.path === path);
+    if (repo === undefined || typeof repo.remoteUrl !== 'string') return;
+    const coords = parseRemote(repo.remoteUrl);
+    if (coords === null) return;
+
+    const token = await invoke<string | null>('get_token').catch(() => null);
+    let gh: RepoGitHub;
+    try {
+      gh = await fetchRepoCard(coords, token ?? undefined);
+    } catch {
+      // Transient failure: keep the existing gh, don't blank the card.
+      return;
+    }
+
+    const fetchedAt = new Date().toISOString();
     set((s) => ({
-      repos: s.repos.map((r) => ({ ...r, gh: ghByPath.get(r.path) ?? null })),
+      repos: s.repos.map((r) => (r.path === path ? { ...r, gh } : r)),
+      ghCache: { ...s.ghCache, [path]: { gh, fetchedAt } },
     }));
+    void get().save();
+  },
+
+  setRefreshInterval: async (min) => {
+    set((s) => ({ settings: { ...s.settings, refreshIntervalMin: min } }));
+    await get().save();
   },
 
   setDebugBannerEnabled: async (enabled) => {

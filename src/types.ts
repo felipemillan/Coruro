@@ -45,6 +45,11 @@ export interface Settings {
    * `open -a <terminalApp> <repo>` (e.g. "Terminal"/"iTerm"/"Ghostty").
    */
   terminalApp: string;
+  /**
+   * Auto-refresh interval for GitHub data, in minutes. 0 disables the timer
+   * (manual / per-card refresh only).
+   */
+  refreshIntervalMin: number;
 }
 
 /**
@@ -56,11 +61,26 @@ export type Board = Record<ColumnId, string[]>;
 /** Per-repo user-authored metadata, keyed by repo absolute path. */
 export type RepoMetadata = Record<string, { notes: string }>;
 
+/**
+ * One cached GitHub enrichment, keyed by repo path in AppState.ghCache.
+ * Persisted so badges render instantly on launch before the background
+ * refresh resolves. `fetchedAt` is the ISO time the data was fetched.
+ */
+export interface GhCacheEntry {
+  gh: RepoGitHub;
+  fetchedAt: string;
+}
+
+/** Persisted GitHub data cache, keyed by repo absolute path. */
+export type GhCache = Record<string, GhCacheEntry>;
+
 /** Full persisted application state — the shape written to disk. */
 export interface AppState {
   settings: Settings;
   board: Board;
   repoMetadata: RepoMetadata;
+  /** Cached GitHub enrichment per repo; hydrated into Repo.gh on scan. */
+  ghCache: GhCache;
 }
 
 /** Latest CI (GitHub Actions) conclusion for the default branch. */
@@ -121,6 +141,7 @@ export function createEmptyAppState(): AppState {
       editorCommand: 'code',
       editorApp: 'Visual Studio Code',
       terminalApp: 'Terminal',
+      refreshIntervalMin: 10,
     },
     board: {
       inbox: [],
@@ -130,6 +151,7 @@ export function createEmptyAppState(): AppState {
       done: [],
     },
     repoMetadata: {},
+    ghCache: {},
   };
 }
 

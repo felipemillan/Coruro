@@ -30,6 +30,8 @@ export default function App() {
   const setDebugBannerEnabled = useBoardStore((s) => s.setDebugBannerEnabled);
   const lastScanError = useBoardStore((s) => s.lastScanError);
   const repoCount = useBoardStore((s) => s.repos.length);
+  const refreshIntervalMin = useBoardStore((s) => s.settings.refreshIntervalMin);
+  const enrichGitHub = useBoardStore((s) => s.enrichGitHub);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -48,6 +50,18 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Background auto-refresh of GitHub data on the configured interval.
+  // 0 (or no root / not loaded) disables the timer; per-card refresh and
+  // rescan still work regardless.
+  useEffect(() => {
+    if (!loaded || rootDirectory === null) return;
+    if (!refreshIntervalMin || refreshIntervalMin <= 0) return;
+    const id = setInterval(() => {
+      void enrichGitHub();
+    }, refreshIntervalMin * 60_000);
+    return () => clearInterval(id);
+  }, [loaded, rootDirectory, refreshIntervalMin, enrichGitHub]);
 
   // Board keyboard navigation. Reads fresh state via getState() inside the
   // handler so it never goes stale and needs no dependency array.

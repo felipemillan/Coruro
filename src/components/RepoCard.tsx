@@ -9,7 +9,7 @@
 // Arg arrays only — no shell string interpolation.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink, TerminalSquare } from 'lucide-react';
+import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink, TerminalSquare, RefreshCw } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
@@ -60,8 +60,10 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
   const editorApp = useBoardStore((s) => s.settings.editorApp);
   const terminalApp = useBoardStore((s) => s.settings.terminalApp);
   const setDetail = useViewStore((s) => s.setDetail);
+  const enrichOne = useBoardStore((s) => s.enrichOne);
 
   const [openError, setOpenError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function openInEditor() {
     setOpenError(null);
@@ -92,6 +94,16 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
     await Command.create('open', ['--', repo.path]).execute();
   }
 
+  async function refreshGitHub() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await enrichOne(repo.path);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   const gh = repo.gh ?? null;
   const ci = gh ? ciColor(gh.ciStatus) : null;
 
@@ -113,6 +125,17 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
         </h3>
 
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => { void refreshGitHub(); }}
+            disabled={refreshing}
+            className="p-1 text-navy-light hover:text-sage transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh GitHub data"
+            aria-label="Refresh GitHub data"
+          >
+            <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+
           {gh?.htmlUrl && (
             <button
               type="button"
