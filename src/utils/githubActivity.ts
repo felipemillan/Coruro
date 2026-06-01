@@ -93,7 +93,14 @@ export function mapIssues(json: unknown): GhIssue[] {
     });
 }
 
-/** Fetch modal activity (PRs, commits, issues) concurrently. Each failure → empty array. */
+/**
+ * Fetch modal activity (PRs, commits, issues) concurrently.
+ *
+ * A partial failure degrades that section to an empty array. But if ALL three
+ * calls are blocked by auth/rate-limit/network, that is NOT "no activity" — it
+ * is a failed fetch, so we throw a clear message instead of silently showing
+ * an empty pane (the symptom that made this look like a black box).
+ */
 export async function fetchActivity(coords: GitHubCoords, token?: string): Promise<GhActivity> {
   const base = `/repos/${coords.owner}/${coords.repo}`;
   const [pulls, commits, issues] = await Promise.all([
@@ -101,6 +108,17 @@ export async function fetchActivity(coords: GitHubCoords, token?: string): Promi
     ghJson<unknown>(`${base}/commits?per_page=10`, token),
     ghJson<unknown>(`${base}/issues?state=open&per_page=20`, token),
   ]);
+
+  const statuses = [pulls.status, commits.status, issues.status];
+  const blocked = (s: number): boolean => s === 401 || s === 403 || s === 0;
+  if (statuses.every(blocked)) {
+    throw new Error(
+      statuses[0] === 0
+        ? 'Could not reach GitHub (network error).'
+        : 'GitHub returned 401/403 — rate limit hit or no/invalid token. Add a GitHub token in Settings.',
+    );
+  }
+
   return {
     prs: mapPulls(pulls.data),
     commits: mapCommits(commits.data),
