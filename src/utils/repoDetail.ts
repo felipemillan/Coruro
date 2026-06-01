@@ -45,6 +45,9 @@ const README_CANDIDATES = [
 const MAX_ENTRIES = 5000;
 const MAX_DEPTH = 8;
 
+/** Directories never worth walking — heavy, noisy, or VCS internals. */
+const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'target', '.next', '.cache']);
+
 /**
  * Find and read the repo's README. Returns null when none of the candidate
  * filenames exist at the repo root.
@@ -92,6 +95,7 @@ export async function getFileTree(repoPath: string): Promise<FileTreeResult> {
 
     const nodes: TreeNode[] = [];
     for (const entry of sorted) {
+      if (entry.isDirectory && IGNORED_DIRS.has(entry.name)) continue;
       if (state.count >= MAX_ENTRIES) {
         state.truncated = true;
         break;
