@@ -61,6 +61,7 @@ export interface RepoMetaSlice {
   license: string | null;
   defaultBranch: string;
   pushedAt: string;
+  htmlUrl: string;
   openIssuesRaw: number;
   watchers: number;
   updatedAt: string;
@@ -106,6 +107,7 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
     license: spdx === 'NOASSERTION' ? null : spdx,
     defaultBranch: typeof o.default_branch === 'string' ? o.default_branch : '',
     pushedAt: typeof o.pushed_at === 'string' ? o.pushed_at : '',
+    htmlUrl: typeof o.html_url === 'string' ? o.html_url : '',
     openIssuesRaw: typeof o.open_issues_count === 'number' ? o.open_issues_count : 0,
     watchers: typeof o.subscribers_count === 'number' ? o.subscribers_count : 0,
     updatedAt: typeof o.updated_at === 'string' ? o.updated_at : '',
@@ -181,6 +183,7 @@ export async function fetchRepoCard(coords: GitHubCoords, token?: string): Promi
     license: m.license,
     defaultBranch: m.defaultBranch,
     pushedAt: m.pushedAt,
+    htmlUrl: m.htmlUrl,
     watchers: m.watchers,
     updatedAt: m.updatedAt,
     disabled: m.disabled,

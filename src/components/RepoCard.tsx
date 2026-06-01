@@ -96,6 +96,18 @@ export function RepoCard({ repo }: RepoCardProps) {
         </h3>
 
         <div className="flex items-center gap-1 shrink-0">
+          {gh?.htmlUrl && (
+            <button
+              type="button"
+              onClick={() => { if (gh.htmlUrl) void safeOpenUrl(gh.htmlUrl); }}
+              className="p-1 text-navy-light hover:text-sage transition-colors"
+              title="Open on GitHub"
+              aria-label="Open repository on GitHub"
+            >
+              <ExternalLink size={14} strokeWidth={1.75} />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setDetailOpen(true)}

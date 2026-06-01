@@ -77,6 +77,7 @@ export interface RepoGitHub {
   license: string | null; // SPDX id, e.g. "MIT"
   defaultBranch: string;
   pushedAt: string; // ISO 8601
+  htmlUrl: string; // repo page on github.com
   watchers: number; // subscribers_count
   updatedAt: string; // updated_at (ISO 8601)
   disabled: boolean;

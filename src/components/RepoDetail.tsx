@@ -477,6 +477,16 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         <div className="shrink-0 px-5 py-2.5 bg-cream/60 border-b border-warm-gray text-[12px] text-navy-light flex items-center gap-3 flex-wrap min-h-[40px]">
           {repo.gh ? (
             <>
+              {repo.gh.htmlUrl && (
+                <button
+                  type="button"
+                  onClick={() => { if (repo.gh?.htmlUrl) void safeOpenUrl(repo.gh.htmlUrl); }}
+                  className="flex items-center gap-1 text-sage hover:underline cursor-pointer font-medium"
+                  title={repo.gh.htmlUrl}
+                >
+                  <ExternalLink size={13} strokeWidth={1.75} />GitHub
+                </button>
+              )}
               {repo.gh.description && (
                 <span className="text-navy truncate max-w-[40%]">{repo.gh.description}</span>
               )}
