@@ -25,6 +25,7 @@ import {
   CircleDot,
   ExternalLink,
   Tag,
+  Eye,
 } from 'lucide-react';
 import {
   getReadme,
@@ -46,6 +47,24 @@ import { open as openExternal } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { parseRemote } from '../utils/github';
 import { fetchActivity, type GhActivity } from '../utils/githubActivity';
+
+/** Compact relative age like "3d"/"5h"/"2w" from an ISO timestamp; '' when empty/bad. */
+function relativeAge(iso: string): string {
+  if (iso === '') return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const sec = Math.max(0, (Date.now() - then) / 1000);
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+  if (sec < 604800) return `${Math.floor(sec / 86400)}d`;
+  if (sec < 2629800) return `${Math.floor(sec / 604800)}w`;
+  return `${Math.floor(sec / 2629800)}mo`;
+}
+
+/** Format a GitHub repo size (KB) as "N KB" or "N.N MB". */
+function formatSize(kb: number): string {
+  return kb < 1024 ? `${kb} KB` : `${(kb / 1024).toFixed(1)} MB`;
+}
 
 interface RepoDetailProps {
   repo: Repo;
@@ -477,6 +496,38 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   {repo.gh.topics.slice(0, 5).map((t) => (
                     <span key={t} className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">{t}</span>
                   ))}
+                </span>
+              )}
+              <span className="flex items-center gap-1" title="Watchers"><Eye size={12} strokeWidth={1.75} />{repo.gh.watchers}</span>
+              {relativeAge(repo.gh.updatedAt) && <span title={`Updated ${repo.gh.updatedAt}`}>updated {relativeAge(repo.gh.updatedAt)}</span>}
+              <span className="font-mono">{formatSize(repo.gh.size)}</span>
+              <span className="font-mono">branch: {repo.gh.defaultBranch}</span>
+              {repo.gh.disabled && <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light text-[10px]">disabled</span>}
+              {repo.gh.fork && repo.gh.parent && (
+                <button
+                  type="button"
+                  onClick={() => { if (repo.gh?.parent) void openExternal(repo.gh.parent.url); }}
+                  className="text-sage hover:underline cursor-pointer"
+                  title="Open upstream repository"
+                >
+                  fork of {repo.gh.parent.fullName}
+                </button>
+              )}
+              {repo.gh.homepage && (
+                <button
+                  type="button"
+                  onClick={() => { if (repo.gh?.homepage) void openExternal(repo.gh.homepage); }}
+                  className="flex items-center gap-1 text-sage hover:underline cursor-pointer"
+                  title={repo.gh.homepage}
+                >
+                  <ExternalLink size={12} strokeWidth={1.75} />homepage
+                </button>
+              )}
+              {(repo.gh.hasIssues || repo.gh.hasWiki || repo.gh.hasPages) && (
+                <span className="flex items-center gap-1">
+                  {repo.gh.hasIssues && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">issues</span>}
+                  {repo.gh.hasWiki && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">wiki</span>}
+                  {repo.gh.hasPages && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">pages</span>}
                 </span>
               )}
             </>
