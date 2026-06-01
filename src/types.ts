@@ -58,6 +58,27 @@ export interface AppState {
   repoMetadata: RepoMetadata;
 }
 
+/** Latest CI (GitHub Actions) conclusion for the default branch. */
+export type CiStatus = 'success' | 'failure' | 'pending' | 'none';
+
+/** GitHub-derived, runtime-only repo data. Recomputed on each scan. */
+export interface RepoGitHub {
+  stars: number;
+  forks: number;
+  isPrivate: boolean;
+  archived: boolean;
+  openIssues: number; // true issues = open_issues_count − prCount
+  prCount: number;
+  ciStatus: CiStatus;
+  latestRelease: { tag: string; publishedAt: string } | null;
+  description: string | null;
+  topics: string[];
+  language: string | null; // primary language
+  license: string | null; // SPDX id, e.g. "MIT"
+  defaultBranch: string;
+  pushedAt: string; // ISO 8601
+}
+
 /**
  * Runtime-only view of a repo, derived by scanning the filesystem and
  * (optionally) the GitHub API. Never persisted — recomputed on each scan.
@@ -68,6 +89,10 @@ export interface Repo {
   branch: string;
   dirty: boolean;
   prCount: number;
+  /** origin remote URL captured at scan time (null when no origin). */
+  remoteUrl?: string | null;
+  /** GitHub enrichment; null = no github.com remote or fetch failed. */
+  gh?: RepoGitHub | null;
 }
 
 /** Factory for a fresh, empty app state matching PRD §6 (minus raw token). */
