@@ -11,7 +11,10 @@ pub fn run() {
             commands::store_token,
             commands::get_token,
             commands::open_in_editor,
-            commands::open_in_terminal
+            commands::open_in_terminal,
+            commands::git_ahead_behind,
+            commands::git_branches,
+            commands::git_fetch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

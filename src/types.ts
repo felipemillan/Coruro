@@ -129,6 +129,10 @@ export interface Repo {
   remoteUrl?: string | null;
   /** GitHub enrichment; null = no github.com remote or fetch failed. */
   gh?: RepoGitHub | null;
+  /** Commits ahead of upstream (runtime; null = no upstream / not computed). */
+  ahead?: number | null;
+  /** Commits behind upstream (runtime; null = no upstream / not computed). */
+  behind?: number | null;
 }
 
 /** Factory for a fresh, empty app state matching PRD §6 (minus raw token). */

@@ -83,6 +83,12 @@ interface BoardStore extends AppState {
   /** Refresh GitHub data for a single repo (per-card refresh button). */
   enrichOne: (path: string) => Promise<void>;
 
+  /** Compute ahead/behind-upstream for all repos (local git; runtime-only). */
+  enrichGit: () => Promise<void>;
+
+  /** Recompute ahead/behind for one repo (after a fetch). Runtime-only. */
+  enrichGitOne: (path: string) => Promise<void>;
+
   /** Set the auto-refresh interval (minutes; 0 = off) and persist. */
   setRefreshInterval: (min: number) => Promise<void>;
 
@@ -368,9 +374,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return { board };
     });
     await get().save();
-    // Fire-and-forget GitHub enrichment: the board renders now; badges fill in
-    // when the fetches resolve. Failures degrade to gh:null per repo.
+    // Fire-and-forget enrichment: the board renders now; badges fill in when
+    // each resolves. GitHub data over the network; ahead/behind from local git.
     void get().enrichGitHub();
+    void get().enrichGit();
   },
 
   enrichGitHub: async () => {
@@ -444,6 +451,54 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   setRefreshInterval: async (min) => {
     set((s) => ({ settings: { ...s.settings, refreshIntervalMin: min } }));
     await get().save();
+  },
+
+  enrichGit: async () => {
+    const targets = get().repos;
+    if (targets.length === 0) return;
+    const CONCURRENCY = 8;
+    const byPath = new Map<string, { ahead: number; behind: number } | null>();
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < targets.length) {
+        const repo = targets[cursor];
+        cursor += 1;
+        try {
+          // git_ahead_behind returns [ahead, behind] or null (no upstream).
+          const ab = await invoke<[number, number] | null>('git_ahead_behind', {
+            path: repo.path,
+          });
+          byPath.set(repo.path, ab === null ? null : { ahead: ab[0], behind: ab[1] });
+        } catch {
+          byPath.set(repo.path, null);
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => worker()),
+    );
+    // Merge against the latest repo list (a newer scan may have run).
+    set((s) => ({
+      repos: s.repos.map((r) => {
+        if (!byPath.has(r.path)) return r;
+        const ab = byPath.get(r.path) ?? null;
+        return { ...r, ahead: ab?.ahead ?? null, behind: ab?.behind ?? null };
+      }),
+    }));
+  },
+
+  enrichGitOne: async (path) => {
+    let ab: [number, number] | null;
+    try {
+      ab = await invoke<[number, number] | null>('git_ahead_behind', { path });
+    } catch {
+      return;
+    }
+    set((s) => ({
+      repos: s.repos.map((r) =>
+        r.path === path ? { ...r, ahead: ab?.[0] ?? null, behind: ab?.[1] ?? null } : r,
+      ),
+    }));
   },
 
   setDebugBannerEnabled: async (enabled) => {

@@ -26,6 +26,8 @@ import {
   ExternalLink,
   Tag,
   Eye,
+  GitBranch,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getReadme,
@@ -45,6 +47,7 @@ import {
 import { NOTE_TYPES, type Repo, type NotesTimeline, type NoteType } from '../types';
 import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
+import { useBoardStore } from '../store/useBoardStore';
 import { parseRemote } from '../utils/github';
 import { fetchActivity, type GhActivity } from '../utils/githubActivity';
 
@@ -441,6 +444,37 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     setActivityLoading(false);
   }, [repo.path]);
 
+  // Branches panel state.
+  const [branches, setBranches] = useState<string[]>([]);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const enrichGitOne = useBoardStore((s) => s.enrichGitOne);
+
+  // Load local branches on mount / repo change.
+  useEffect(() => {
+    let cancelled = false;
+    void invoke<string[]>('git_branches', { path: repo.path })
+      .then((b) => { if (!cancelled) setBranches(b); })
+      .catch(() => { if (!cancelled) setBranches([]); });
+    return () => { cancelled = true; };
+  }, [repo.path]);
+
+  const handleFetch = useCallback(async () => {
+    if (fetching) return;
+    setFetching(true);
+    setFetchError(null);
+    try {
+      await invoke('git_fetch', { path: repo.path });
+      await enrichGitOne(repo.path);
+      const b = await invoke<string[]>('git_branches', { path: repo.path });
+      setBranches(b);
+    } catch (e: unknown) {
+      setFetchError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFetching(false);
+    }
+  }, [fetching, repo.path, enrichGitOne]);
+
   const openUrl = useCallback((url: string) => {
     if (url) void safeOpenUrl(url);
   }, []);
@@ -557,6 +591,61 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           ) : (
             <span className="italic text-navy-light/50">No GitHub data (local-only or no github.com remote).</span>
           )}
+        </div>
+
+        {/* Branches panel */}
+        <div className="shrink-0 px-5 py-2 bg-warm-gray border-b border-warm-gray/60 flex items-start gap-3">
+          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+            <GitBranch size={12} strokeWidth={1.5} className="text-navy-light/60" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
+              Branches
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+            {branches.length === 0 ? (
+              <span className="text-[11px] text-navy-light/40 italic">—</span>
+            ) : (
+              branches.map((b) => {
+                const isCurrent = b === repo.branch;
+                return (
+                  <span
+                    key={b}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono ${
+                      isCurrent
+                        ? 'bg-sage/20 text-navy font-semibold'
+                        : 'text-navy-light'
+                    }`}
+                  >
+                    {isCurrent && <GitBranch size={10} strokeWidth={1.5} className="text-sage shrink-0" />}
+                    {b}
+                    {isCurrent && (
+                      <span className="ml-0.5 text-[9px] uppercase tracking-wide text-sage/80 font-semibold">
+                        current
+                      </span>
+                    )}
+                  </span>
+                );
+              })
+            )}
+            {fetchError !== null && (
+              <span className="text-[11px] text-terracotta font-mono ml-1">{fetchError}</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => { void handleFetch(); }}
+            disabled={fetching}
+            aria-label="Fetch remote refs"
+            title="Fetch remote refs"
+            className="flex items-center gap-1 shrink-0 text-[11px] text-navy-light hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            <RefreshCw
+              size={12}
+              strokeWidth={1.5}
+              className={fetching ? 'animate-spin' : ''}
+            />
+            {fetching ? 'Fetching…' : 'Fetch'}
+          </button>
         </div>
 
         {/* Body: md tree / activity | (preview / timeline) */}

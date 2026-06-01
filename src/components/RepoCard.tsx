@@ -9,7 +9,7 @@
 // Arg arrays only — no shell string interpolation.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink, TerminalSquare, RefreshCw } from 'lucide-react';
+import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink, TerminalSquare, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
@@ -212,6 +212,21 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
         >
           {repo.dirty ? 'dirty' : 'clean'}
         </span>
+
+        {((repo.ahead ?? 0) > 0 || (repo.behind ?? 0) > 0) && (
+          <span className="flex items-center gap-1.5 text-xs leading-none" title="Ahead / behind upstream">
+            {(repo.ahead ?? 0) > 0 && (
+              <span className="flex items-center gap-0.5 text-sage">
+                <ArrowUp size={11} strokeWidth={2} />{repo.ahead}
+              </span>
+            )}
+            {(repo.behind ?? 0) > 0 && (
+              <span className="flex items-center gap-0.5 text-amber-500">
+                <ArrowDown size={11} strokeWidth={2} />{repo.behind}
+              </span>
+            )}
+          </span>
+        )}
 
         {gh?.isPrivate && (
           <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">

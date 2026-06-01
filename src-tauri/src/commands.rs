@@ -99,3 +99,73 @@ pub fn open_in_terminal(app: String, path: String) -> Result<(), String> {
         Err(e) => Err(format!("Failed to run `open -a \"{app_name}\"`: {e}")),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Read-only git inspection (Phase 3). All ops use `git -C <path>` with arg
+// arrays — never a shell string. None of these mutate the working tree.
+// ---------------------------------------------------------------------------
+
+/// Commits the local branch is ahead/behind its upstream.
+///
+/// Runs `git -C <path> rev-list --left-right --count @{u}...HEAD`, whose output
+/// is "<behind>\t<ahead>" (left = upstream-only commits = behind; right =
+/// HEAD-only commits = ahead). Returns `Ok(None)` when there is no upstream
+/// configured (the command exits non-zero) so the UI can simply show nothing.
+#[tauri::command]
+pub fn git_ahead_behind(path: String) -> Result<Option<(i64, i64)>, String> {
+    let out = Command::new("git")
+        .args(["-C", &path, "rev-list", "--left-right", "--count", "@{u}...HEAD"])
+        .output()
+        .map_err(|e| format!("Failed to run git rev-list: {e}"))?;
+    // Non-zero exit almost always means "no upstream" — treat as None, not error.
+    if !out.status.success() {
+        return Ok(None);
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut parts = text.split_whitespace();
+    let behind = parts.next().and_then(|s| s.parse::<i64>().ok());
+    let ahead = parts.next().and_then(|s| s.parse::<i64>().ok());
+    match (ahead, behind) {
+        (Some(a), Some(b)) => Ok(Some((a, b))),
+        _ => Ok(None),
+    }
+}
+
+/// List local branch names (`git -C <path> branch --format=%(refname:short)`).
+#[tauri::command]
+pub fn git_branches(path: String) -> Result<Vec<String>, String> {
+    let out = Command::new("git")
+        .args(["-C", &path, "branch", "--format=%(refname:short)"])
+        .output()
+        .map_err(|e| format!("Failed to run git branch: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "git branch failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let branches = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect();
+    Ok(branches)
+}
+
+/// Fetch remote refs (`git -C <path> fetch`). Read-only w.r.t. the working tree
+/// (updates remote-tracking refs only); never changes checked-out files.
+#[tauri::command]
+pub fn git_fetch(path: String) -> Result<(), String> {
+    let out = Command::new("git")
+        .args(["-C", &path, "fetch"])
+        .output()
+        .map_err(|e| format!("Failed to run git fetch: {e}"))?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "git fetch failed: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ))
+    }
+}
