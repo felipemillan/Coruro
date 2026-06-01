@@ -13,7 +13,7 @@
 // The raw token is never held in component state beyond the controlled input lifetime.
 // On submit the input is cleared immediately and the token is sent to the Keychain.
 
-import { useState, useCallback, type KeyboardEvent } from 'react';
+import { useState, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Settings as SettingsIcon,
@@ -151,6 +151,17 @@ export function Settings() {
     [handleCloseModal],
   );
 
+  // Close on Escape (the full-viewport panel covers the overlay, so
+  // click-outside is no longer reachable — keyboard is the escape hatch).
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') handleCloseModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, handleCloseModal]);
+
   // ---- Render --------------------------------------------------------------
 
   return (
@@ -186,18 +197,18 @@ export function Settings() {
           "
           onClick={handleOverlayClick}
         >
-          {/* Panel */}
+          {/* Panel — full viewport */}
           <div
             className="
               relative
-              w-[480px] max-w-[calc(100vw-2rem)]
-              bg-cream border border-warm-gray
-              shadow-xl
+              w-screen h-screen
+              bg-cream
+              flex flex-col
               overflow-hidden
             "
           >
             {/* Panel header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-warm-gray border-b border-warm-gray/60">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-warm-gray border-b border-warm-gray/60">
               <div className="flex items-center gap-2">
                 <SettingsIcon size={14} strokeWidth={1.5} className="text-navy-light" />
                 <span className="text-[13px] font-semibold text-navy tracking-wide select-none">
@@ -220,8 +231,12 @@ export function Settings() {
               </button>
             </div>
 
-            {/* Panel body */}
-            <div className="px-6 py-5 flex flex-col gap-6">
+            {/* Panel body — two columns, centered with a readable max width */}
+            <div className="flex-1 overflow-auto px-8 py-6">
+              <div className="mx-auto w-full max-w-[1100px] grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+
+                {/* ===== Left column: GitHub folder + token ===== */}
+                <div className="flex flex-col gap-6">
 
               {/* ---- Section: Root directory ---- */}
               <section>
@@ -359,8 +374,10 @@ export function Settings() {
                 )}
               </section>
 
-              {/* Divider */}
-              <div className="border-t border-warm-gray" />
+                </div>
+
+                {/* ===== Right column: Editor + Debug ===== */}
+                <div className="flex flex-col gap-6">
 
               {/* ---- Section: Editor ---- */}
               <section>
@@ -495,10 +512,13 @@ export function Settings() {
                 </button>
               </section>
 
+                </div>
+              </div>
             </div>
 
             {/* Panel footer */}
             <div className="
+              shrink-0
               px-6 py-3
               bg-warm-gray/50 border-t border-warm-gray/60
               flex justify-end
