@@ -1,8 +1,8 @@
 // RepoCard.tsx — Kanban card for a single repository.
 //
 // Displays: repo name, current branch, dirty/clean badge, open PR count,
-// per-repo notes textarea (debounced via store.updateNotes), and two icon
-// buttons for VS Code and Finder.
+// and three icon buttons (detail modal, editor, Finder). Notes live in the
+// detail modal's timeline now — the card stays compact.
 //
 // Design contract: rounded-none, indie pastel / Wes Anderson palette.
 // Arg arrays only — no shell string interpolation.
@@ -20,10 +20,6 @@ interface RepoCardProps {
 }
 
 export function RepoCard({ repo }: RepoCardProps) {
-  const updateNotes = useBoardStore((s) => s.updateNotes);
-  const notes = useBoardStore(
-    (s) => s.repoMetadata[repo.path]?.notes ?? '',
-  );
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
 
@@ -46,10 +42,6 @@ export function RepoCard({ repo }: RepoCardProps) {
 
   async function revealInFinder() {
     await Command.create('open', ['--', repo.path]).execute();
-  }
-
-  function handleNotesChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    updateNotes(repo.path, e.target.value);
   }
 
   return (
@@ -140,22 +132,6 @@ export function RepoCard({ repo }: RepoCardProps) {
           </span>
         )}
       </div>
-
-      {/* ── Notes textarea ── */}
-      <textarea
-        value={notes}
-        onChange={handleNotesChange}
-        placeholder="Notes…"
-        rows={2}
-        className={[
-          'w-full resize-none text-xs text-navy-light',
-          'bg-cream/60 border border-navy/10',
-          'px-2 py-1.5 placeholder:text-navy/30',
-          'focus:outline-none focus:border-sage/60 focus:bg-cream',
-          'transition-colors',
-        ].join(' ')}
-        aria-label={`Notes for ${repo.name}`}
-      />
     </article>
   );
 }
