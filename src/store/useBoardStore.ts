@@ -27,10 +27,12 @@ import {
   type Board,
   type ColumnId,
   type Repo,
+  type RepoGitHub,
   COLUMN_IDS,
   createEmptyAppState,
 } from '../types';
 import { scanRepos } from '../utils/scanner';
+import { parseRemote, fetchRepoCard } from '../utils/github';
 import { readRepoNotes, writeRepoNotes } from '../utils/notesFile';
 
 /** Filename written under the user's home directory. */
@@ -71,6 +73,12 @@ interface BoardStore extends AppState {
    * App/Setup/Settings so first-run, restart, and root-change all converge.
    */
   scanAndDistribute: (root: string) => Promise<void>;
+
+  /**
+   * Enrich the current runtime repos with GitHub data (badges/overview).
+   * Runtime-only; never persisted. Safe to fire-and-forget after a scan.
+   */
+  enrichGitHub: () => Promise<void>;
 
   /** Toggle the top-bar debug banner on/off and persist the choice. */
   setDebugBannerEnabled: (enabled: boolean) => Promise<void>;
@@ -316,6 +324,45 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return { board };
     });
     await get().save();
+    // Fire-and-forget GitHub enrichment: the board renders now; badges fill in
+    // when the fetches resolve. Failures degrade to gh:null per repo.
+    void get().enrichGitHub();
+  },
+
+  enrichGitHub: async () => {
+    const targets = get().repos.filter(
+      (r) => typeof r.remoteUrl === 'string' && parseRemote(r.remoteUrl) !== null,
+    );
+    if (targets.length === 0) return;
+
+    // Transient token (never stored in JS state); unauthenticated if absent.
+    const token = await invoke<string | null>('get_token').catch(() => null);
+
+    // Bounded-concurrency pool so a large root can't fire hundreds of requests.
+    const CONCURRENCY = 6;
+    const ghByPath = new Map<string, RepoGitHub>();
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < targets.length) {
+        const repo = targets[cursor];
+        cursor += 1;
+        const coords = parseRemote(repo.remoteUrl as string);
+        if (coords === null) continue;
+        try {
+          ghByPath.set(repo.path, await fetchRepoCard(coords, token ?? undefined));
+        } catch {
+          // Per-repo failure: leave gh null for this repo.
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => worker()),
+    );
+
+    // Merge by path against the LATEST repo list (a newer scan may have run).
+    set((s) => ({
+      repos: s.repos.map((r) => ({ ...r, gh: ghByPath.get(r.path) ?? null })),
+    }));
   },
 
   setDebugBannerEnabled: async (enabled) => {
