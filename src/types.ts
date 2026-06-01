@@ -77,6 +77,16 @@ export interface RepoGitHub {
   license: string | null; // SPDX id, e.g. "MIT"
   defaultBranch: string;
   pushedAt: string; // ISO 8601
+  watchers: number; // subscribers_count
+  updatedAt: string; // updated_at (ISO 8601)
+  disabled: boolean;
+  fork: boolean;
+  parent: { fullName: string; url: string } | null; // upstream; null unless a fork
+  homepage: string | null;
+  hasIssues: boolean;
+  hasWiki: boolean;
+  hasPages: boolean;
+  size: number; // KB, as GitHub reports
 }
 
 /**
