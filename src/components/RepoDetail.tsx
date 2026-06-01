@@ -43,7 +43,7 @@ import {
   TYPE_LABEL,
 } from '../utils/notesTimeline';
 import { NOTE_TYPES, type Repo, type NotesTimeline, type NoteType } from '../types';
-import { open as openExternal } from '@tauri-apps/plugin-shell';
+import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
 import { parseRemote } from '../utils/github';
 import { fetchActivity, type GhActivity } from '../utils/githubActivity';
@@ -429,7 +429,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   }, [repo.path]);
 
   const openUrl = useCallback((url: string) => {
-    if (url) void openExternal(url);
+    if (url) void safeOpenUrl(url);
   }, []);
 
   return createPortal(
@@ -506,7 +506,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               {repo.gh.fork && repo.gh.parent && (
                 <button
                   type="button"
-                  onClick={() => { if (repo.gh?.parent) void openExternal(repo.gh.parent.url); }}
+                  onClick={() => { if (repo.gh?.parent) void safeOpenUrl(repo.gh.parent.url); }}
                   className="text-sage hover:underline cursor-pointer"
                   title="Open upstream repository"
                 >
@@ -516,7 +516,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               {repo.gh.homepage && (
                 <button
                   type="button"
-                  onClick={() => { if (repo.gh?.homepage) void openExternal(repo.gh.homepage); }}
+                  onClick={() => { if (repo.gh?.homepage) void safeOpenUrl(repo.gh.homepage); }}
                   className="flex items-center gap-1 text-sage hover:underline cursor-pointer"
                   title={repo.gh.homepage}
                 >

@@ -10,7 +10,8 @@
 
 import { useState } from 'react';
 import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink } from 'lucide-react';
-import { Command, open as openExternal } from '@tauri-apps/plugin-shell';
+import { Command } from '@tauri-apps/plugin-shell';
+import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from '../store/useBoardStore';
 import { RepoDetail } from './RepoDetail';
@@ -215,7 +216,7 @@ export function RepoCard({ repo }: RepoCardProps) {
           {gh.homepage && (
             <button
               type="button"
-              onClick={() => { if (gh.homepage) void openExternal(gh.homepage); }}
+              onClick={() => { if (gh.homepage) void safeOpenUrl(gh.homepage); }}
               className="flex items-center gap-0.5 text-navy-light hover:text-sage transition-colors cursor-pointer"
               title={`Homepage: ${gh.homepage}`}
               aria-label="Open homepage"
