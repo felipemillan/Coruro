@@ -19,6 +19,12 @@ import {
   ChevronDown,
   Plus,
   Trash2,
+  Star,
+  GitPullRequest,
+  GitCommit,
+  CircleDot,
+  ExternalLink,
+  Tag,
 } from 'lucide-react';
 import {
   getReadme,
@@ -36,6 +42,10 @@ import {
   TYPE_LABEL,
 } from '../utils/notesTimeline';
 import { NOTE_TYPES, type Repo, type NotesTimeline, type NoteType } from '../types';
+import { open as openExternal } from '@tauri-apps/plugin-shell';
+import { invoke } from '@tauri-apps/api/core';
+import { parseRemote } from '../utils/github';
+import { fetchActivity, type GhActivity } from '../utils/githubActivity';
 
 interface RepoDetailProps {
   repo: Repo;
@@ -126,6 +136,88 @@ function TreeRow({
 }
 
 // ---------------------------------------------------------------------------
+// Activity pane — open PRs, recent commits, recent issues (lazy-loaded).
+// ---------------------------------------------------------------------------
+
+function ActivityPane({
+  activity,
+  loading,
+  error,
+  hasRemote,
+  onOpen,
+}: {
+  activity: GhActivity | null;
+  loading: boolean;
+  error: string | null;
+  hasRemote: boolean;
+  onOpen: (url: string) => void;
+}) {
+  if (!hasRemote) {
+    return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No github.com remote.</p>;
+  }
+  if (loading) return <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading activity…</p>;
+  if (error !== null) return <p className="px-3 py-2 text-[12px] text-terracotta font-mono">{error}</p>;
+  if (activity === null) return null;
+
+  const Row = ({ url, children }: { url: string; children: React.ReactNode }) => (
+    <button
+      type="button"
+      onClick={() => onOpen(url)}
+      className="flex items-start gap-1.5 w-full px-3 py-1.5 text-left text-[12px] text-navy-light hover:bg-warm-gray transition-colors cursor-pointer"
+      title={url}
+    >
+      <ExternalLink size={10} strokeWidth={1.5} className="shrink-0 mt-0.5 text-navy-light/40" />
+      <span className="truncate">{children}</span>
+    </button>
+  );
+
+  const Heading = ({ children }: { children: React.ReactNode }) => (
+    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-navy-light/50 select-none">
+      {children}
+    </div>
+  );
+
+  const empty = activity.prs.length === 0 && activity.commits.length === 0 && activity.issues.length === 0;
+  if (empty) return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No recent activity.</p>;
+
+  return (
+    <div className="flex flex-col gap-2 pb-2">
+      {activity.prs.length > 0 && (
+        <section>
+          <Heading><GitPullRequest size={10} strokeWidth={1.5} className="inline mr-1" />Open PRs</Heading>
+          {activity.prs.map((p) => (
+            <Row key={p.number} url={p.url}>
+              <span className="font-mono text-navy-light/50">#{p.number}</span> {p.title}
+              {p.draft && <span className="ml-1 text-[10px] text-navy-light/40">(draft)</span>}
+            </Row>
+          ))}
+        </section>
+      )}
+      {activity.commits.length > 0 && (
+        <section>
+          <Heading><GitCommit size={10} strokeWidth={1.5} className="inline mr-1" />Recent commits</Heading>
+          {activity.commits.map((c) => (
+            <Row key={c.sha} url={c.url}>
+              {c.message} <span className="text-navy-light/40">· {c.author}</span>
+            </Row>
+          ))}
+        </section>
+      )}
+      {activity.issues.length > 0 && (
+        <section>
+          <Heading><CircleDot size={10} strokeWidth={1.5} className="inline mr-1" />Recent issues</Heading>
+          {activity.issues.map((i) => (
+            <Row key={i.number} url={i.url}>
+              <span className="font-mono text-navy-light/50">#{i.number}</span> {i.title}
+            </Row>
+          ))}
+        </section>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main modal
 // ---------------------------------------------------------------------------
 
@@ -138,6 +230,12 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Left-pane tabs + lazy GitHub activity
+  const [tab, setTab] = useState<'files' | 'activity'>('files');
+  const [activity, setActivity] = useState<GhActivity | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   // Timeline state
   const [timeline, setTimeline] = useState<NotesTimeline | null>(null);
@@ -278,6 +376,42 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     : (readme?.content ?? null);
   const previewTitle = selected ? selected.name : (readme?.name ?? 'README');
 
+  // Lazily fetch PRs/commits/issues the first time the Activity tab opens.
+  useEffect(() => {
+    if (tab !== 'activity' || activity !== null || activityLoading) return;
+    const coords = repo.remoteUrl ? parseRemote(repo.remoteUrl) : null;
+    if (coords === null) {
+      setActivity({ prs: [], commits: [], issues: [] });
+      return;
+    }
+    let cancelled = false;
+    setActivityLoading(true);
+    setActivityError(null);
+    (async () => {
+      try {
+        const token = await invoke<string | null>('get_token').catch(() => null);
+        const result = await fetchActivity(coords, token ?? undefined);
+        if (!cancelled) setActivity(result);
+      } catch (e: unknown) {
+        if (!cancelled) setActivityError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setActivityLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tab, activity, activityLoading, repo.remoteUrl]);
+
+  // Reset tab + activity when switching repos.
+  useEffect(() => {
+    setTab('files');
+    setActivity(null);
+    setActivityError(null);
+  }, [repo.path]);
+
+  const openUrl = useCallback((url: string) => {
+    if (url) void openExternal(url);
+  }, []);
+
   return createPortal(
     <div
       role="dialog"
@@ -306,45 +440,111 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           </button>
         </div>
 
-        {/* Body: md tree | (preview / timeline) */}
-        <div className="flex flex-1 min-h-0">
-          {/* Markdown tree pane */}
-          <aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0">
-            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 border-b border-warm-gray select-none">
-              Markdown
-              {tree && (
-                <span className="ml-2 font-mono normal-case tracking-normal text-navy-light/40">
-                  {tree.total}
-                  {tree.truncated ? '+ (capped)' : ''}
+        {/* GitHub overview band */}
+        <div className="shrink-0 px-5 py-2.5 bg-cream/60 border-b border-warm-gray text-[12px] text-navy-light flex items-center gap-3 flex-wrap min-h-[40px]">
+          {repo.gh ? (
+            <>
+              {repo.gh.description && (
+                <span className="text-navy truncate max-w-[40%]">{repo.gh.description}</span>
+              )}
+              {repo.gh.language && <span className="font-mono">{repo.gh.language}</span>}
+              {repo.gh.license && <span className="font-mono">{repo.gh.license}</span>}
+              <span className="flex items-center gap-1"><Star size={12} strokeWidth={1.75} />{repo.gh.stars}</span>
+              <span className="font-mono">⑂ {repo.gh.forks}</span>
+              <span title="Open issues">{repo.gh.openIssues} issues</span>
+              <span title="Open PRs">{repo.gh.prCount} PRs</span>
+              {repo.gh.ciStatus !== 'none' && (
+                <span
+                  className={
+                    repo.gh.ciStatus === 'success'
+                      ? 'text-sage flex items-center gap-1'
+                      : repo.gh.ciStatus === 'failure'
+                        ? 'text-terracotta flex items-center gap-1'
+                        : 'text-amber-500 flex items-center gap-1'
+                  }
+                >
+                  <CircleDot size={12} strokeWidth={2} />CI {repo.gh.ciStatus}
                 </span>
               )}
-            </div>
-            <div className="flex-1 overflow-auto py-1">
-              {loading ? (
-                <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading…</p>
-              ) : tree && tree.root.length > 0 ? (
-                <>
-                  {tree.root.map((node) => (
-                    <TreeRow
-                      key={node.path}
-                      node={node}
-                      depth={0}
-                      expanded={expanded}
-                      toggle={toggle}
-                      selectedPath={selected?.path ?? null}
-                      onSelect={onSelect}
-                    />
+              {repo.gh.latestRelease && (
+                <span className="flex items-center gap-1 font-mono">
+                  <Tag size={12} strokeWidth={1.75} />{repo.gh.latestRelease.tag}
+                </span>
+              )}
+              {repo.gh.topics.length > 0 && (
+                <span className="flex items-center gap-1 flex-wrap">
+                  {repo.gh.topics.slice(0, 5).map((t) => (
+                    <span key={t} className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono">{t}</span>
                   ))}
-                  {tree.truncated && (
-                    <p className="px-3 py-2 mt-1 text-[11px] text-terracotta">
-                      Tree truncated at the entry cap — large repo.
-                    </p>
-                  )}
-                </>
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="italic text-navy-light/50">No GitHub data (local-only or no github.com remote).</span>
+          )}
+        </div>
+
+        {/* Body: md tree / activity | (preview / timeline) */}
+        <div className="flex flex-1 min-h-0">
+          {/* Left pane: Files | Activity tabs */}
+          <aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0">
+            {/* Tab bar */}
+            <div className="shrink-0 flex border-b border-warm-gray">
+              <button
+                type="button"
+                onClick={() => setTab('files')}
+                className={`flex-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  tab === 'files' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Files{tree && <span className="ml-1.5 font-mono normal-case tracking-normal text-navy-light/40">{tree.total}{tree.truncated ? '+' : ''}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('activity')}
+                className={`flex-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  tab === 'activity' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Activity
+              </button>
+            </div>
+
+            {/* Tab body */}
+            <div className="flex-1 overflow-auto py-1 min-h-0">
+              {tab === 'files' ? (
+                loading ? (
+                  <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading…</p>
+                ) : tree && tree.root.length > 0 ? (
+                  <>
+                    {tree.root.map((node) => (
+                      <TreeRow
+                        key={node.path}
+                        node={node}
+                        depth={0}
+                        expanded={expanded}
+                        toggle={toggle}
+                        selectedPath={selected?.path ?? null}
+                        onSelect={onSelect}
+                      />
+                    ))}
+                    {tree.truncated && (
+                      <p className="px-3 py-2 mt-1 text-[11px] text-terracotta">
+                        Tree truncated at the entry cap — large repo.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No markdown files.</p>
+                )
               ) : (
-                <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">
-                  No markdown files.
-                </p>
+                <ActivityPane
+                  activity={activity}
+                  loading={activityLoading}
+                  error={activityError}
+                  hasRemote={repo.remoteUrl ? parseRemote(repo.remoteUrl) !== null : false}
+                  onOpen={openUrl}
+                />
               )}
             </div>
           </aside>
