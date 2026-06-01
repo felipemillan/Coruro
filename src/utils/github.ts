@@ -1,14 +1,20 @@
 /**
  * GitHub utility helpers for MyGITdash.
  *
- * Two exports:
- *  - `parseRemote`      — extracts {owner, repo} from a git remote URL
- *  - `fetchOpenPrCount` — queries the GitHub REST API for open PR count
+ * Exports:
+ *  - `parseRemote`   — extracts {owner, repo} from a git remote URL
+ *  - `mapRepoMeta`   — pure mapper for /repos/{o}/{r} payload
+ *  - `mapCiStatus`   — pure mapper for /actions/runs payload
+ *  - `mapRelease`    — pure mapper for /releases/latest payload
+ *  - `fetchRepoCard` — fetches card-level GitHub data (4 endpoints concurrently)
  *
  * No `any`. Token is optional; when absent the request is unauthenticated
  * (60 req/hr rate limit applies). Token is passed through from the macOS
  * Keychain via the Rust `get_token` command — never stored in JS state.
  */
+
+import { ghJson } from './githubClient';
+import type { CiStatus, RepoGitHub } from '../types';
 
 /** Structured representation of a GitHub repository coordinate. */
 export interface GitHubCoords {
@@ -43,46 +49,104 @@ export function parseRemote(url: string): GitHubCoords | null {
   return null;
 }
 
-/**
- * Fetch the number of open pull requests for a GitHub repository.
- *
- * Uses `GET /repos/{owner}/{repo}/pulls?state=open`.
- * Returns the array length on success, `0` on any non-200 response or
- * network / parse error.
- *
- * @param coords - `{owner, repo}` as returned by `parseRemote`.
- * @param token  - Optional GitHub PAT. When present, sent as `Authorization: Bearer <token>`.
- */
-export async function fetchOpenPrCount(
-  coords: GitHubCoords,
-  token?: string,
-): Promise<number> {
-  const { owner, repo } = coords;
-  const url = `https://api.github.com/repos/${owner}/${repo}/pulls?state=open&per_page=100`;
+/** Card-level slice of /repos/{o}/{r}; `openIssuesRaw` still includes PRs. */
+export interface RepoMetaSlice {
+  stars: number;
+  forks: number;
+  isPrivate: boolean;
+  archived: boolean;
+  description: string | null;
+  topics: string[];
+  language: string | null;
+  license: string | null;
+  defaultBranch: string;
+  pushedAt: string;
+  openIssuesRaw: number;
+}
 
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github+json',
+/** Pure. Map a /repos/{o}/{r} payload to RepoMetaSlice. Defaults on missing fields. */
+export function mapRepoMeta(json: unknown): RepoMetaSlice {
+  const o = (typeof json === 'object' && json !== null ? json : {}) as Record<string, unknown>;
+  const licObj = o.license;
+  const spdx =
+    typeof licObj === 'object' && licObj !== null && typeof (licObj as Record<string, unknown>).spdx_id === 'string'
+      ? ((licObj as Record<string, unknown>).spdx_id as string)
+      : null;
+  return {
+    stars: typeof o.stargazers_count === 'number' ? o.stargazers_count : 0,
+    forks: typeof o.forks_count === 'number' ? o.forks_count : 0,
+    isPrivate: o.private === true,
+    archived: o.archived === true,
+    description: typeof o.description === 'string' ? o.description : null,
+    topics: Array.isArray(o.topics) ? o.topics.filter((t): t is string => typeof t === 'string') : [],
+    language: typeof o.language === 'string' ? o.language : null,
+    license: spdx === 'NOASSERTION' ? null : spdx,
+    defaultBranch: typeof o.default_branch === 'string' ? o.default_branch : '',
+    pushedAt: typeof o.pushed_at === 'string' ? o.pushed_at : '',
+    openIssuesRaw: typeof o.open_issues_count === 'number' ? o.open_issues_count : 0,
   };
+}
 
-  if (token !== undefined && token.length > 0) {
-    headers['Authorization'] = `Bearer ${token}`;
+/** Pure. Derive CI status from /actions/runs?per_page=1. */
+export function mapCiStatus(json: unknown): CiStatus {
+  const o = (typeof json === 'object' && json !== null ? json : {}) as Record<string, unknown>;
+  const runs = o.workflow_runs;
+  if (!Array.isArray(runs) || runs.length === 0) return 'none';
+  const run = (typeof runs[0] === 'object' && runs[0] !== null ? runs[0] : {}) as Record<string, unknown>;
+  const conclusion = run.conclusion;
+  const status = run.status;
+  if (conclusion === 'success') return 'success';
+  if (
+    conclusion === 'failure' ||
+    conclusion === 'timed_out' ||
+    conclusion === 'cancelled' ||
+    conclusion === 'startup_failure'
+  ) {
+    return 'failure';
   }
-
-  try {
-    const response = await fetch(url, { headers });
-
-    if (!response.ok) {
-      return 0;
-    }
-
-    const data: unknown = await response.json();
-
-    if (!Array.isArray(data)) {
-      return 0;
-    }
-
-    return data.length;
-  } catch {
-    return 0;
+  if (
+    conclusion === null &&
+    (status === 'in_progress' || status === 'queued' || status === 'waiting' || status === 'pending')
+  ) {
+    return 'pending';
   }
+  return 'none';
+}
+
+/** Pure. Map /releases/latest to {tag, publishedAt} or null. */
+export function mapRelease(json: unknown): { tag: string; publishedAt: string } | null {
+  if (typeof json !== 'object' || json === null) return null;
+  const r = json as Record<string, unknown>;
+  if (typeof r.tag_name !== 'string') return null;
+  return { tag: r.tag_name, publishedAt: typeof r.published_at === 'string' ? r.published_at : '' };
+}
+
+/** Fetch card-level GitHub data for a repo. Four endpoints concurrently; never throws. */
+export async function fetchRepoCard(coords: GitHubCoords, token?: string): Promise<RepoGitHub> {
+  const base = `/repos/${coords.owner}/${coords.repo}`;
+  const [meta, runs, release, pulls] = await Promise.all([
+    ghJson<unknown>(base, token),
+    ghJson<unknown>(`${base}/actions/runs?per_page=1`, token),
+    ghJson<unknown>(`${base}/releases/latest`, token),
+    ghJson<unknown[]>(`${base}/pulls?state=open&per_page=100`, token),
+  ]);
+
+  const m = mapRepoMeta(meta.data);
+  const prCount = Array.isArray(pulls.data) ? pulls.data.length : 0;
+  return {
+    stars: m.stars,
+    forks: m.forks,
+    isPrivate: m.isPrivate,
+    archived: m.archived,
+    openIssues: Math.max(0, m.openIssuesRaw - prCount),
+    prCount,
+    ciStatus: mapCiStatus(runs.data),
+    latestRelease: mapRelease(release.data),
+    description: m.description,
+    topics: m.topics,
+    language: m.language,
+    license: m.license,
+    defaultBranch: m.defaultBranch,
+    pushedAt: m.pushedAt,
+  };
 }
