@@ -9,8 +9,8 @@
 // Arg arrays only — no shell string interpolation.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, Star, CircleDot, Tag } from 'lucide-react';
-import { Command } from '@tauri-apps/plugin-shell';
+import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink } from 'lucide-react';
+import { Command, open as openExternal } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from '../store/useBoardStore';
 import { RepoDetail } from './RepoDetail';
@@ -31,6 +31,16 @@ function relativeAge(iso: string): string {
   if (sec < 604800) return `${Math.floor(sec / 86400)}d`;
   if (sec < 2629800) return `${Math.floor(sec / 604800)}w`;
   return `${Math.floor(sec / 2629800)}mo`;
+}
+
+/** Tailwind text color for staleness based on an ISO push date. */
+function staleColor(iso: string): string {
+  if (iso === '') return 'text-navy-light';
+  const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+  if (Number.isNaN(days)) return 'text-navy-light';
+  if (days < 30) return 'text-sage';
+  if (days <= 90) return 'text-navy-light';
+  return 'text-amber-500';
 }
 
 /** Tailwind text color for a CI dot. Returns null when no CI to show. */
@@ -186,6 +196,32 @@ export function RepoCard({ repo }: RepoCardProps) {
               {gh.latestRelease.tag}
               {relativeAge(gh.latestRelease.publishedAt) && ` · ${relativeAge(gh.latestRelease.publishedAt)}`}
             </span>
+          )}
+          {relativeAge(gh.pushedAt) && (
+            <span className={staleColor(gh.pushedAt)} title={`Last push ${gh.pushedAt}`}>
+              updated {relativeAge(gh.pushedAt)}
+            </span>
+          )}
+          {gh.fork && (
+            <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
+              fork
+            </span>
+          )}
+          {gh.watchers > 0 && (
+            <span className="flex items-center gap-0.5" title="Watchers">
+              <Eye size={11} strokeWidth={1.75} /> {gh.watchers}
+            </span>
+          )}
+          {gh.homepage && (
+            <button
+              type="button"
+              onClick={() => { if (gh.homepage) void openExternal(gh.homepage); }}
+              className="flex items-center gap-0.5 text-navy-light hover:text-sage transition-colors cursor-pointer"
+              title={`Homepage: ${gh.homepage}`}
+              aria-label="Open homepage"
+            >
+              <ExternalLink size={11} strokeWidth={1.75} /> site
+            </button>
           )}
         </div>
       )}
