@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MyGITdash",
+        "title": "My Github Dashboard",
         "width": 1200,
         "height": 800,
         "transparent": true,
