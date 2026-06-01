@@ -1,22 +1,46 @@
 // RepoCard.tsx — Kanban card for a single repository.
 //
-// Displays: repo name, current branch, dirty/clean badge, open PR count,
-// and three icon buttons (detail modal, editor, Finder). Notes live in the
-// detail modal's timeline now — the card stays compact.
+// Displays: repo name, current branch, dirty/clean badge, GitHub badges
+// (CI status, open issues, stars, latest release, private/archived), and
+// three icon buttons (detail modal, editor, Finder). Notes live in the
+// detail modal's timeline.
 //
 // Design contract: rounded-none, indie pastel / Wes Anderson palette.
 // Arg arrays only — no shell string interpolation.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText } from 'lucide-react';
+import { Code2, FolderOpen, FileText, Star, CircleDot, Tag } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from '../store/useBoardStore';
 import { RepoDetail } from './RepoDetail';
-import type { Repo } from '../types';
+import type { Repo, CiStatus } from '../types';
 
 interface RepoCardProps {
   repo: Repo;
+}
+
+/** Compact relative age like "3d" / "5h" / "2w" from an ISO timestamp. */
+function relativeAge(iso: string): string {
+  if (iso === '') return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const sec = Math.max(0, (Date.now() - then) / 1000);
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+  if (sec < 604800) return `${Math.floor(sec / 86400)}d`;
+  if (sec < 2629800) return `${Math.floor(sec / 604800)}w`;
+  return `${Math.floor(sec / 2629800)}mo`;
+}
+
+/** Tailwind text color for a CI dot. Returns null when no CI to show. */
+function ciColor(status: CiStatus): string | null {
+  switch (status) {
+    case 'success': return 'text-sage';
+    case 'failure': return 'text-terracotta';
+    case 'pending': return 'text-amber-500';
+    case 'none': return null;
+  }
 }
 
 export function RepoCard({ repo }: RepoCardProps) {
@@ -29,7 +53,6 @@ export function RepoCard({ repo }: RepoCardProps) {
   async function openInEditor() {
     setOpenError(null);
     try {
-      // Rust tries the CLI command first, then falls back to `open -a <app>`.
       await invoke('open_in_editor', {
         command: editorCommand,
         app: editorApp,
@@ -43,6 +66,9 @@ export function RepoCard({ repo }: RepoCardProps) {
   async function revealInFinder() {
     await Command.create('open', ['--', repo.path]).execute();
   }
+
+  const gh = repo.gh ?? null;
+  const ci = gh ? ciColor(gh.ciStatus) : null;
 
   return (
     <article
@@ -91,7 +117,7 @@ export function RepoCard({ repo }: RepoCardProps) {
         </div>
       </div>
 
-      {/* Editor-launch error (e.g. CLI not found + wrong app name) */}
+      {/* Editor-launch error */}
       {openError !== null && (
         <p className="text-[11px] text-terracotta leading-snug" role="alert">
           {openError}
@@ -102,36 +128,67 @@ export function RepoCard({ repo }: RepoCardProps) {
         <RepoDetail repo={repo} onClose={() => setDetailOpen(false)} />
       )}
 
-      {/* ── Meta row: branch + dirty badge + PR count ── */}
+      {/* ── Meta row: branch + dirty badge ── */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Branch name */}
         <span className="text-navy-light text-xs font-mono truncate max-w-[120px]">
           {repo.branch}
         </span>
 
-        {/* Dirty / clean badge */}
         <span
           className={[
             'text-xs px-1.5 py-0.5 font-medium leading-none',
-            repo.dirty
-              ? 'bg-terracotta/20 text-terracotta'
-              : 'bg-sage/20 text-sage',
+            repo.dirty ? 'bg-terracotta/20 text-terracotta' : 'bg-sage/20 text-sage',
           ].join(' ')}
           aria-label={repo.dirty ? 'Uncommitted changes' : 'Working tree clean'}
         >
           {repo.dirty ? 'dirty' : 'clean'}
         </span>
 
-        {/* Open PR count — only shown when > 0 */}
-        {repo.prCount > 0 && (
-          <span
-            className="text-xs px-1.5 py-0.5 bg-dusty-pink/30 text-navy-light font-medium leading-none"
-            aria-label={`${repo.prCount} open pull request${repo.prCount === 1 ? '' : 's'}`}
-          >
-            {repo.prCount} PR{repo.prCount === 1 ? '' : 's'}
+        {gh?.isPrivate && (
+          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
+            private
+          </span>
+        )}
+        {gh?.archived && (
+          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
+            archived
           </span>
         )}
       </div>
+
+      {/* ── GitHub badges row (only when enriched) ── */}
+      {gh && (
+        <div className="flex items-center gap-3 flex-wrap text-[11px] text-navy-light">
+          {ci !== null && (
+            <span className={`flex items-center gap-1 ${ci}`} title={`CI: ${gh.ciStatus}`}>
+              <CircleDot size={11} strokeWidth={2} />
+              CI
+            </span>
+          )}
+          {gh.prCount > 0 && (
+            <span className="px-1.5 py-0.5 bg-dusty-pink/30 text-navy-light font-medium leading-none">
+              {gh.prCount} PR{gh.prCount === 1 ? '' : 's'}
+            </span>
+          )}
+          {gh.openIssues > 0 && (
+            <span title="Open issues">
+              {gh.openIssues} issue{gh.openIssues === 1 ? '' : 's'}
+            </span>
+          )}
+          {gh.stars > 0 && (
+            <span className="flex items-center gap-0.5" title="Stars">
+              <Star size={11} strokeWidth={1.75} /> {gh.stars}
+            </span>
+          )}
+          {gh.latestRelease && (
+            <span className="flex items-center gap-1 font-mono" title={`Latest release ${gh.latestRelease.tag}`}>
+              <Tag size={11} strokeWidth={1.75} />
+              {gh.latestRelease.tag}
+              {relativeAge(gh.latestRelease.publishedAt) && ` · ${relativeAge(gh.latestRelease.publishedAt)}`}
+            </span>
+          )}
+        </div>
+      )}
     </article>
   );
 }
