@@ -214,13 +214,24 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     };
   }, [repo.path, repo.name]);
 
-  // Selecting a file loads its body into the preview pane.
+  // Selecting a file loads its body into the preview pane. Guards against an
+  // out-of-order resolution when the user clicks another file mid-fetch.
   const onSelect = useCallback((node: TreeNode) => {
     setSelected({ name: node.name, path: node.path });
     setPreviewBody(null);
     getMarkdownFile(node.path)
-      .then((body) => setPreviewBody(body))
-      .catch((e: unknown) => setPreviewBody(`\n> Failed to read file: ${String(e)}\n`));
+      .then((body) => {
+        setSelected((cur) => {
+          if (cur?.path === node.path) setPreviewBody(body);
+          return cur;
+        });
+      })
+      .catch((e: unknown) => {
+        setSelected((cur) => {
+          if (cur?.path === node.path) setPreviewBody(`\n> Failed to read file: ${String(e)}\n`);
+          return cur;
+        });
+      });
   }, []);
 
   // Scroll the timeline to the newest note after it changes.
@@ -228,36 +239,37 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [timeline]);
 
-  // Persist a new timeline value (and the .md export); roll back on failure.
+  // Persist a timeline change derived from the latest state (functional update),
+  // then write to disk. Rolls back to the true prior value on write failure.
   const persist = useCallback(
-    async (next: NotesTimeline) => {
-      const prev = timeline;
-      setTimeline(next);
+    (update: (prev: NotesTimeline) => NotesTimeline) => {
       setTimelineError(null);
-      try {
-        await writeTimeline(repo.path, repo.name, next);
-      } catch (e: unknown) {
-        setTimeline(prev); // restore in-memory state so nothing is lost
-        setTimelineError(e instanceof Error ? e.message : String(e));
-      }
+      setTimeline((prev) => {
+        if (!prev) return prev;
+        const next = update(prev);
+        writeTimeline(repo.path, repo.name, next).catch((e: unknown) => {
+          setTimeline(prev); // rollback to the value the user saw
+          setTimelineError(e instanceof Error ? e.message : String(e));
+        });
+        return next;
+      });
     },
-    [repo.path, repo.name, timeline],
+    [repo.path, repo.name],
   );
 
   const addNote = useCallback(() => {
     const body = composerBody.trim();
-    if (body === '' || !timeline) return;
+    if (body === '') return;
     const note = makeNote(composerType, body, newId(), new Date().toISOString());
-    void persist({ ...timeline, notes: [...timeline.notes, note] });
+    persist((t) => ({ ...t, notes: [...t.notes, note] }));
     setComposerBody('');
-  }, [composerBody, composerType, timeline, persist]);
+  }, [composerBody, composerType, persist]);
 
   const deleteNote = useCallback(
     (id: string) => {
-      if (!timeline) return;
-      void persist({ ...timeline, notes: timeline.notes.filter((n) => n.id !== id) });
+      persist((t) => ({ ...t, notes: t.notes.filter((n) => n.id !== id) }));
     },
-    [timeline, persist],
+    [persist],
   );
 
   // What the preview pane renders: selected file, else README.
