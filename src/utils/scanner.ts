@@ -107,9 +107,10 @@ export async function scanRepos(root: string): Promise<Repo[]> {
         const isRepo = await exists(gitPath);
         if (!isRepo) return null;
 
-        const [branch, dirty] = await Promise.all([
+        const [branch, dirty, remoteUrl] = await Promise.all([
           getBranch(subdirPath),
           getDirty(subdirPath),
+          getRemoteUrl(subdirPath),
         ]);
 
         return {
@@ -118,6 +119,7 @@ export async function scanRepos(root: string): Promise<Repo[]> {
           branch,
           dirty,
           prCount: 0,
+          remoteUrl,
         };
       }),
   );
