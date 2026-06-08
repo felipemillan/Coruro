@@ -35,6 +35,7 @@ import { isViewActive } from '../view';
 import { RepoCard } from './RepoCard';
 import { RepoDetail } from './RepoDetail';
 import { Toolbar } from './Toolbar';
+import { AiBanner } from './AiBanner';
 
 /** Human-readable column headers, keyed by ColumnId. */
 const COLUMN_LABELS: Record<ColumnId, string> = {
@@ -106,6 +107,7 @@ export function Board() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <Toolbar />
+      <AiBanner />
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="grid grid-cols-5 gap-4 p-4 flex-1 min-h-0">
