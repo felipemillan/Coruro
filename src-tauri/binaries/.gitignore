@@ -1,0 +1,4 @@
+# The AI sidecar binary is a build artifact — produced by
+# scripts/build-ai-sidecar.sh, never committed. Keep this directory tracked.
+*
+!.gitignore
