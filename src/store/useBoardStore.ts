@@ -28,12 +28,15 @@ import {
   type ColumnId,
   type Repo,
   type RepoGitHub,
+  type AiCacheEntry,
+  type AiResult,
   COLUMN_IDS,
   createEmptyAppState,
 } from '../types';
 import { scanRepos } from '../utils/scanner';
 import { parseRemote, fetchRepoCard } from '../utils/github';
 import { readRepoNotes, writeRepoNotes } from '../utils/notesFile';
+import { buildAiContext, inputHash } from '../utils/aiContext';
 
 /** Filename written under the user's home directory. */
 const STATE_FILE = '.repo_dashboard_state.json';
@@ -48,6 +51,10 @@ interface BoardStore extends AppState {
   loaded: boolean;
   /** Runtime-only: message from the most recent failed scan, else null. */
   lastScanError: string | null;
+  /** Runtime-only: repo paths currently being analysed by the AI sidecar. */
+  analyzingPaths: Set<string>;
+  /** Runtime-only: reason Apple Intelligence is unavailable this session, else null. */
+  aiUnavailableReason: string | null;
 
   /** Read state from disk (or initialise defaults if the file is missing). */
   load: () => Promise<void>;
@@ -89,6 +96,16 @@ interface BoardStore extends AppState {
   /** Recompute ahead/behind for one repo (after a fetch). Runtime-only. */
   enrichGitOne: (path: string) => Promise<void>;
 
+  /**
+   * Serially analyse the current runtime repos with the on-device AI sidecar,
+   * skipping repos whose cached inputHash is still fresh. Persists results and
+   * stops the queue if Apple Intelligence reports unavailable.
+   */
+  enrichAi: () => Promise<void>;
+
+  /** Force a (re)analysis of a single repo (per-card AI button). */
+  enrichAiOne: (path: string) => Promise<void>;
+
   /** Set the auto-refresh interval (minutes; 0 = off) and persist. */
   setRefreshInterval: (min: number) => Promise<void>;
 
@@ -114,6 +131,7 @@ function serialise(state: AppState): string {
     board: state.board,
     repoMetadata: state.repoMetadata,
     ghCache: state.ghCache,
+    aiCache: state.aiCache,
   };
   return JSON.stringify(snapshot, null, 2);
 }
@@ -200,7 +218,23 @@ function validateAppState(raw: unknown): AppState {
     }
   }
 
-  return { settings, board, repoMetadata, ghCache };
+  // aiCache: keep only well-shaped entries; drop anything malformed.
+  const aiCache = base.aiCache;
+  const rawAi = (parsed as { aiCache?: unknown }).aiCache;
+  if (rawAi && typeof rawAi === 'object') {
+    for (const [key, entry] of Object.entries(rawAi as Record<string, unknown>)) {
+      const e = entry as Partial<Record<string, unknown>>;
+      if (e && typeof e.summary === 'string' && Array.isArray(e.tags) &&
+          typeof e.inputHash === 'string' && typeof e.analyzedAt === 'string') {
+        aiCache[key] = {
+          summary: e.summary, tags: (e.tags as string[]), model: typeof e.model === 'string' ? e.model : 'unknown',
+          analyzedAt: e.analyzedAt, inputHash: e.inputHash,
+        };
+      }
+    }
+  }
+
+  return { settings, board, repoMetadata, ghCache, aiCache };
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
@@ -208,6 +242,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   repos: [],
   loaded: false,
   lastScanError: null,
+  analyzingPaths: new Set(),
+  aiUnavailableReason: null,
 
   load: async () => {
     try {
@@ -225,6 +261,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           board: state.board,
           repoMetadata: state.repoMetadata,
           ghCache: state.ghCache,
+          aiCache: state.aiCache,
           loaded: true,
         });
       } else {
@@ -245,8 +282,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (!get().loaded) return Promise.resolve();
     // Serialise the snapshot now (synchronously), but commit the disk write
     // through writeChain so concurrent saves never interleave partial writes.
-    const { settings, board, repoMetadata, ghCache } = get();
-    const payload = serialise({ settings, board, repoMetadata, ghCache });
+    const { settings, board, repoMetadata, ghCache, aiCache } = get();
+    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache });
     writeChain = writeChain.then(() =>
       writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),
     );
@@ -325,7 +362,16 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     // the background refresh resolves. Also prune cache entries for repos that
     // no longer exist, so the file can't grow without bound.
     const cache = get().ghCache;
-    const hydrated = repos.map((r) => ({ ...r, gh: cache[r.path]?.gh ?? null }));
+    const aiCache = get().aiCache;
+    const hydrated = repos.map((r) => {
+      const ai = aiCache[r.path];
+      return {
+        ...r,
+        gh: cache[r.path]?.gh ?? null,
+        aiSummary: ai?.summary ?? null,
+        aiTags: ai?.tags ?? null,
+      };
+    });
     get().setRepos(hydrated);
     set(() => {
       const valid = new Set(repos.map((r) => r.path));
@@ -378,6 +424,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     // each resolves. GitHub data over the network; ahead/behind from local git.
     void get().enrichGitHub();
     void get().enrichGit();
+    void get().enrichAi();
   },
 
   enrichGitHub: async () => {
@@ -532,6 +579,76 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           : r,
       ),
     }));
+  },
+
+  enrichAi: async () => {
+    const targets = get().repos;
+    for (const repo of targets) {
+      // Skip if Apple Intelligence already reported unavailable this session.
+      if (get().aiUnavailableReason !== null) break;
+      const ctx = await buildAiContext(repo);
+      const hash = inputHash(ctx);
+      const cached = get().aiCache[repo.path];
+      if (cached && cached.inputHash === hash) continue; // fresh — skip
+
+      set((s) => ({ analyzingPaths: new Set(s.analyzingPaths).add(repo.path) }));
+      let result: AiResult;
+      try {
+        const raw = await invoke<string>('ai_analyze', { context: ctx });
+        result = JSON.parse(raw) as AiResult;
+      } catch {
+        result = { ok: false, error: 'generation' };
+      }
+      set((s) => {
+        const next = new Set(s.analyzingPaths); next.delete(repo.path);
+        return { analyzingPaths: next };
+      });
+
+      if (result.ok && result.summary) {
+        const entry: AiCacheEntry = {
+          summary: result.summary, tags: result.tags ?? [], model: result.model ?? 'unknown',
+          analyzedAt: new Date().toISOString(), inputHash: hash,
+        };
+        set((s) => ({
+          aiCache: { ...s.aiCache, [repo.path]: entry },
+          repos: s.repos.map((r) =>
+            r.path === repo.path ? { ...r, aiSummary: entry.summary, aiTags: entry.tags } : r),
+        }));
+        void get().save();
+      } else if (result.error === 'unavailable') {
+        set({ aiUnavailableReason: result.reason ?? 'unavailable' });
+        break; // stop the queue — no point continuing this session
+      }
+      // other errors: skip this repo, continue.
+    }
+  },
+
+  enrichAiOne: async (path) => {
+    const repo = get().repos.find((r) => r.path === path);
+    if (!repo) return;
+    const ctx = await buildAiContext(repo);
+    const hash = inputHash(ctx);
+    set((s) => ({ analyzingPaths: new Set(s.analyzingPaths).add(path) }));
+    let result: AiResult;
+    try {
+      result = JSON.parse(await invoke<string>('ai_analyze', { context: ctx })) as AiResult;
+    } catch {
+      result = { ok: false, error: 'generation' };
+    }
+    set((s) => { const n = new Set(s.analyzingPaths); n.delete(path); return { analyzingPaths: n }; });
+    if (result.ok && result.summary) {
+      const entry: AiCacheEntry = {
+        summary: result.summary, tags: result.tags ?? [], model: result.model ?? 'unknown',
+        analyzedAt: new Date().toISOString(), inputHash: hash,
+      };
+      set((s) => ({
+        aiCache: { ...s.aiCache, [path]: entry },
+        repos: s.repos.map((r) => (r.path === path ? { ...r, aiSummary: entry.summary, aiTags: entry.tags } : r)),
+      }));
+      void get().save();
+    } else if (result.error === 'unavailable') {
+      set({ aiUnavailableReason: result.reason ?? 'unavailable' });
+    }
   },
 
   setDebugBannerEnabled: async (enabled) => {
