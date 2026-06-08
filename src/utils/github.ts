@@ -1,5 +1,5 @@
 /**
- * GitHub utility helpers for MyGITdash.
+ * GitHub utility helpers for Coruro.
  *
  * Exports:
  *  - `parseRemote`   — extracts {owner, repo} from a git remote URL

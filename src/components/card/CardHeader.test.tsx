@@ -6,14 +6,14 @@ describe('CardHeader', () => {
   it('renders language label and watermark initials', () => {
     const html = renderToStaticMarkup(
       <CardHeader
-        name="MyGITdash"
+        name="Coruro"
         language="Rust"
         sync={{ dirty: false, ahead: 0, behind: 0, ciStatus: 'none' }}
       />,
     );
     expect(html).toContain('Rust');
     // Watermark initials = first two letters of name, uppercased.
-    expect(html).toContain('MY');
+    expect(html).toContain('CO');
   });
 
   it('omits language label when language is null', () => {

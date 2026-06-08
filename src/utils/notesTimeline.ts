@@ -1,7 +1,7 @@
-// notesTimeline.ts — per-repo notes timeline persisted to mygitdash_notes.json.
+// notesTimeline.ts — per-repo notes timeline persisted to coruro_notes.json.
 //
 // The JSON file is the source of truth. On every write we ALSO regenerate
-// mygitdash_notes.md (a rendered, git-friendly export) so notes travel with
+// coruro_notes.md (a rendered, git-friendly export) so notes travel with
 // the repo and render on GitHub. Pure functions (render/seed/parse/factory)
 // are unit-tested; the fs wrappers are thin and verified by running the app.
 
@@ -11,7 +11,7 @@ import { NOTES_FILENAME as LEGACY_MD_FILENAME } from './notesFile';
 import type { NotesTimeline, TimelineNote, NoteType } from '../types';
 
 /** Filename for the JSON timeline, written into each repo root. */
-export const TIMELINE_FILENAME = 'mygitdash_notes.json';
+export const TIMELINE_FILENAME = 'coruro_notes.json';
 
 /** Display label (emoji + word) per note type — used in the .md export and UI. */
 export const TYPE_LABEL: Record<NoteType, string> = {
@@ -57,7 +57,7 @@ export function parseTimeline(raw: string): NotesTimeline {
     (data as { version?: unknown }).version !== 1 ||
     !Array.isArray((data as { notes?: unknown }).notes)
   ) {
-    throw new Error('Invalid mygitdash_notes.json shape');
+    throw new Error('Invalid coruro_notes.json shape');
   }
   return data as NotesTimeline;
 }
@@ -76,7 +76,7 @@ export async function readTimeline(repoPath: string): Promise<NotesTimeline | nu
 
 /**
  * Persist the timeline: write the JSON (source of truth) AND regenerate
- * mygitdash_notes.md as a rendered export. Writing both flips the repo's
+ * coruro_notes.md as a rendered export. Writing both flips the repo's
  * dirty badge until committed — expected, the point is to commit notes.
  */
 export async function writeTimeline(
@@ -91,7 +91,7 @@ export async function writeTimeline(
 }
 
 /**
- * One-time migration: if no JSON exists but a legacy mygitdash_notes.md has
+ * One-time migration: if no JSON exists but a legacy coruro_notes.md has
  * non-empty content, return a timeline seeded from it. Returns null when there
  * is nothing to migrate. Does NOT write — the caller persists it.
  */

@@ -1,4 +1,4 @@
-// Board.tsx — the five-column Kanban surface for MyGITdash.
+// Board.tsx — the five-column Kanban surface for Coruro.
 //
 // Columns: Inbox / Backlog / Active / Review / Done (order from COLUMN_IDS).
 // Drag-and-drop is powered by @hello-pangea/dnd:

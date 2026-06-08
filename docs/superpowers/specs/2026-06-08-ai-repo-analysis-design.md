@@ -66,7 +66,7 @@ scan completes
   → store.enrichAi(): for each repo where aiCache miss or inputHash changed
       → buildAiContext(repo)              [src/utils/aiContext.ts, bounded]
       → invoke('ai_analyze', { context })  [Rust command]
-          → app.shell().sidecar("mygitdash-ai")    spawn
+          → app.shell().sidecar("coruro-ai")    spawn
           → write context JSON to stdin
           → Swift: check availability → LanguageModelSession.respond(generating:)
           → read {ok, summary, tags} | {ok:false, error, reason} from stdout
@@ -76,7 +76,7 @@ scan completes
 Queue is **serial** (concurrency 1): the on-device model handles one request at a
 time and first-run incurs model load. New scans cancel an in-flight queue.
 
-## 4. Swift sidecar `mygitdash-ai`
+## 4. Swift sidecar `coruro-ai`
 
 A standalone SPM executable (`Package.swift`, `platforms: [.macOS("26.0")]`).
 Reads one JSON request from stdin, writes one JSON response to stdout, exits.
@@ -84,7 +84,7 @@ Reads one JSON request from stdin, writes one JSON response to stdout, exits.
 **Request (stdin):**
 ```json
 {
-  "repoName": "MyGITdash",
+  "repoName": "Coruro",
   "description": "Git dashboard, Tauri + React",
   "languages": ["Rust", "TypeScript"],
   "recentCommits": ["feat(card): ...", "fix(store): ...", "..."],
@@ -149,14 +149,14 @@ fixed valid success JSON. Lets the Rust/JS contract and bundling be tested on an
 machine (incl. CI without Apple Intelligence).
 
 **Build:** `swift build -c release` (arm64). Copy the product to
-`src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin`. A `scripts/build-ai-sidecar.sh`
+`src-tauri/binaries/coruro-ai-aarch64-apple-darwin`. A `scripts/build-ai-sidecar.sh`
 wraps build + rename. arm64-only is acceptable (Apple Intelligence is
 Apple-Silicon-only anyway).
 
 ## 5. Rust commands
 
 **`ai_analyze`** (new, `src-tauri/src/commands.rs`, needs `AppHandle` + shell):
-- Input: the context struct (serde). Spawn `mygitdash-ai` sidecar, write JSON to
+- Input: the context struct (serde). Spawn `coruro-ai` sidecar, write JSON to
   stdin, collect stdout, parse, return a typed result enum to JS.
 - 30s timeout → `{ ok:false, error:"timeout" }`-equivalent. Sidecar-missing →
   `error:"sidecar_missing"`.
@@ -232,14 +232,14 @@ store, not persisted). On completion the real summary replaces it. Optional smal
 ## 10. Build / distribution
 
 - Local dev: `scripts/build-ai-sidecar.sh` builds + places the arm64 binary;
-  `tauri.conf.json` `bundle.externalBin` references `binaries/mygitdash-ai`.
-  Capabilities: allow the shell `sidecar` permission for `mygitdash-ai`.
+  `tauri.conf.json` `bundle.externalBin` references `binaries/coruro-ai`.
+  Capabilities: allow the shell `sidecar` permission for `coruro-ai`.
 - Distribution (later): Developer-ID sign + notarize the bundle incl. sidecar.
   Out of scope for this cycle's acceptance (dev-run is the bar).
 
 ## 11. Testing
 
-- **Swift sidecar:** a shell test invoking `mygitdash-ai --selftest` asserts the
+- **Swift sidecar:** a shell test invoking `coruro-ai --selftest` asserts the
   success JSON contract. (Model output itself is non-deterministic and
   device-gated — not unit-tested.)
 - **Rust `ai_analyze`:** test request/response serde + error mapping using the
@@ -257,7 +257,7 @@ store, not persisted). On completion the real summary replaces it. Optional smal
 Model tier per task complexity.
 
 **Phase 1 — Swift sidecar** (novel, highest risk):
-- `Package.swift`, `Sources/mygitdash-ai/main.swift` (availability, session,
+- `Package.swift`, `Sources/coruro-ai/main.swift` (availability, session,
   `@Generable`, `--selftest`), `scripts/build-ai-sidecar.sh`, build the binary —
   agent: backend-developer — model: **opus** (novel API, no codebase precedent).
 
@@ -277,7 +277,7 @@ Model tier per task complexity.
   ui-designer — **sonnet**.
 
 **Phase 5 — Verify** (adversarial):
-- `npm test` + `npm run build` + `cargo build` + `mygitdash-ai --selftest`
+- `npm test` + `npm run build` + `cargo build` + `coruro-ai --selftest`
   contract — general — **sonnet**.
 - Code review (queue cancellation correctness, token-budget caps, error paths) —
   code-reviewer — **opus**.
