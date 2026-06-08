@@ -51,7 +51,12 @@ function isColumnId(value: string): value is ColumnId {
   return (COLUMN_IDS as readonly string[]).includes(value);
 }
 
-export function Board() {
+interface BoardProps {
+  /** Forwarded to the Toolbar's settings gear; state lives in App. */
+  onOpenSettings: () => void;
+}
+
+export function Board({ onOpenSettings }: BoardProps) {
   const board = useBoardStore((s) => s.board);
   const repos = useBoardStore((s) => s.repos);
   const moveCard = useBoardStore((s) => s.moveCard);
@@ -106,7 +111,7 @@ export function Board() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <Toolbar />
+      <Toolbar onOpenSettings={onOpenSettings} />
       <AiBanner />
 
       <DragDropContext onDragEnd={onDragEnd}>
