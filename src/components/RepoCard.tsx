@@ -9,7 +9,7 @@
 // Both are produced by deriveCardData — later AI cycles just populate fields.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, ExternalLink, TerminalSquare, RefreshCw, Lock, GitFork, Archive } from 'lucide-react';
+import { Code2, FolderOpen, FileText, ExternalLink, TerminalSquare, RefreshCw, Lock, GitFork, Archive, Sparkles } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { safeOpenUrl } from '../utils/openUrl';
@@ -31,6 +31,8 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
   const terminalApp = useBoardStore((s) => s.settings.terminalApp);
   const setDetail = useViewStore((s) => s.setDetail);
   const enrichOne = useBoardStore((s) => s.enrichOne);
+  const analyzing = useBoardStore((s) => s.analyzingPaths.has(repo.path));
+  const enrichAiOne = useBoardStore((s) => s.enrichAiOne);
 
   const [openError, setOpenError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -107,6 +109,11 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           </div>
         </div>
 
+        {analyzing && !d.description && (
+          <p className="text-[12px] text-navy-light leading-snug flex items-center gap-1">
+            <Sparkles size={11} strokeWidth={2} className="animate-pulse" /> analyzing…
+          </p>
+        )}
         {d.description && (
           <p className="text-[12px] text-navy leading-snug border-l-2 border-terracotta pl-2 line-clamp-2">
             {d.description}
@@ -137,6 +144,10 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
 
       {/* Action row */}
       <div className="flex items-center justify-end gap-1 border-t border-navy/10 px-2 py-1">
+        <button type="button" onClick={() => { void enrichAiOne(repo.path); }} disabled={analyzing}
+          className={`${iconBtn} disabled:opacity-50`} title="Analyze with Apple Intelligence" aria-label="Analyze with AI">
+          <Sparkles size={14} strokeWidth={1.75} className={analyzing ? 'animate-pulse' : ''} />
+        </button>
         <button type="button" onClick={() => { void refreshGitHub(); }} disabled={refreshing}
           className={`${iconBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
           title="Refresh GitHub data" aria-label="Refresh GitHub data">
