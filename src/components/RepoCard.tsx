@@ -1,58 +1,28 @@
-// RepoCard.tsx — Kanban card for a single repository.
+// RepoCard.tsx — editorial information-dashboard card for one repository.
 //
-// Displays: repo name, current branch, dirty/clean badge, GitHub badges
-// (CI status, open issues, stars, latest release, private/archived), and
-// three icon buttons (detail modal, editor, Finder). Notes live in the
-// detail modal's timeline.
+// Composes: CardHeader (lang tint + sync glance), an identity block
+// (handle / name / description / tags), an adaptive StatGrid, and an action
+// row. All display data is derived by repoStats; this file wires behavior.
 //
-// Design contract: rounded-none, indie pastel / Wes Anderson palette.
-// Arg arrays only — no shell string interpolation.
+// AI-ready: description renders repo.aiSummary when present (else GitHub
+// description); tags render repo.aiTags when present (else GitHub topics).
+// Both are produced by deriveCardData — later AI cycles just populate fields.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, Star, CircleDot, Tag, Eye, ExternalLink, TerminalSquare, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
+import { Code2, FolderOpen, FileText, ExternalLink, TerminalSquare, RefreshCw, Lock, GitFork, Archive } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
-import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
+import { safeOpenUrl } from '../utils/openUrl';
 import { useBoardStore } from '../store/useBoardStore';
 import { useViewStore } from '../store/useViewStore';
-import type { Repo, CiStatus } from '../types';
+import { deriveCardData } from '../utils/repoStats';
+import { CardHeader } from './card/CardHeader';
+import { StatGrid } from './card/StatGrid';
+import type { Repo } from '../types';
 
 interface RepoCardProps {
   repo: Repo;
   selected?: boolean;
-}
-
-/** Compact relative age like "3d" / "5h" / "2w" from an ISO timestamp. */
-function relativeAge(iso: string): string {
-  if (iso === '') return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const sec = Math.max(0, (Date.now() - then) / 1000);
-  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
-  if (sec < 604800) return `${Math.floor(sec / 86400)}d`;
-  if (sec < 2629800) return `${Math.floor(sec / 604800)}w`;
-  return `${Math.floor(sec / 2629800)}mo`;
-}
-
-/** Tailwind text color for staleness based on an ISO push date. */
-function staleColor(iso: string): string {
-  if (iso === '') return 'text-navy-light';
-  const days = (Date.now() - new Date(iso).getTime()) / 86400000;
-  if (Number.isNaN(days)) return 'text-navy-light';
-  if (days < 30) return 'text-sage';
-  if (days <= 90) return 'text-navy-light';
-  return 'text-amber-500';
-}
-
-/** Tailwind text color for a CI dot. Returns null when no CI to show. */
-function ciColor(status: CiStatus): string | null {
-  switch (status) {
-    case 'success': return 'text-sage';
-    case 'failure': return 'text-terracotta';
-    case 'pending': return 'text-amber-500';
-    case 'none': return null;
-  }
 }
 
 export function RepoCard({ repo, selected = false }: RepoCardProps) {
@@ -65,14 +35,13 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
   const [openError, setOpenError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const d = deriveCardData(repo);
+  const htmlUrl = repo.gh?.htmlUrl ?? null;
+
   async function openInEditor() {
     setOpenError(null);
     try {
-      await invoke('open_in_editor', {
-        command: editorCommand,
-        app: editorApp,
-        path: repo.path,
-      });
+      await invoke('open_in_editor', { command: editorCommand, app: editorApp, path: repo.path });
     } catch (e: unknown) {
       setOpenError(e instanceof Error ? e.message : String(e));
     }
@@ -81,10 +50,7 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
   async function openInTerminal() {
     setOpenError(null);
     try {
-      await invoke('open_in_terminal', {
-        app: terminalApp,
-        path: repo.path,
-      });
+      await invoke('open_in_terminal', { app: terminalApp, path: repo.path });
     } catch (e: unknown) {
       setOpenError(e instanceof Error ? e.message : String(e));
     }
@@ -104,201 +70,101 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
     }
   }
 
-  const gh = repo.gh ?? null;
-  const ci = gh ? ciColor(gh.ciStatus) : null;
+  const iconBtn =
+    'p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors';
 
   return (
     <article
       className={[
-        'bg-warm-gray border p-3 flex flex-col gap-2 shadow-sm transition-shadow rounded-xl',
+        'bg-white border flex flex-col shadow-sm transition-shadow rounded-xl overflow-hidden',
+        d.stale ? 'opacity-70' : '',
         selected ? 'border-sage ring-2 ring-sage' : 'border-navy/10',
       ].join(' ')}
       data-path={repo.path}
     >
-      {/* ── Header row: name + action buttons ── */}
-      <div className="flex items-start justify-between gap-2">
-        <h3
-          className="text-navy font-semibold text-sm leading-tight break-all"
-          title={repo.path}
-        >
-          {repo.name}
-        </h3>
+      <CardHeader name={d.name} language={d.language} sync={d.sync} />
 
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => { void refreshGitHub(); }}
-            disabled={refreshing}
-            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Refresh GitHub data"
-            aria-label="Refresh GitHub data"
-          >
-            <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'animate-spin' : ''} />
-          </button>
-
-          {gh?.htmlUrl && (
-            <button
-              type="button"
-              onClick={() => { if (gh.htmlUrl) void safeOpenUrl(gh.htmlUrl); }}
-              className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
-              title="Open on GitHub"
-              aria-label="Open repository on GitHub"
+      {/* Identity block */}
+      <div className="px-3 pt-2 pb-2 flex flex-col gap-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {d.handle && (
+              <p className="text-[10px] font-bold tracking-wider text-navy-light uppercase truncate">
+                {d.handle}
+              </p>
+            )}
+            <h3
+              className="text-navy font-bold text-base leading-tight tracking-tight break-words"
+              title={repo.path}
             >
-              <ExternalLink size={14} strokeWidth={1.75} />
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setDetail(repo.path)}
-            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
-            title="View README & files"
-            aria-label="View README and files"
-          >
-            <FileText size={14} strokeWidth={1.75} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { void openInEditor(); }}
-            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
-            title={`Open in IDE (${editorCommand || editorApp})`}
-            aria-label="Open in IDE"
-          >
-            <Code2 size={14} strokeWidth={1.75} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { void openInTerminal(); }}
-            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
-            title={`Open in terminal (${terminalApp})`}
-            aria-label="Open in terminal"
-          >
-            <TerminalSquare size={14} strokeWidth={1.75} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { void revealInFinder(); }}
-            className="p-1 rounded-full text-navy-light hover:text-sage hover:bg-navy/8 transition-colors"
-            title="Reveal in Finder"
-            aria-label="Reveal in Finder"
-          >
-            <FolderOpen size={14} strokeWidth={1.75} />
-          </button>
+              {d.name}
+            </h3>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0 text-navy-light">
+            {d.isPrivate && <Lock size={12} strokeWidth={2} aria-label="Private" />}
+            {d.isFork && <GitFork size={12} strokeWidth={2} aria-label="Fork" />}
+            {d.isArchived && <Archive size={12} strokeWidth={2} aria-label="Archived" />}
+          </div>
         </div>
+
+        {d.description && (
+          <p className="text-[12px] text-navy leading-snug border-l-2 border-terracotta pl-2 line-clamp-2">
+            {d.description}
+          </p>
+        )}
+
+        {d.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {d.tags.slice(0, 4).map((t) => (
+              <span
+                key={t}
+                className="text-[9px] font-medium px-1.5 py-0.5 bg-dusty-pink/30 text-navy-light rounded-full leading-none"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Editor-launch error */}
+      <StatGrid stats={d.displayStats} />
+
       {openError !== null && (
-        <p className="text-[11px] text-terracotta leading-snug" role="alert">
+        <p className="text-[11px] text-terracotta leading-snug px-3 py-1" role="alert">
           {openError}
         </p>
       )}
 
-      {/* ── Meta row: branch + dirty badge ── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-navy-light text-xs font-mono truncate max-w-[120px]">
-          {repo.branch}
-        </span>
-
-        <span
-          className={[
-            'text-xs px-1.5 py-0.5 font-medium leading-none rounded-full',
-            repo.dirty ? 'bg-terracotta/20 text-terracotta' : 'bg-sage/20 text-sage',
-          ].join(' ')}
-          aria-label={repo.dirty ? 'Uncommitted changes' : 'Working tree clean'}
-        >
-          {repo.dirty ? 'dirty' : 'clean'}
-        </span>
-
-        {((repo.ahead ?? 0) > 0 || (repo.behind ?? 0) > 0) && (
-          <span className="flex items-center gap-1.5 text-xs leading-none rounded-full" title="Ahead / behind upstream">
-            {(repo.ahead ?? 0) > 0 && (
-              <span className="flex items-center gap-0.5 text-sage">
-                <ArrowUp size={11} strokeWidth={2} />{repo.ahead}
-              </span>
-            )}
-            {(repo.behind ?? 0) > 0 && (
-              <span className="flex items-center gap-0.5 text-amber-500">
-                <ArrowDown size={11} strokeWidth={2} />{repo.behind}
-              </span>
-            )}
-          </span>
+      {/* Action row */}
+      <div className="flex items-center justify-end gap-1 border-t border-navy/10 px-2 py-1">
+        <button type="button" onClick={() => { void refreshGitHub(); }} disabled={refreshing}
+          className={`${iconBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
+          title="Refresh GitHub data" aria-label="Refresh GitHub data">
+          <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+        {htmlUrl && (
+          <button type="button" onClick={() => { void safeOpenUrl(htmlUrl); }}
+            className={iconBtn} title="Open on GitHub" aria-label="Open repository on GitHub">
+            <ExternalLink size={14} strokeWidth={1.75} />
+          </button>
         )}
-
-        {gh?.isPrivate && (
-          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none rounded-full">
-            private
-          </span>
-        )}
-        {gh?.archived && (
-          <span className="text-xs px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none rounded-full">
-            archived
-          </span>
-        )}
+        <button type="button" onClick={() => setDetail(repo.path)}
+          className={iconBtn} title="View README & files" aria-label="View README and files">
+          <FileText size={14} strokeWidth={1.75} />
+        </button>
+        <button type="button" onClick={() => { void openInEditor(); }}
+          className={iconBtn} title={`Open in IDE (${editorCommand || editorApp})`} aria-label="Open in IDE">
+          <Code2 size={14} strokeWidth={1.75} />
+        </button>
+        <button type="button" onClick={() => { void openInTerminal(); }}
+          className={iconBtn} title={`Open in terminal (${terminalApp})`} aria-label="Open in terminal">
+          <TerminalSquare size={14} strokeWidth={1.75} />
+        </button>
+        <button type="button" onClick={() => { void revealInFinder(); }}
+          className={iconBtn} title="Reveal in Finder" aria-label="Reveal in Finder">
+          <FolderOpen size={14} strokeWidth={1.75} />
+        </button>
       </div>
-
-      {/* ── GitHub badges row (only when enriched) ── */}
-      {gh && (
-        <div className="flex items-center gap-3 flex-wrap text-[11px] text-navy-light">
-          {ci !== null && (
-            <span className={`flex items-center gap-1 ${ci}`} title={`CI: ${gh.ciStatus}`}>
-              <CircleDot size={11} strokeWidth={2} />
-              CI
-            </span>
-          )}
-          {gh.prCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-dusty-pink/30 text-navy-light font-medium leading-none rounded-full">
-              {gh.prCount} PR{gh.prCount === 1 ? '' : 's'}
-            </span>
-          )}
-          {gh.openIssues > 0 && (
-            <span title="Open issues">
-              {gh.openIssues} issue{gh.openIssues === 1 ? '' : 's'}
-            </span>
-          )}
-          {gh.stars > 0 && (
-            <span className="flex items-center gap-0.5" title="Stars">
-              <Star size={11} strokeWidth={1.75} /> {gh.stars}
-            </span>
-          )}
-          {gh.latestRelease && (
-            <span className="flex items-center gap-1 font-mono" title={`Latest release ${gh.latestRelease.tag}`}>
-              <Tag size={11} strokeWidth={1.75} />
-              {gh.latestRelease.tag}
-              {relativeAge(gh.latestRelease.publishedAt) && ` · ${relativeAge(gh.latestRelease.publishedAt)}`}
-            </span>
-          )}
-          {relativeAge(gh.pushedAt) && (
-            <span className={staleColor(gh.pushedAt)} title={`Last push ${gh.pushedAt}`}>
-              updated {relativeAge(gh.pushedAt)}
-            </span>
-          )}
-          {gh.fork && (
-            <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none rounded-full">
-              fork
-            </span>
-          )}
-          {gh.watchers > 0 && (
-            <span className="flex items-center gap-0.5" title="Watchers">
-              <Eye size={11} strokeWidth={1.75} /> {gh.watchers}
-            </span>
-          )}
-          {gh.homepage && (
-            <button
-              type="button"
-              onClick={() => { if (gh.homepage) void safeOpenUrl(gh.homepage); }}
-              className="flex items-center gap-0.5 text-navy-light hover:text-sage transition-colors cursor-pointer"
-              title={`Homepage: ${gh.homepage}`}
-              aria-label="Open homepage"
-            >
-              <ExternalLink size={11} strokeWidth={1.75} /> site
-            </button>
-          )}
-        </div>
-      )}
     </article>
   );
 }

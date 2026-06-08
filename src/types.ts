@@ -133,6 +133,16 @@ export interface Repo {
   ahead?: number | null;
   /** Commits behind upstream (runtime; null = no upstream / not computed). */
   behind?: number | null;
+  /** Total commits on HEAD (runtime; from git_local_stats). */
+  commitCount?: number | null;
+  /** Last commit time, ISO 8601 (runtime; null on empty repo). */
+  lastCommitAt?: string | null;
+  /** Local branch count (runtime; from git_local_stats). */
+  branchCount?: number | null;
+  /** AI-generated one-line summary; populated by a later AI cycle. */
+  aiSummary?: string | null;
+  /** AI-generated topic tags; populated by a later AI cycle. */
+  aiTags?: string[] | null;
 }
 
 /** Factory for a fresh, empty app state matching PRD §6 (minus raw token). */
