@@ -6,6 +6,9 @@
 
 use keyring::{Entry, Error as KeyringError};
 use std::process::Command;
+use std::time::Duration;
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandEvent;
 
 const KEYRING_SERVICE: &str = "repo_dashboard";
 const KEYRING_USER: &str = "github_pat";
@@ -225,5 +228,97 @@ mod local_stats_tests {
         assert!(commits >= 1, "expected at least one commit, got {commits}");
         assert!(last.is_some(), "expected a last-commit timestamp");
         assert!(branches >= 1, "expected at least one branch, got {branches}");
+    }
+}
+
+/// Last N commit subject lines (`git -C <path> log -n <n> --format=%s`).
+/// Returns an empty vec on any failure so a single odd repo never breaks scan.
+#[tauri::command]
+pub fn git_recent_commits(path: String, count: u32) -> Result<Vec<String>, String> {
+    let out = Command::new("git")
+        .args(["-C", &path, "log", "-n", &count.to_string(), "--format=%s"])
+        .output();
+    let subjects = out
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .map(|l| l.to_string())
+                .filter(|l| !l.trim().is_empty())
+                .collect::<Vec<String>>()
+        })
+        .unwrap_or_default();
+    Ok(subjects)
+}
+
+#[cfg(test)]
+mod recent_commits_tests {
+    use super::*;
+    #[test]
+    fn lists_subjects_for_this_repo() {
+        let subjects = git_recent_commits(env!("CARGO_MANIFEST_DIR").to_string(), 5).unwrap();
+        assert!(!subjects.is_empty(), "expected at least one commit subject");
+    }
+}
+
+/// Request shape mirrors src/types.ts AiContext (serde camelCase).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiContext {
+    repo_name: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    languages: Vec<String>,
+    #[serde(default)]
+    recent_commits: Vec<String>,
+    #[serde(default)]
+    top_entries: Vec<String>,
+    #[serde(default)]
+    readme: Option<String>,
+}
+
+/// Spawn the mygitdash-ai sidecar, pipe the context JSON to stdin, and return
+/// the sidecar's JSON line verbatim (a string the JS layer parses into AiResult).
+/// On spawn/timeout failure returns a synthetic error JSON so the caller always
+/// gets a well-formed AiResult.
+#[tauri::command]
+pub async fn ai_analyze(app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
+    let payload = serde_json::to_vec(&serde_json::json!({
+        "repoName": context.repo_name,
+        "description": context.description,
+        "languages": context.languages,
+        "recentCommits": context.recent_commits,
+        "topEntries": context.top_entries,
+        "readme": context.readme,
+    })).map_err(|e| e.to_string())?;
+
+    let sidecar = match app.shell().sidecar("binaries/mygitdash-ai") {
+        Ok(c) => c,
+        Err(_) => return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()),
+    };
+    let (mut rx, mut child) = match sidecar.spawn() {
+        Ok(v) => v,
+        Err(_) => return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()),
+    };
+    if child.write(&payload).is_err() {
+        return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
+    }
+    let _ = child.write(b"\n");
+
+    let mut acc = String::new();
+    let collect = async {
+        while let Some(event) = rx.recv().await {
+            if let CommandEvent::Stdout(bytes) = event {
+                acc.push_str(&String::from_utf8_lossy(&bytes));
+            }
+        }
+        acc
+    };
+    match tokio::time::timeout(Duration::from_secs(30), collect).await {
+        Ok(out) if !out.trim().is_empty() => Ok(out.trim().to_string()),
+        Ok(_) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
     }
 }
