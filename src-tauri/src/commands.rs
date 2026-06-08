@@ -294,7 +294,7 @@ pub async fn ai_analyze(app: tauri::AppHandle, context: AiContext) -> Result<Str
         "readme": context.readme,
     })).map_err(|e| e.to_string())?;
 
-    let sidecar = match app.shell().sidecar("mygitdash-ai") {
+    let sidecar = match app.shell().sidecar("binaries/mygitdash-ai") {
         Ok(c) => c,
         Err(_) => return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()),
     };
