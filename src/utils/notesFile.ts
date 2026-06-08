@@ -1,6 +1,6 @@
-// notesFile.ts — read/write per-repo notes as an in-repo mygitdash_notes.md file.
+// notesFile.ts — read/write per-repo notes as an in-repo coruro_notes.md file.
 //
-// Notes live in `<repo>/mygitdash_notes.md` (plain markdown) so they travel
+// Notes live in `<repo>/coruro_notes.md` (plain markdown) so they travel
 // with the repository via git and render on GitHub. The dashboard-specific
 // filename avoids clobbering a project's own NOTES.md / README. The repo file
 // is the source of truth: read on every scan, overriding the central cache.
@@ -12,7 +12,7 @@ import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 
 /** Filename written into each repo's root. Dashboard-namespaced on purpose. */
-export const NOTES_FILENAME = 'mygitdash_notes.md';
+export const NOTES_FILENAME = 'coruro_notes.md';
 
 /**
  * Read a repo's NOTES.md. Returns the file contents, or null when the file

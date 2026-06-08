@@ -8,7 +8,7 @@
 
 ## 1. Context
 
-MyGITdash is a Tauri 2 + React 19 + Rust desktop app: a Kanban board of local git
+Coruro is a Tauri 2 + React 19 + Rust desktop app: a Kanban board of local git
 repos enriched with GitHub data. Cards currently render minimal repo info.
 
 This spec covers **only the card restyle** — reimagining each repo card as a compact
@@ -62,7 +62,7 @@ energy of a brutalist reference card, but with the soft M3 skin.
 │  ▓ MG (watermark)        │
 ├─────────────────────────┤
 │ @felipemillan            │  owner handle (parsed from remoteUrl)
-│ MyGITdash          🔒     │  name (condensed) + private/fork/archive icon
+│ Coruro          🔒     │  name (condensed) + private/fork/archive icon
 │ ▌Git dashboard, Tauri…   │  description ── AI-BIO SLOT
 │ [rust][tauri][cli]       │  topics chips ── AI-TAGS SLOT
 ├─────────────────────────┤

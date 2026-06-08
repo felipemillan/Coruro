@@ -1,13 +1,14 @@
-// App — root shell for MyGITdash.
+// App — root shell for Coruro.
 //
 // Responsibilities:
 //  1. Call store.load() on mount; show a minimal loader while !loaded.
 //  2. Render <Setup> when settings.rootDirectory is null (first run).
 //  3. Render <Board> once a root is configured.
-//  4. No top header bar. Settings open via the ⌘, shortcut or a small
-//     floating gear button pinned bottom-right. App owns the open state and
-//     passes it to the controlled <Settings> modal.
-//  5. An optional debug strip renders at the very top when enabled.
+//  4. A fixed top nav bar holds the app name and the Settings gear. The bar
+//     never scrolls; only the board columns scroll their own cards. Settings
+//     also opens via the ⌘, shortcut. App owns the open state and passes it to
+//     the controlled <Settings> modal.
+//  5. An optional debug strip renders just under the nav bar when enabled.
 
 import { useEffect, useState } from 'react';
 import { X, Settings as SettingsIcon } from 'lucide-react';
@@ -170,7 +171,29 @@ export default function App() {
   }, [loaded, rootDirectory, scanAndDistribute]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-cream text-navy">
+    <div className="flex flex-col h-screen overflow-hidden bg-cream text-navy">
+      {/* ── Top nav bar — fixed to the top; only the board columns scroll ── */}
+      <header className="shrink-0 flex items-center justify-between px-4 h-12 bg-cream/90 backdrop-blur-md border-b border-warm-gray z-30">
+        <span className="text-[13px] font-semibold tracking-wide text-navy select-none">
+          Coruro
+        </span>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Open settings"
+          title="Settings (⌘,)"
+          className="
+            flex items-center justify-center
+            w-8 h-8 rounded-full
+            text-navy-light hover:text-navy hover:bg-warm-gray
+            transition-colors duration-150
+            cursor-pointer
+          "
+        >
+          <SettingsIcon size={18} strokeWidth={1.5} />
+        </button>
+      </header>
+
       {/* Banner. Priority:
           1. Scan error — always shown (blocking), cannot be dismissed.
           2. Debug info — shown only while debugBannerEnabled; dismissible
@@ -199,7 +222,7 @@ export default function App() {
       ) : null}
 
       {/* ── Main content ──────────────────────────────────────── */}
-      <main className="flex flex-col flex-1">
+      <main className="flex flex-col flex-1 min-h-0">
         {!loaded ? (
           /* Loader — shown only until store.load() resolves */
           <div className="flex flex-1 items-center justify-center">
@@ -213,26 +236,6 @@ export default function App() {
           <Board />
         )}
       </main>
-
-      {/* Floating settings gear — bottom-right. Also openable via ⌘, */}
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        aria-label="Open settings"
-        title="Settings (⌘,)"
-        className="
-          fixed bottom-4 right-4 z-40
-          flex items-center justify-center
-          w-10 h-10 rounded-full
-          bg-cream/90 backdrop-blur-md
-          border border-warm-gray shadow-md
-          text-navy-light hover:text-navy hover:bg-warm-gray
-          transition-colors duration-150
-          cursor-pointer
-        "
-      >
-        <SettingsIcon size={18} strokeWidth={1.5} />
-      </button>
 
       {/* Controlled settings modal */}
       <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />

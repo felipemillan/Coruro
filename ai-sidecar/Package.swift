@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "mygitdash-ai",
+    name: "coruro-ai",
     platforms: [.macOS("26.0")],
     targets: [
-        .executableTarget(name: "mygitdash-ai", path: "Sources/mygitdash-ai")
+        .executableTarget(name: "coruro-ai", path: "Sources/coruro-ai")
     ]
 )

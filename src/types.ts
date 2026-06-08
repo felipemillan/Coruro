@@ -1,4 +1,4 @@
-// Shared contracts for MyGITdash.
+// Shared contracts for Coruro.
 // Strict TS, zero `any`, all exports. Everything imports from here.
 // Persisted JSON schema lives at ~/.repo_dashboard_state.json.
 // Raw GitHub token is NOT stored here — it lives in the macOS Keychain
@@ -224,7 +224,7 @@ export interface TimelineNote {
   createdAt: string; // ISO 8601 (new Date().toISOString())
 }
 
-/** Full shape persisted to <repo>/mygitdash_notes.json. */
+/** Full shape persisted to <repo>/coruro_notes.json. */
 export interface NotesTimeline {
   version: 1;
   notes: TimelineNote[];

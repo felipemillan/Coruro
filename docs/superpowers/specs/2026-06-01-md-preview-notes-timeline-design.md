@@ -11,12 +11,12 @@ Reshape the repo detail modal so that:
 1. The left pane lists **only markdown (`.md`) files**, recursively, and each is clickable.
 2. Clicking a `.md` file renders its preview in the **top** of the right pane (default: the repo README).
 3. The bottom of the right pane is a **notes timeline** — discrete, typed notes shown chat-style.
-4. A **New note** button appends a note. Notes persist to `<repo>/mygitdash_notes.json`.
-5. The legacy single-textarea `mygitdash_notes.md` is dropped as an editable field but is still **regenerated as a rendered export** of the timeline, so notes travel with the repo via git and render on GitHub.
+4. A **New note** button appends a note. Notes persist to `<repo>/coruro_notes.json`.
+5. The legacy single-textarea `coruro_notes.md` is dropped as an editable field but is still **regenerated as a rendered export** of the timeline, so notes travel with the repo via git and render on GitHub.
 
 ## Decisions (from brainstorming)
 
-- **Notes store:** JSON timeline is the source of truth (`<repo>/mygitdash_notes.json`). `mygitdash_notes.md` becomes a generated export, not an editable field.
+- **Notes store:** JSON timeline is the source of truth (`<repo>/coruro_notes.json`). `coruro_notes.md` becomes a generated export, not an editable field.
 - **Note types:** fixed set — `thought`, `idea`, `todo`, `bug`, `question`. User picks one per note.
 - **Markdown tree:** all `.md` files recursively (under the existing entry/depth caps); directories shown only when they lie on the path to a `.md` file.
 - **Layout:** right pane split — md preview (top) / notes timeline (bottom), both always visible.
@@ -45,7 +45,7 @@ export interface TimelineNote {
   createdAt: string; // ISO 8601 (new Date().toISOString())
 }
 
-/** Full shape persisted to <repo>/mygitdash_notes.json. */
+/** Full shape persisted to <repo>/coruro_notes.json. */
 export interface NotesTimeline {
   version: 1;
   notes: TimelineNote[];
@@ -56,14 +56,14 @@ export interface NotesTimeline {
 
 Owns the JSON store and the markdown export. Isolated and unit-testable.
 
-- `TIMELINE_FILENAME = 'mygitdash_notes.json'`
+- `TIMELINE_FILENAME = 'coruro_notes.json'`
 - `readTimeline(repoPath): Promise<NotesTimeline | null>`
-  - Read `<repo>/mygitdash_notes.json`. Return `null` if the file does not exist.
+  - Read `<repo>/coruro_notes.json`. Return `null` if the file does not exist.
   - On JSON parse error: **throw** a typed error. Callers surface it inline and must NOT overwrite the file (preserve user data).
 - `writeTimeline(repoPath, timeline): Promise<void>`
-  - Write the JSON file, then regenerate `<repo>/mygitdash_notes.md` from the timeline.
+  - Write the JSON file, then regenerate `<repo>/coruro_notes.md` from the timeline.
 - `migrateLegacy(repoPath): Promise<NotesTimeline | null>`
-  - If no JSON exists but a legacy `mygitdash_notes.md` exists with non-empty content, return a timeline seeded with a single `thought` note containing that content. Does not write — caller decides when to persist (on first note add, or immediately after migration).
+  - If no JSON exists but a legacy `coruro_notes.md` exists with non-empty content, return a timeline seeded with a single `thought` note containing that content. Does not write — caller decides when to persist (on first note add, or immediately after migration).
 - `renderTimelineMarkdown(timeline, repoName): string`
   - Pure function. Produces the `.md` export. One section per note, **oldest-first** (chronological journal), matching the on-screen timeline order:
     ```
@@ -92,11 +92,11 @@ Note: writing the JSON and `.md` modifies the working tree, flipping the repo's 
   - **Top — preview:** `ReactMarkdown` + `remarkGfm` of the selected file's content (fetched via `getMarkdownFile`, README via `getReadme`). Read-only.
   - **Bottom — timeline:** scrollable list of note bubbles in **oldest-first** order (newest at the bottom, chat-style), each showing type badge + timestamp + body. A composer row pinned at the bottom with a type selector (`NOTE_TYPES`) + textarea + **New note** button appends a note via `writeTimeline`. Support edit and delete per note.
 - **On mount / repo change:** load README, markdown tree, and timeline. If `readTimeline` returns `null`, run `migrateLegacy`. Corrupt JSON → inline error in the timeline pane; do not write.
-- Remove the editable `mygitdash_notes.md` textarea and its `updateNotes` wiring from this component.
+- Remove the editable `coruro_notes.md` textarea and its `updateNotes` wiring from this component.
 
 ## Error handling
 
-- Corrupt `mygitdash_notes.json` → inline error in the timeline pane; the file is never overwritten while in an error state (no data loss).
+- Corrupt `coruro_notes.json` → inline error in the timeline pane; the file is never overwritten while in an error state (no data loss).
 - File-write failure on add/edit/delete → inline error; keep the in-memory timeline so the user can retry.
 - Missing README / no `.md` files → existing empty-state messaging.
 

@@ -1,4 +1,4 @@
-// Zustand store for MyGITdash.
+// Zustand store for Coruro.
 //
 // Holds the persisted AppState (settings/board/repoMetadata) plus runtime-only
 // fields: the scanned `repos` list and a `loaded` flag.
@@ -324,7 +324,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         [repoPath]: { ...s.repoMetadata[repoPath], notes },
       },
     }));
-    // Persist to the in-repo mygitdash_notes.md (source of truth), debounced
+    // Persist to the in-repo coruro_notes.md (source of truth), debounced
     // per repo. The repo file — not central state — owns notes; the next scan
     // rehydrates from it, so notes travel with the repo via git.
     const existing = notesSaveTimers.get(repoPath);
@@ -335,7 +335,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         notesSaveTimers.delete(repoPath);
         void writeRepoNotes(repoPath, notes).catch((e: unknown) => {
           set({
-            lastScanError: `Failed to write mygitdash_notes.md: ${e instanceof Error ? e.message : String(e)}`,
+            lastScanError: `Failed to write coruro_notes.md: ${e instanceof Error ? e.message : String(e)}`,
           });
         });
       }, NOTES_DEBOUNCE_MS),
@@ -382,7 +382,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       return { ghCache: pruned };
     });
 
-    // Hydrate notes from each repo's mygitdash_notes.md — the repo file is
+    // Hydrate notes from each repo's coruro_notes.md — the repo file is
     // authoritative and overrides the central cache. Repos without the file
     // keep any existing (central) value rather than being wiped to empty.
     const notesEntries = await Promise.all(

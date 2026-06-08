@@ -1,5 +1,5 @@
 /**
- * scanner.ts — filesystem + git scanner for MyGITdash.
+ * scanner.ts — filesystem + git scanner for Coruro.
  *
  * Reads one level of subdirectories under `root`, checks each for a `.git`
  * directory, then collects branch / dirty-state / remote-url via git.

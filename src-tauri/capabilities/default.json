@@ -73,7 +73,7 @@
           "sidecar": false
         },
         {
-          "name": "binaries/mygitdash-ai",
+          "name": "binaries/coruro-ai",
           "sidecar": true,
           "args": []
         }
