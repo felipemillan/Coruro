@@ -6,7 +6,7 @@ import type { Repo } from '../types';
 // Stub stores so the component renders without a live Zustand provider.
 vi.mock('../store/useBoardStore', () => ({
   useBoardStore: (sel: (s: unknown) => unknown) =>
-    sel({ settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' }, enrichOne: () => {} }),
+    sel({ settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' }, enrichOne: () => {}, analyzingPaths: new Set(), enrichAiOne: () => {} }),
 }));
 vi.mock('../store/useViewStore', () => ({
   useViewStore: (sel: (s: unknown) => unknown) => sel({ setDetail: () => {} }),
