@@ -56,8 +56,11 @@ if CommandLine.arguments.contains("--selftest") {
 }
 
 // ── Read request ──
-let input = FileHandle.standardInput.readDataToEndOfFile()
-guard let req = try? JSONDecoder().decode(AiRequest.self, from: input) else {
+// The caller writes one compact JSON line then keeps the pipe open, so read a
+// single line rather than blocking on EOF (which never comes when spawned by Tauri).
+guard let line = readLine(strippingNewline: true),
+      let input = line.data(using: .utf8),
+      let req = try? JSONDecoder().decode(AiRequest.self, from: input) else {
     emit(AiResponse(ok: false, summary: nil, tags: nil, model: nil, error: "badInput", reason: "could not decode request"))
     exit(0)
 }

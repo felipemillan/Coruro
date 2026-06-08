@@ -75,7 +75,7 @@
         {
           "name": "binaries/mygitdash-ai",
           "sidecar": true,
-          "args": ["--selftest"]
+          "args": []
         }
       ]
     },
