@@ -2,7 +2,7 @@
 //
 // Left pane:  markdown-only file tree (recursive, capped). Rows are clickable.
 // Right pane: split — top renders the selected .md (default README); bottom is
-//             the notes timeline (typed, chat-style) backed by mygitdash_notes.json.
+//             the notes timeline (typed, chat-style) backed by coruro_notes.json.
 //
 // Portalled to <body> so the header's backdrop-blur can't clip it.
 
@@ -28,6 +28,7 @@ import {
   Eye,
   GitBranch,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import {
   getReadme,
@@ -240,6 +241,84 @@ function ActivityPane({
 }
 
 // ---------------------------------------------------------------------------
+// AI Summary pane — on-device summary + tags for this repo.
+// ---------------------------------------------------------------------------
+
+function AiSummaryPane({
+  summary,
+  tags,
+  model,
+  analyzedAt,
+  analyzing,
+  unavailableReason,
+  onReanalyze,
+}: {
+  summary: string | undefined;
+  tags: string[];
+  model: string | null;
+  analyzedAt: string | null;
+  analyzing: boolean;
+  unavailableReason: string | null;
+  onReanalyze: () => void;
+}) {
+  return (
+    <div className="p-6 max-w-[820px]">
+      {analyzing ? (
+        <p className="flex items-center gap-2 text-[13px] text-navy-light">
+          <Sparkles size={14} strokeWidth={1.75} className="text-sage animate-pulse" />
+          Analyzing on-device…
+        </p>
+      ) : summary ? (
+        <div className="flex flex-col gap-4">
+          <p className="text-[15px] leading-relaxed text-navy">{summary}</p>
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="px-2 py-0.5 bg-sage/15 text-sage text-[11px] font-mono rounded-full"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-3 text-[11px] text-navy-light/50 pt-1">
+            {model && <span className="font-mono">{model}</span>}
+            {analyzedAt && relativeAge(analyzedAt) && (
+              <span title={analyzedAt}>analyzed {relativeAge(analyzedAt)} ago</span>
+            )}
+            <button
+              type="button"
+              onClick={onReanalyze}
+              className="flex items-center gap-1 text-navy-light hover:text-navy transition-colors cursor-pointer"
+            >
+              <RefreshCw size={11} strokeWidth={1.5} /> Re-analyze
+            </button>
+          </div>
+        </div>
+      ) : unavailableReason ? (
+        <p className="text-[13px] text-navy-light/60 italic">
+          Apple Intelligence unavailable ({unavailableReason}). On-device summaries are
+          skipped on this machine.
+        </p>
+      ) : (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-[13px] text-navy-light/50 italic">No AI summary yet for this repo.</p>
+          <button
+            type="button"
+            onClick={onReanalyze}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-cream bg-navy px-3 py-1.5 hover:bg-navy-light transition-colors cursor-pointer rounded-full"
+          >
+            <Sparkles size={13} strokeWidth={1.75} /> Analyze now
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main modal
 // ---------------------------------------------------------------------------
 
@@ -252,6 +331,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Right-pane preview mode: markdown doc (README/selected file) or AI summary.
+  const [previewMode, setPreviewMode] = useState<'doc' | 'ai'>('doc');
 
   // Left-pane tabs + lazy GitHub activity
   const [tab, setTab] = useState<'files' | 'activity'>('files');
@@ -337,6 +419,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   // Selecting a file loads its body into the preview pane. Guards against an
   // out-of-order resolution when the user clicks another file mid-fetch.
   const onSelect = useCallback((node: TreeNode) => {
+    setPreviewMode('doc');
     setSelected({ name: node.name, path: node.path });
     setPreviewBody(null);
     getMarkdownFile(node.path)
@@ -436,13 +519,20 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
     return () => { cancelled = true; };
   }, [tab, activity, repo.remoteUrl]);
 
-  // Reset tab + activity when switching repos.
+  // Reset tab + activity + preview mode when switching repos.
   useEffect(() => {
     setTab('files');
     setActivity(null);
     setActivityError(null);
     setActivityLoading(false);
+    setPreviewMode('doc');
   }, [repo.path]);
+
+  // AI summary data + controls (live repo fields, cache entry for metadata).
+  const aiEntry = useBoardStore((s) => s.aiCache[repo.path] ?? null);
+  const analyzing = useBoardStore((s) => s.analyzingPaths.has(repo.path));
+  const aiUnavailableReason = useBoardStore((s) => s.aiUnavailableReason);
+  const enrichAiOne = useBoardStore((s) => s.enrichAiOne);
 
   // Branches panel state.
   const [branches, setBranches] = useState<string[]>([]);
@@ -724,11 +814,49 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           <section className="flex-1 flex flex-col min-h-0 mr-2 mb-2">
             {/* Preview pane wrapper — M3: rounded-xl surface */}
             <div className="flex-1 min-h-0 flex flex-col border border-warm-gray rounded-xl overflow-hidden mb-1.5">
-              <div className="shrink-0 px-5 py-2 bg-cream/60 border-b border-warm-gray text-[10px] font-mono text-navy-light/50 truncate select-none">
-                {previewTitle}
+              {/* Preview tab bar: markdown doc (README/file) | AI Summary */}
+              <div className="shrink-0 flex items-center border-b border-warm-gray bg-cream/60">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('doc')}
+                  className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                    previewMode === 'doc' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                  }`}
+                >
+                  {selected ? 'Preview' : 'README'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('ai')}
+                  className={`flex items-center gap-1 px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                    previewMode === 'ai' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                  }`}
+                >
+                  <Sparkles
+                    size={11}
+                    strokeWidth={1.75}
+                    className={previewMode === 'ai' ? 'text-sage' : ''}
+                  />
+                  AI Summary
+                </button>
+                {previewMode === 'doc' && (
+                  <span className="ml-auto px-4 text-[10px] font-mono text-navy-light/40 truncate select-none">
+                    {previewTitle}
+                  </span>
+                )}
               </div>
               <div className="flex-1 overflow-auto min-h-0">
-                {loading ? (
+                {previewMode === 'ai' ? (
+                  <AiSummaryPane
+                    summary={repo.aiSummary ?? aiEntry?.summary}
+                    tags={repo.aiTags ?? aiEntry?.tags ?? []}
+                    model={aiEntry?.model ?? null}
+                    analyzedAt={aiEntry?.analyzedAt ?? null}
+                    analyzing={analyzing}
+                    unavailableReason={aiUnavailableReason}
+                    onReanalyze={() => void enrichAiOne(repo.path)}
+                  />
+                ) : loading ? (
                   <p className="p-6 text-[13px] text-navy-light/50">Loading…</p>
                 ) : error !== null ? (
                   <p className="p-6 text-[13px] text-terracotta font-mono">{error}</p>
@@ -752,7 +880,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
                   Notes timeline
                 </span>
-                <span className="text-[10px] font-mono text-navy-light/40">mygitdash_notes.json</span>
+                <span className="text-[10px] font-mono text-navy-light/40">coruro_notes.json</span>
               </div>
 
               {/* Notes list (oldest-first, newest at bottom) */}

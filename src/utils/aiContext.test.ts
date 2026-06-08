@@ -4,7 +4,7 @@ import { assembleContext, inputHash, MAX_PAYLOAD_CHARS } from './aiContext';
 describe('assembleContext', () => {
   it('caps commits, entries, readme, and total size', () => {
     const ctx = assembleContext({
-      repoName: 'MyGITdash',
+      repoName: 'Coruro',
       description: 'Git dashboard',
       languages: ['Rust', 'TypeScript', 'CSS', 'HTML', 'Shell', 'Go'],
       recentCommits: Array.from({ length: 40 }, (_, i) => `commit subject number ${i}`),

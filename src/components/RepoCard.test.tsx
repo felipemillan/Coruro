@@ -13,16 +13,16 @@ vi.mock('../store/useViewStore', () => ({
 }));
 
 const localRepo: Repo = {
-  name: 'MyGITdash', path: '/x/MyGITdash', branch: 'main', dirty: true,
+  name: 'Coruro', path: '/x/Coruro', branch: 'main', dirty: true,
   prCount: 0, commitCount: 340, branchCount: 6, lastCommitAt: '2026-06-05T00:00:00Z',
 };
 
 describe('RepoCard', () => {
   it('renders name, local stats, and the data-path attribute', () => {
     const html = renderToStaticMarkup(<RepoCard repo={localRepo} />);
-    expect(html).toContain('MyGITdash');
+    expect(html).toContain('Coruro');
     expect(html).toContain('340');
     expect(html).toContain('COMMITS');
-    expect(html).toContain('data-path="/x/MyGITdash"');
+    expect(html).toContain('data-path="/x/Coruro"');
   });
 });

@@ -1,4 +1,4 @@
-// Settings modal for MyGITdash.
+// Settings modal for Coruro.
 //
 // Self-contained: owns its own open/closed toggle via a gear icon trigger.
 // Renders a backdrop-blur-md overlay with a cream/warm-gray panel.

@@ -4,7 +4,7 @@
 
 **Goal:** Auto-analyze each repo on scan with Apple's on-device FoundationModels LLM via a Swift sidecar, writing a short summary + topic tags into the slice-1 card slots.
 
-**Architecture:** A standalone Swift CLI sidecar (`mygitdash-ai`) reads a JSON repo-context request on stdin, runs guided generation, and writes `{summary, tags}` JSON on stdout. A Rust `ai_analyze` command spawns it. A serial, content-hash-cached store queue (`enrichAi`) feeds repos through it after scan and merges results into `Repo.aiSummary`/`aiTags`, which the card already renders. Unavailable Apple Intelligence degrades gracefully.
+**Architecture:** A standalone Swift CLI sidecar (`coruro-ai`) reads a JSON repo-context request on stdin, runs guided generation, and writes `{summary, tags}` JSON on stdout. A Rust `ai_analyze` command spawns it. A serial, content-hash-cached store queue (`enrichAi`) feeds repos through it after scan and merges results into `Repo.aiSummary`/`aiTags`, which the card already renders. Unavailable Apple Intelligence degrades gracefully.
 
 **Tech Stack:** Swift 6 / FoundationModels (macOS 26, Apple Silicon), Tauri 2 sidecar (`externalBin`), Rust, React 19 + TypeScript, Zustand, vitest.
 
@@ -17,9 +17,9 @@
 | File | Responsibility | Action |
 |---|---|---|
 | `ai-sidecar/Package.swift` | SPM manifest, macOS 26 platform | Create |
-| `ai-sidecar/Sources/mygitdash-ai/main.swift` | availability + session + `@Generable` + `--selftest` | Create |
+| `ai-sidecar/Sources/coruro-ai/main.swift` | availability + session + `@Generable` + `--selftest` | Create |
 | `scripts/build-ai-sidecar.sh` | build + place arm64 binary | Create |
-| `src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin` | built sidecar (artifact) | Generated |
+| `src-tauri/binaries/coruro-ai-aarch64-apple-darwin` | built sidecar (artifact) | Generated |
 | `src-tauri/tauri.conf.json` | `bundle.externalBin` | Modify |
 | `src-tauri/capabilities/default.json` | shell sidecar permission | Modify |
 | `src-tauri/src/commands.rs` | `git_recent_commits`, `ai_analyze` | Modify |
@@ -33,11 +33,11 @@
 
 ---
 
-## Task 1: Swift sidecar `mygitdash-ai`
+## Task 1: Swift sidecar `coruro-ai`
 
 **Files:**
 - Create: `ai-sidecar/Package.swift`
-- Create: `ai-sidecar/Sources/mygitdash-ai/main.swift`
+- Create: `ai-sidecar/Sources/coruro-ai/main.swift`
 - Create: `scripts/build-ai-sidecar.sh`
 
 - [ ] **Step 1: Write `Package.swift`**
@@ -47,15 +47,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "mygitdash-ai",
+    name: "coruro-ai",
     platforms: [.macOS("26.0")],
     targets: [
-        .executableTarget(name: "mygitdash-ai", path: "Sources/mygitdash-ai")
+        .executableTarget(name: "coruro-ai", path: "Sources/coruro-ai")
     ]
 )
 ```
 
-- [ ] **Step 2: Write `Sources/mygitdash-ai/main.swift`**
+- [ ] **Step 2: Write `Sources/coruro-ai/main.swift`**
 
 ```swift
 import Foundation
@@ -163,8 +163,8 @@ Note: if the `catch where` pattern above does not compile on the toolchain, repl
 set -euo pipefail
 cd "$(dirname "$0")/../ai-sidecar"
 swift build -c release
-BIN=".build/release/mygitdash-ai"
-DEST="../src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin"
+BIN=".build/release/coruro-ai"
+DEST="../src-tauri/binaries/coruro-ai-aarch64-apple-darwin"
 mkdir -p "../src-tauri/binaries"
 cp "$BIN" "$DEST"
 echo "Placed sidecar at $DEST"
@@ -176,7 +176,7 @@ Run:
 ```bash
 chmod +x scripts/build-ai-sidecar.sh
 ./scripts/build-ai-sidecar.sh
-./src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin --selftest
+./src-tauri/binaries/coruro-ai-aarch64-apple-darwin --selftest
 ```
 Expected: build succeeds; selftest prints `{"ok":true,"summary":"Selftest summary.","tags":["selftest","ok"],"model":"selftest"}` (key order may vary).
 
@@ -185,8 +185,8 @@ If `swift build` fails because the Swift toolchain predates FoundationModels, st
 - [ ] **Step 5: Commit**
 
 ```bash
-git add ai-sidecar/Package.swift ai-sidecar/Sources/mygitdash-ai/main.swift scripts/build-ai-sidecar.sh src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin
-git commit -m "feat(ai): Swift FoundationModels sidecar (mygitdash-ai) + build script"
+git add ai-sidecar/Package.swift ai-sidecar/Sources/coruro-ai/main.swift scripts/build-ai-sidecar.sh src-tauri/binaries/coruro-ai-aarch64-apple-darwin
+git commit -m "feat(ai): Swift FoundationModels sidecar (coruro-ai) + build script"
 ```
 
 ---
@@ -205,7 +205,7 @@ In the `"bundle"` object, add the `externalBin` key (keep existing keys):
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/mygitdash-ai"],
+    "externalBin": ["binaries/coruro-ai"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -222,7 +222,7 @@ Inside the `"shell:allow-execute"` permission's `"allow"` array, append this ent
 
 ```json
         {
-          "name": "binaries/mygitdash-ai",
+          "name": "binaries/coruro-ai",
           "sidecar": true,
           "args": ["--selftest"]
         }
@@ -239,7 +239,7 @@ Expected: builds (config is validated at build time); no schema error.
 
 ```bash
 git add src-tauri/tauri.conf.json src-tauri/capabilities/default.json
-git commit -m "feat(ai): register mygitdash-ai sidecar (externalBin + shell capability)"
+git commit -m "feat(ai): register coruro-ai sidecar (externalBin + shell capability)"
 ```
 
 ---
@@ -344,7 +344,7 @@ pub struct AiContext {
     readme: Option<String>,
 }
 
-/// Spawn the mygitdash-ai sidecar, pipe the context JSON to stdin, and return
+/// Spawn the coruro-ai sidecar, pipe the context JSON to stdin, and return
 /// the sidecar's JSON line verbatim (a string the JS layer parses into AiResult).
 /// On spawn/timeout failure returns a synthetic error JSON so the caller always
 /// gets a well-formed AiResult.
@@ -359,7 +359,7 @@ pub async fn ai_analyze(app: tauri::AppHandle, context: AiContext) -> Result<Str
         "readme": context.readme,
     })).map_err(|e| e.to_string())?;
 
-    let sidecar = match app.shell().sidecar("mygitdash-ai") {
+    let sidecar = match app.shell().sidecar("coruro-ai") {
         Ok(c) => c,
         Err(_) => return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()),
     };
@@ -504,7 +504,7 @@ import { assembleContext, inputHash, MAX_PAYLOAD_CHARS } from './aiContext';
 describe('assembleContext', () => {
   it('caps commits, entries, readme, and total size', () => {
     const ctx = assembleContext({
-      repoName: 'MyGITdash',
+      repoName: 'Coruro',
       description: 'Git dashboard',
       languages: ['Rust', 'TypeScript', 'CSS', 'HTML', 'Shell', 'Go'],
       recentCommits: Array.from({ length: 40 }, (_, i) => `commit subject number ${i}`),
@@ -965,7 +965,7 @@ Expected: clean; `recent_commits_tests` and slice-1 `local_stats_tests` pass.
 
 - [ ] **Step 4: Sidecar contract**
 
-Run: `./src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin --selftest`
+Run: `./src-tauri/binaries/coruro-ai-aarch64-apple-darwin --selftest`
 Expected: `{"ok":true,...}` JSON. (Skip if the sidecar could not be built in this environment — note it in the report.)
 
 - [ ] **Step 5: End-to-end smoke (manual)**

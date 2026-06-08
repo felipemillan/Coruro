@@ -1,15 +1,15 @@
-# MyGITdash
+# Coruro
 
 A local-first desktop dashboard for your Git repositories — a Kanban board of
 your local repos, enriched with GitHub data and **on-device AI summaries** powered
 by Apple Intelligence. Everything runs on your machine; nothing about your code
 leaves it.
 
-![MyGITdash board](docs/screenshots/board.png)
+![Coruro board](docs/screenshots/board.png)
 
 ## What it is
 
-MyGITdash scans a folder of Git repositories and lays them out as cards on a
+Coruro scans a folder of Git repositories and lays them out as cards on a
 five-column Kanban board (Inbox · Backlog · Active · Review · Done). Each card is
 an information-dashboard: language, sync state, stats, and an AI-generated summary
 + tags — so you can read a project at a glance without opening it.
@@ -80,7 +80,7 @@ Settings.
 
 ## How the AI works
 
-A small standalone Swift binary, `mygitdash-ai` (in [`ai-sidecar/`](ai-sidecar/)),
+A small standalone Swift binary, `coruro-ai` (in [`ai-sidecar/`](ai-sidecar/)),
 reads a JSON repo-context on stdin and returns `{ summary, tags }` on stdout using
 `LanguageModelSession` + `@Generable` structured output. The Rust backend
 (`ai_analyze`) spawns it; a serial, content-hash-cached queue in the store runs it

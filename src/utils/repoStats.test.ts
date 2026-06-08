@@ -6,8 +6,8 @@ const FIXED_NOW = Date.parse('2026-06-08T00:00:00Z');
 
 function baseRepo(over: Partial<Repo> = {}): Repo {
   return {
-    name: 'MyGITdash',
-    path: '/Users/x/Github/MyGITdash',
+    name: 'Coruro',
+    path: '/Users/x/Github/Coruro',
     branch: 'main',
     dirty: false,
     prCount: 0,
@@ -17,9 +17,9 @@ function baseRepo(over: Partial<Repo> = {}): Repo {
 
 describe('parseHandle', () => {
   it('extracts owner from ssh and https remotes', () => {
-    expect(parseHandle('git@github.com:felipemillan/MyGITdash.git')).toBe('@felipemillan');
-    expect(parseHandle('https://github.com/felipemillan/MyGITdash.git')).toBe('@felipemillan');
-    expect(parseHandle('https://github.com/felipemillan/MyGITdash')).toBe('@felipemillan');
+    expect(parseHandle('git@github.com:felipemillan/Coruro.git')).toBe('@felipemillan');
+    expect(parseHandle('https://github.com/felipemillan/Coruro.git')).toBe('@felipemillan');
+    expect(parseHandle('https://github.com/felipemillan/Coruro')).toBe('@felipemillan');
   });
   it('returns null for missing or unparseable remotes', () => {
     expect(parseHandle(null)).toBeNull();
@@ -39,12 +39,12 @@ describe('relativeAge', () => {
 describe('deriveCardData', () => {
   it('uses GitHub stats when the repo is enriched', () => {
     const repo = baseRepo({
-      remoteUrl: 'git@github.com:felipemillan/MyGITdash.git',
+      remoteUrl: 'git@github.com:felipemillan/Coruro.git',
       gh: {
         stars: 128, forks: 4, isPrivate: false, archived: false, openIssues: 12,
         prCount: 0, ciStatus: 'success', latestRelease: null, description: 'Git dashboard',
         topics: ['rust', 'tauri'], language: 'Rust', license: 'MIT', defaultBranch: 'main',
-        pushedAt: '2026-06-07T00:00:00Z', htmlUrl: 'https://github.com/felipemillan/MyGITdash',
+        pushedAt: '2026-06-07T00:00:00Z', htmlUrl: 'https://github.com/felipemillan/Coruro',
         watchers: 3, updatedAt: '2026-06-07T00:00:00Z', disabled: false, fork: false,
         parent: null, homepage: null, hasIssues: true, hasWiki: false, hasPages: false, size: 100,
       },

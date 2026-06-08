@@ -7,8 +7,6 @@
 use keyring::{Entry, Error as KeyringError};
 use std::process::Command;
 use std::time::Duration;
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandEvent;
 
 const KEYRING_SERVICE: &str = "repo_dashboard";
 const KEYRING_USER: &str = "github_pat";
@@ -279,13 +277,56 @@ pub struct AiContext {
     readme: Option<String>,
 }
 
-/// Spawn the mygitdash-ai sidecar, pipe the context JSON to stdin, and return
+/// Spawn the coruro-ai sidecar, pipe the context JSON to stdin, and return
 /// the sidecar's JSON line verbatim (a string the JS layer parses into AiResult).
 /// On spawn/timeout failure returns a synthetic error JSON so the caller always
 /// gets a well-formed AiResult.
+/// Locate the bundled `coruro-ai` sidecar next to the main executable.
+/// Tauri's `shell().sidecar()` path resolution proved unreliable in the
+/// release bundle (spawned with ENOENT even with the binary present in
+/// `Contents/MacOS/`), so we resolve the absolute path ourselves from
+/// `current_exe()` and spawn it directly. Both the stripped name and the
+/// target-triple-suffixed name are checked.
+fn resolve_sidecar() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    for name in ["coruro-ai", "coruro-ai-aarch64-apple-darwin"] {
+        let p = dir.join(name);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+/// Blocking spawn of the sidecar: write the JSON payload to stdin, close it
+/// (the Swift side reads one line), and read the JSON response from stdout.
+fn run_sidecar(bin: &std::path::Path, payload: &[u8]) -> std::io::Result<String> {
+    use std::io::{Read, Write};
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new(bin)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    // Write payload then drop stdin so the child sees EOF.
+    child
+        .stdin
+        .take()
+        .ok_or_else(|| std::io::Error::other("no stdin"))?
+        .write_all(payload)?;
+    let mut out = String::new();
+    if let Some(mut so) = child.stdout.take() {
+        so.read_to_string(&mut out)?;
+    }
+    let _ = child.wait();
+    Ok(out)
+}
+
 #[tauri::command]
-pub async fn ai_analyze(app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
-    let payload = serde_json::to_vec(&serde_json::json!({
+pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
+    let mut payload = serde_json::to_vec(&serde_json::json!({
         "repoName": context.repo_name,
         "description": context.description,
         "languages": context.languages,
@@ -293,32 +334,28 @@ pub async fn ai_analyze(app: tauri::AppHandle, context: AiContext) -> Result<Str
         "topEntries": context.top_entries,
         "readme": context.readme,
     })).map_err(|e| e.to_string())?;
+    payload.push(b'\n');
 
-    let sidecar = match app.shell().sidecar("binaries/mygitdash-ai") {
-        Ok(c) => c,
-        Err(_) => return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()),
-    };
-    let (mut rx, mut child) = match sidecar.spawn() {
-        Ok(v) => v,
-        Err(_) => return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()),
-    };
-    if child.write(&payload).is_err() {
-        return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
-    }
-    let _ = child.write(b"\n");
-
-    let mut acc = String::new();
-    let collect = async {
-        while let Some(event) = rx.recv().await {
-            if let CommandEvent::Stdout(bytes) = event {
-                acc.push_str(&String::from_utf8_lossy(&bytes));
-            }
+    let bin = match resolve_sidecar() {
+        Some(p) => p,
+        None => {
+            eprintln!("[ai] sidecar binary not found next to current_exe");
+            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
         }
-        acc
     };
-    match tokio::time::timeout(Duration::from_secs(30), collect).await {
-        Ok(out) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(_) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+
+    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
+    match tokio::time::timeout(Duration::from_secs(30), work).await {
+        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
+        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Err(e))) => {
+            eprintln!("[ai] sidecar spawn err: {e}");
+            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
+        }
+        Ok(Err(e)) => {
+            eprintln!("[ai] join err: {e}");
+            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
+        }
         Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
     }
 }

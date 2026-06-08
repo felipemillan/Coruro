@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rework the RepoDetail modal so the left pane lists only `.md` files (recursive, clickable), the right pane splits into a markdown preview (top) and a typed notes timeline (bottom) persisted to `<repo>/mygitdash_notes.json` with a regenerated `mygitdash_notes.md` export.
+**Goal:** Rework the RepoDetail modal so the left pane lists only `.md` files (recursive, clickable), the right pane splits into a markdown preview (top) and a typed notes timeline (bottom) persisted to `<repo>/coruro_notes.json` with a regenerated `coruro_notes.md` export.
 
 **Architecture:** Pure logic (markdown export rendering, legacy migration, JSON parse/validate, `.md` tree pruning, note factory) lives in plain functions and is unit-tested with vitest. Filesystem I/O (`@tauri-apps/plugin-fs`) and the React UI are thin wrappers over that logic, verified by launching the app. Timeline state is local to `RepoDetail`, persisted through an isolated `notesTimeline.ts` util (no zustand coupling).
 
@@ -134,7 +134,7 @@ export interface TimelineNote {
   createdAt: string; // ISO 8601 (new Date().toISOString())
 }
 
-/** Full shape persisted to <repo>/mygitdash_notes.json. */
+/** Full shape persisted to <repo>/coruro_notes.json. */
 export interface NotesTimeline {
   version: 1;
   notes: TimelineNote[];
@@ -251,10 +251,10 @@ Expected: FAIL — module `./notesTimeline` not found / exports undefined.
 Create `src/utils/notesTimeline.ts`:
 
 ```ts
-// notesTimeline.ts — per-repo notes timeline persisted to mygitdash_notes.json.
+// notesTimeline.ts — per-repo notes timeline persisted to coruro_notes.json.
 //
 // The JSON file is the source of truth. On every write we ALSO regenerate
-// mygitdash_notes.md (a rendered, git-friendly export) so notes travel with
+// coruro_notes.md (a rendered, git-friendly export) so notes travel with
 // the repo and render on GitHub. Pure functions (render/seed/parse/factory)
 // are unit-tested; the fs wrappers are thin and verified by running the app.
 
@@ -264,7 +264,7 @@ import { NOTES_FILENAME as LEGACY_MD_FILENAME } from './notesFile';
 import type { NotesTimeline, TimelineNote, NoteType } from '../types';
 
 /** Filename for the JSON timeline, written into each repo root. */
-export const TIMELINE_FILENAME = 'mygitdash_notes.json';
+export const TIMELINE_FILENAME = 'coruro_notes.json';
 
 /** Display label (emoji + word) per note type — used in the .md export and UI. */
 export const TYPE_LABEL: Record<NoteType, string> = {
@@ -310,7 +310,7 @@ export function parseTimeline(raw: string): NotesTimeline {
     (data as { version?: unknown }).version !== 1 ||
     !Array.isArray((data as { notes?: unknown }).notes)
   ) {
-    throw new Error('Invalid mygitdash_notes.json shape');
+    throw new Error('Invalid coruro_notes.json shape');
   }
   return data as NotesTimeline;
 }
@@ -358,7 +358,7 @@ export async function readTimeline(repoPath: string): Promise<NotesTimeline | nu
 
 /**
  * Persist the timeline: write the JSON (source of truth) AND regenerate
- * mygitdash_notes.md as a rendered export. Writing both flips the repo's
+ * coruro_notes.md as a rendered export. Writing both flips the repo's
  * dirty badge until committed — expected, the point is to commit notes.
  */
 export async function writeTimeline(
@@ -373,7 +373,7 @@ export async function writeTimeline(
 }
 
 /**
- * One-time migration: if no JSON exists but a legacy mygitdash_notes.md has
+ * One-time migration: if no JSON exists but a legacy coruro_notes.md has
  * non-empty content, return a timeline seeded from it. Returns null when there
  * is nothing to migrate. Does NOT write — the caller persists it.
  */
@@ -529,7 +529,7 @@ This is the high-blast-radius UI task: md-only clickable tree, split right pane 
 //
 // Left pane:  markdown-only file tree (recursive, capped). Rows are clickable.
 // Right pane: split — top renders the selected .md (default README); bottom is
-//             the notes timeline (typed, chat-style) backed by mygitdash_notes.json.
+//             the notes timeline (typed, chat-style) backed by coruro_notes.json.
 //
 // Portalled to <body> so the header's backdrop-blur can't clip it.
 
@@ -897,7 +897,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
                   Notes timeline
                 </span>
-                <span className="text-[10px] font-mono text-navy-light/40">mygitdash_notes.json</span>
+                <span className="text-[10px] font-mono text-navy-light/40">coruro_notes.json</span>
               </div>
 
               {/* Notes list (oldest-first, newest at bottom) */}
@@ -1033,17 +1033,17 @@ Expected: the top preview pane now renders the clicked file's content; the file 
 - [ ] **Step 5: Verify add-note + persistence**
 
 In the running app, pick a type (e.g. Idea), type a note, click **New note**. Then confirm both files were written:
-Run: `ls -la "<repo-path>"/mygitdash_notes.json "<repo-path>"/mygitdash_notes.md && cat "<repo-path>"/mygitdash_notes.json`
+Run: `ls -la "<repo-path>"/coruro_notes.json "<repo-path>"/coruro_notes.md && cat "<repo-path>"/coruro_notes.json`
 Expected: JSON contains the note with `version:1`; the `.md` export shows the rendered `## 💡 Idea · <date>` section.
 
 - [ ] **Step 6: Verify migration (manual, one repo)**
 
-Pick a repo that still has an old hand-written `mygitdash_notes.md` and NO `mygitdash_notes.json`. Open its detail.
-Expected: the timeline shows one `Thought` note seeded from the old markdown; a `mygitdash_notes.json` now exists alongside.
+Pick a repo that still has an old hand-written `coruro_notes.md` and NO `coruro_notes.json`. Open its detail.
+Expected: the timeline shows one `Thought` note seeded from the old markdown; a `coruro_notes.json` now exists alongside.
 
 - [ ] **Step 7: Verify corrupt-JSON safety**
 
-Run: `echo 'not json' > "<test-repo>/mygitdash_notes.json"`, open that repo's detail.
+Run: `echo 'not json' > "<test-repo>/coruro_notes.json"`, open that repo's detail.
 Expected: the timeline pane shows "Could not load notes: …"; the file is NOT overwritten (re-`cat` it — still `not json`). Then restore/delete the test file.
 
 - [ ] **Step 8: Commit any fixes**

@@ -3,8 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/../ai-sidecar"
 swift build -c release
-BIN=".build/release/mygitdash-ai"
-DEST="../src-tauri/binaries/mygitdash-ai-aarch64-apple-darwin"
+BIN=".build/release/coruro-ai"
+DEST="../src-tauri/binaries/coruro-ai-aarch64-apple-darwin"
 mkdir -p "../src-tauri/binaries"
 cp "$BIN" "$DEST"
 echo "Placed sidecar at $DEST"
@@ -15,8 +15,8 @@ echo "Placed sidecar at $DEST"
 DEBUG_DIR="../src-tauri/target/debug"
 if [ -d "$DEBUG_DIR" ]; then
   mkdir -p "$DEBUG_DIR/binaries"
-  for p in "$DEBUG_DIR/mygitdash-ai" "$DEBUG_DIR/mygitdash-ai-aarch64-apple-darwin" \
-           "$DEBUG_DIR/binaries/mygitdash-ai" "$DEBUG_DIR/binaries/mygitdash-ai-aarch64-apple-darwin"; do
+  for p in "$DEBUG_DIR/coruro-ai" "$DEBUG_DIR/coruro-ai-aarch64-apple-darwin" \
+           "$DEBUG_DIR/binaries/coruro-ai" "$DEBUG_DIR/binaries/coruro-ai-aarch64-apple-darwin"; do
     cp "$BIN" "$p"
   done
   echo "Placed dev copies under $DEBUG_DIR"
