@@ -169,3 +169,61 @@ pub fn git_fetch(path: String) -> Result<(), String> {
         ))
     }
 }
+
+/// Local-only repo stats for cards without GitHub enrichment.
+///
+/// Returns total commit count on HEAD, the last commit time (ISO 8601), and
+/// the number of local branches. Any field that cannot be computed (e.g. an
+/// empty repo with no commits) is returned as 0 / null rather than erroring,
+/// so a single odd repo never breaks the scan.
+#[tauri::command]
+pub fn git_local_stats(path: String) -> Result<(i64, Option<String>, i64), String> {
+    // Commit count on HEAD. Empty repo → rev-list fails → 0.
+    let commit_count = Command::new("git")
+        .args(["-C", &path, "rev-list", "--count", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<i64>().ok())
+        .unwrap_or(0);
+
+    // Last commit time, strict ISO 8601. None on empty repo.
+    let last_commit_at = Command::new("git")
+        .args(["-C", &path, "log", "-1", "--format=%cI"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    // Local branch count.
+    let branch_count = Command::new("git")
+        .args(["-C", &path, "branch", "--format=%(refname:short)"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .count() as i64
+        })
+        .unwrap_or(0);
+
+    Ok((commit_count, last_commit_at, branch_count))
+}
+
+#[cfg(test)]
+mod local_stats_tests {
+    use super::*;
+
+    #[test]
+    fn reports_stats_for_this_repo() {
+        // The crate lives inside the project's own git repo.
+        let (commits, last, branches) = git_local_stats(env!("CARGO_MANIFEST_DIR").to_string())
+            .expect("git_local_stats should succeed in a repo");
+        assert!(commits >= 1, "expected at least one commit, got {commits}");
+        assert!(last.is_some(), "expected a last-commit timestamp");
+        assert!(branches >= 1, "expected at least one branch, got {branches}");
+    }
+}

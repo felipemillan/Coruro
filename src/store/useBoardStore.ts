@@ -457,7 +457,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     const targets = get().repos;
     if (targets.length === 0) return;
     const CONCURRENCY = 8;
-    const byPath = new Map<string, { ahead: number; behind: number } | null>();
+    const byPath = new Map<
+      string,
+      { ahead: number | null; behind: number | null; commitCount: number; lastCommitAt: string | null; branchCount: number }
+    >();
     let cursor = 0;
     const worker = async (): Promise<void> => {
       while (cursor < targets.length) {
@@ -468,9 +471,21 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           const ab = await invoke<[number, number] | null>('git_ahead_behind', {
             path: repo.path,
           });
-          byPath.set(repo.path, ab === null ? null : { ahead: ab[0], behind: ab[1] });
+          // git_local_stats returns [commitCount, lastCommitAt, branchCount].
+          const ls = await invoke<[number, string | null, number]>('git_local_stats', {
+            path: repo.path,
+          });
+          byPath.set(repo.path, {
+            ahead: ab === null ? null : ab[0],
+            behind: ab === null ? null : ab[1],
+            commitCount: ls[0],
+            lastCommitAt: ls[1],
+            branchCount: ls[2],
+          });
         } catch {
-          byPath.set(repo.path, null);
+          byPath.set(repo.path, {
+            ahead: null, behind: null, commitCount: 0, lastCommitAt: null, branchCount: 0,
+          });
         }
       }
     };
@@ -480,23 +495,41 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     // Merge against the latest repo list (a newer scan may have run).
     set((s) => ({
       repos: s.repos.map((r) => {
-        if (!byPath.has(r.path)) return r;
-        const ab = byPath.get(r.path) ?? null;
-        return { ...r, ahead: ab?.ahead ?? null, behind: ab?.behind ?? null };
+        const v = byPath.get(r.path);
+        if (!v) return r;
+        return {
+          ...r,
+          ahead: v.ahead,
+          behind: v.behind,
+          commitCount: v.commitCount,
+          lastCommitAt: v.lastCommitAt,
+          branchCount: v.branchCount,
+        };
       }),
     }));
   },
 
   enrichGitOne: async (path) => {
-    let ab: [number, number] | null;
+    let ab: [number, number] | null = null;
+    let ls: [number, string | null, number] = [0, null, 0];
     try {
       ab = await invoke<[number, number] | null>('git_ahead_behind', { path });
+      ls = await invoke<[number, string | null, number]>('git_local_stats', { path });
     } catch {
       return;
     }
     set((s) => ({
       repos: s.repos.map((r) =>
-        r.path === path ? { ...r, ahead: ab?.[0] ?? null, behind: ab?.[1] ?? null } : r,
+        r.path === path
+          ? {
+              ...r,
+              ahead: ab?.[0] ?? null,
+              behind: ab?.[1] ?? null,
+              commitCount: ls[0],
+              lastCommitAt: ls[1],
+              branchCount: ls[2],
+            }
+          : r,
       ),
     }));
   },
