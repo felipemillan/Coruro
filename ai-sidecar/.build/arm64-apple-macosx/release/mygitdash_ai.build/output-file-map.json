@@ -1,0 +1,13 @@
+{
+  "": {
+    "dependencies": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/mygitdash_ai.d",
+    "object": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/mygitdash_ai.o",
+    "swift-dependencies": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/primary.swiftdeps"
+  },
+  "/Users/admin/Github/MyGITdash/ai-sidecar/Sources/mygitdash-ai/main.swift": {
+    "object": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/main.swift.o",
+    "swiftmodule": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/main.swiftdeps",
+    "diagnostics": "/Users/admin/Github/MyGITdash/ai-sidecar/.build/arm64-apple-macosx/release/mygitdash_ai.build/main.dia"
+  }
+}
