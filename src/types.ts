@@ -74,6 +74,38 @@ export interface GhCacheEntry {
 /** Persisted GitHub data cache, keyed by repo absolute path. */
 export type GhCache = Record<string, GhCacheEntry>;
 
+/** Context payload sent to the AI sidecar (camelCase matches Rust AiContext). */
+export interface AiContext {
+  repoName: string;
+  description: string | null;
+  languages: string[];
+  recentCommits: string[];
+  topEntries: string[];
+  readme: string | null;
+}
+
+/** Parsed sidecar result. `ok:true` carries summary+tags; else error/reason. */
+export interface AiResult {
+  ok: boolean;
+  summary?: string;
+  tags?: string[];
+  model?: string;
+  error?: 'unavailable' | 'contextOverflow' | 'generation' | 'badInput' | 'timeout' | 'sidecar_missing';
+  reason?: string;
+}
+
+/** One persisted AI analysis, keyed by repo path in AppState.aiCache. */
+export interface AiCacheEntry {
+  summary: string;
+  tags: string[];
+  model: string;
+  analyzedAt: string; // ISO 8601
+  inputHash: string;  // hash of the assembled context — drives freshness
+}
+
+/** Persisted AI cache, keyed by repo absolute path. */
+export type AiCache = Record<string, AiCacheEntry>;
+
 /** Full persisted application state — the shape written to disk. */
 export interface AppState {
   settings: Settings;
@@ -81,6 +113,8 @@ export interface AppState {
   repoMetadata: RepoMetadata;
   /** Cached GitHub enrichment per repo; hydrated into Repo.gh on scan. */
   ghCache: GhCache;
+  /** Cached AI analysis per repo; hydrated into Repo.aiSummary/aiTags on scan. */
+  aiCache: AiCache;
 }
 
 /** Latest CI (GitHub Actions) conclusion for the default branch. */
@@ -166,6 +200,7 @@ export function createEmptyAppState(): AppState {
     },
     repoMetadata: {},
     ghCache: {},
+    aiCache: {},
   };
 }
 
