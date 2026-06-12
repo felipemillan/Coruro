@@ -342,6 +342,106 @@ pub async fn git_commits_since(path: String, since_iso: String) -> Result<Vec<St
     Ok(commits)
 }
 
+/// File-level detail for a single commit.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDetail {
+    pub sha: String,
+    pub subject: String,
+    pub files: Vec<String>,
+    pub folders: Vec<String>,
+    pub added: i64,
+    pub deleted: i64,
+}
+
+/// Commit subjects + numstat since a given ISO timestamp.
+/// git log --branches --since=<iso> --format="COMMIT:%H %s" --numstat
+/// --branches covers only local branches (excludes refs/remotes/* and stash),
+/// avoiding attribution of teammates' commits to the local user.
+/// SHA dedup in the store handles any overlap between local branches.
+/// Returns CommitDetail per commit; empty vec on failure.
+#[tauri::command]
+pub async fn git_commits_since_numstat(path: String, since_iso: String) -> Result<Vec<CommitDetail>, String> {
+    let output = std::process::Command::new("git")
+        .args(["-C", &path, "log", "--branches",
+               &format!("--since={}", since_iso),
+               "--format=COMMIT:%H %s",
+               "--numstat"])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut commits: Vec<CommitDetail> = Vec::new();
+    let mut current: Option<CommitDetail> = None;
+
+    for line in stdout.lines() {
+        if let Some(rest) = line.strip_prefix("COMMIT:") {
+            if let Some(c) = current.take() { commits.push(c); }
+            let mut parts = rest.splitn(2, ' ');
+            let sha = parts.next().unwrap_or("").to_string();
+            let subject = parts.next().unwrap_or("").to_string();
+            current = Some(CommitDetail { sha, subject, files: vec![], folders: vec![], added: 0, deleted: 0 });
+        } else if let Some(c) = current.as_mut() {
+            let cols: Vec<&str> = line.split('\t').collect();
+            if cols.len() == 3 {
+                let added: i64 = cols[0].parse().unwrap_or(0);
+                let deleted: i64 = cols[1].parse().unwrap_or(0);
+                let file = cols[2].to_string();
+                let folder = file.split('/').next().unwrap_or(&file).to_string();
+                c.added += added;
+                c.deleted += deleted;
+                if !c.files.contains(&file) { c.files.push(file); }
+                if !c.folders.contains(&folder) { c.folders.push(folder); }
+            }
+        }
+    }
+    if let Some(c) = current { commits.push(c); }
+    Ok(commits)
+}
+
+/// Uncommitted-work summary for a repo.
+/// git diff --stat HEAD -> last line if it is the "N files changed..." summary,
+/// plus git status --porcelain -> count of "??" (untracked) lines.
+/// Returns "<summary>", "<summary>, N untracked", "N untracked", or "" (clean).
+/// Never errors on git failure — returns Ok("").
+#[tauri::command]
+pub async fn git_dirty_stat(path: String) -> Result<String, String> {
+    let summary = std::process::Command::new("git")
+        .args(["-C", &path, "diff", "--stat", "HEAD"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+        .and_then(|stdout| {
+            stdout
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .last()
+                .filter(|l| l.contains("changed"))
+                .map(|l| l.trim().to_string())
+        })
+        .unwrap_or_default();
+
+    let untracked = std::process::Command::new("git")
+        .args(["-C", &path, "status", "--porcelain"])
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter(|l| l.starts_with("??"))
+                .count()
+        })
+        .unwrap_or(0);
+
+    let result = match (summary.is_empty(), untracked) {
+        (true, 0) => String::new(),
+        (true, n) => format!("{} untracked", n),
+        (false, 0) => summary,
+        (false, n) => format!("{}, {} untracked", summary, n),
+    };
+    Ok(result)
+}
+
 /// Spawn the coruro-ai sidecar in "day_notes" mode.
 /// Writes {"mode":"day_notes","repos":<repos>} to stdin, returns one JSON line.
 /// On any spawn / sidecar-missing error returns a synthetic error JSON.
@@ -381,6 +481,7 @@ pub async fn ai_day_notes(repos: serde_json::Value) -> Result<String, String> {
 #[tauri::command]
 pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
     let mut payload = serde_json::to_vec(&serde_json::json!({
+        "mode": "analyze",
         "repoName": context.repo_name,
         "description": context.description,
         "languages": context.languages,
