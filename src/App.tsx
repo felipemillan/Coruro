@@ -10,7 +10,7 @@
 //     App owns the open state and the controlled <Settings> modal.
 //  5. An optional debug strip renders at the top when enabled.
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from './store/useBoardStore';
@@ -21,6 +21,7 @@ import { COLUMN_IDS, type Repo } from './types';
 import { Setup } from './components/Setup';
 import { Board } from './components/Board';
 import { Settings } from './components/Settings';
+import { NotesTab } from './components/NotesTab';
 
 export default function App() {
   const load = useBoardStore((s) => s.load);
@@ -35,6 +36,7 @@ export default function App() {
   const enrichGitHub = useBoardStore((s) => s.enrichGitHub);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = React.useState<'board' | 'notes'>('notes');
 
   useEffect(() => {
     void load();
@@ -210,8 +212,39 @@ export default function App() {
           /* First-run: no root directory set */
           <Setup />
         ) : (
-          /* Normal: board */
-          <Board onOpenSettings={() => setSettingsOpen(true)} />
+          /* Normal: tab bar + content */
+          <>
+            {/* Top-level tab bar — Notes | Board */}
+            <div className="shrink-0 flex items-center border-b border-warm-gray bg-cream/60">
+              <button
+                type="button"
+                onClick={() => setActiveTab('notes')}
+                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  activeTab === 'notes' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Notes
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('board')}
+                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  activeTab === 'board' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Board
+              </button>
+            </div>
+
+            {/* Tab content */}
+            <div className="flex flex-col flex-1 min-h-0">
+              {activeTab === 'notes' ? (
+                <NotesTab />
+              ) : (
+                <Board onOpenSettings={() => setSettingsOpen(true)} />
+              )}
+            </div>
+          </>
         )}
       </main>
 

@@ -1,13 +1,12 @@
 # Context
 
-**Current Task:** Built Coruro release app with new icon; consolidated nav into Toolbar; merged work to `main`.
+**Current Task:** Notes tab feature fully implemented and shipped to main.
 
 **Key Decisions:**
-- New Coruro icon regenerated across all icon files; nav header removed, brand + Settings gear moved into Toolbar.
-- Release build via `npm run tauri build` → `Coruro.app` + `Coruro_0.1.0_aarch64.dmg`.
-- Merged `feat/navbar-consolidate-new-icon` into `main` (fast-forward).
+- `generateDayNotes` fixed: field mismatch `recentCommits`→`commits` was silent failure; now also pulls GitHub API (commits + PRs) per repo.
+- Error surface added: `notesError` shows red banner in NotesTab instead of silent console.warn.
+- Beverly gate: generatingNotes/notesError runtime-only (not persisted), cap 90, no secrets in AI payload.
 
 **Next Steps:**
-- Push `main` to remote when ready.
-- Verify new dock icon from installed release build.
-- Optional: code-split large JS chunk (>500 kB warning).
+- Test on-device with Apple Intelligence active (sidecar day_notes mode).
+- Consider adding notes clear/delete UI.
