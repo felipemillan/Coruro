@@ -326,7 +326,8 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
     expect(repoEntry!.commits.some((line) => line.includes('uncommitted work in progress'))).toBe(true);
     expect(repoEntry!.commits.some((line) => /\d/.test(line))).toBe(false);
     // The composed note body carries the exact numbers.
-    const note = useBoardStore.getState().dayNotes.notes.at(-1)!;
+    const notes = useBoardStore.getState().dayNotes.notes;
+    const note = notes[notes.length - 1];
     expect(note.body).toContain('3 files changed, 42 insertions(+)');
   });
 
