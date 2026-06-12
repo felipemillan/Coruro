@@ -38,9 +38,21 @@ import { scanRepos } from '../utils/scanner';
 import { parseRemote, fetchRepoCard } from '../utils/github';
 import { readRepoNotes, writeRepoNotes } from '../utils/notesFile';
 import { buildAiContext, inputHash } from '../utils/aiContext';
+import { formatRepoContext, capContextLines } from '../utils/dayNotesContext';
+import { parseDirtyStat, composeSessionReport, qualitativeDigest, type RepoActivity } from '../utils/sessionReport';
+import type { EnrichedRepoEntry, CommitDetail } from '../utils/dayNotesContext';
+import { fetchUserLogin } from '../utils/githubUser';
+import { fetchUserEvents } from '../utils/githubEvents';
+import { fetchCIOutcomes, formatCILine } from '../utils/githubCI';
+import { fetchPRDetails, formatPRLine } from '../utils/githubPRDetails';
 
 /** Filename written under the user's home directory. */
 const STATE_FILE = '.repo_dashboard_state.json';
+
+/** Sentinel thrown inside fetchWithTimeout when the GitHub API returns 429. */
+class RateLimitError extends Error {
+  constructor() { super('GitHub API rate limit exceeded'); this.name = 'RateLimitError'; }
+}
 
 /** Debounce window (ms) for persisting note edits. */
 const NOTES_DEBOUNCE_MS = 500;
@@ -127,6 +139,12 @@ interface BoardStore extends AppState {
   addDayNote: (note: DayNote) => void;
   /** Clear all day notes and persist. */
   clearDayNotes: () => void;
+  /** Delete a single day-note by id and persist. */
+  deleteDayNote: (id: string) => void;
+  /** Append a human-written DayNote (trigger 'user') built from the given body. */
+  addUserNote: (body: string) => void;
+  /** Replace a day-note's body, stamp editedAt, recompute repoRefs, persist. */
+  updateDayNote: (id: string, body: string) => void;
   /** Toggle auto-note generation on/off and persist. */
   setAutoNotesEnabled: (enabled: boolean) => void;
   /** Set the auto-note interval (minutes) and persist. */
@@ -134,8 +152,12 @@ interface BoardStore extends AppState {
 
   /** Generate a day-note by querying the AI sidecar over the recent commit window. */
   generateDayNotes: (trigger: 'manual' | 'auto') => Promise<void>;
-  /** Start (or restart) the auto-notes interval timer based on current settings. */
-  setupAutoNotesTimer: () => void;
+  /** Start (or restart) the auto-notes interval timer based on current settings.
+   *  Pass `skipImmediateFire: true` when changing settings at runtime so the
+   *  timer resets without triggering an unwanted immediate generation. */
+  setupAutoNotesTimer: (opts?: { skipImmediateFire?: boolean }) => void;
+  /** Clear a displayed notes error (dismiss button). */
+  clearNotesError: () => void;
 
   /** Store a PAT in the Keychain and flip hasToken; persists the flag. */
   storeToken: (token: string) => Promise<void>;
@@ -285,7 +307,7 @@ function validateAppState(raw: unknown): AppState {
           typeof (note as any).body === 'string' &&
           Array.isArray((note as any).repoRefs) &&
           typeof (note as any).model === 'string' &&
-          ((note as any).trigger === 'manual' || (note as any).trigger === 'auto');
+          ((note as any).trigger === 'manual' || (note as any).trigger === 'auto' || (note as any).trigger === 'user');
       });
     }
   }
@@ -744,16 +766,58 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     void get().save();
   },
 
+  deleteDayNote: (id) => {
+    set((s) => ({
+      dayNotes: { ...s.dayNotes, notes: s.dayNotes.notes.filter((n) => n.id !== id) },
+    }));
+    void get().save();
+  },
+
+  addUserNote: (body) => {
+    // Human-written note: no AI window, so both window bounds collapse to now.
+    const now = new Date().toISOString();
+    const note: DayNote = {
+      id: crypto.randomUUID(),
+      generatedAt: now,
+      windowStart: now,
+      windowEnd: now,
+      body,
+      repoRefs: extractRepoRefs(body),
+      model: 'user',
+      trigger: 'user',
+    };
+    get().addDayNote(note);
+  },
+
+  updateDayNote: (id, body) => {
+    set((s) => ({
+      dayNotes: {
+        ...s.dayNotes,
+        notes: s.dayNotes.notes.map((n) =>
+          n.id === id
+            ? { ...n, body, editedAt: new Date().toISOString(), repoRefs: extractRepoRefs(body) }
+            : n
+        ),
+      },
+    }));
+    void get().save();
+  },
+
   setAutoNotesEnabled: (enabled) => {
     set((s) => ({ settings: { ...s.settings, autoNotesEnabled: enabled } }));
     void get().save();
-    get().setupAutoNotesTimer();
+    // Skip the immediate fire: the user is changing a setting, not starting a
+    // session. Only the App.tsx startup path should fire immediately.
+    get().setupAutoNotesTimer({ skipImmediateFire: true });
   },
 
   setAutoNotesIntervalMin: (min) => {
     set((s) => ({ settings: { ...s.settings, autoNotesIntervalMin: min } }));
     void get().save();
-    get().setupAutoNotesTimer();
+    // Skip the immediate fire: NotesTab calls this on every valid keystroke
+    // while the user types an interval (e.g. "1", "12", "120"). Firing
+    // generateDayNotes on every keystroke would create unwanted duplicate notes.
+    get().setupAutoNotesTimer({ skipImmediateFire: true });
   },
 
   generateDayNotes: async (trigger) => {
@@ -761,59 +825,212 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     set({ generatingNotes: true, notesError: null });
     try {
       const now = Date.now();
-      const windowStartMs = trigger === 'manual' ? now - 86400000 : now - 3600000;
+      // Session-anchored window: start where the last note ended so each note
+      // covers "what happened since the previous one". Clamped to [1h, 7d] so
+      // a very recent note still yields a useful window and a long absence
+      // doesn't blow up the context size.
+      const notes = get().dayNotes.notes;
+      // Anchor on the last AI-generated note, not any user-written note.
+      // A hand-written note at 5pm must not silently drop 9am–4pm activity by
+      // moving the window start forward to 4pm (due to the 1h minimum clamp).
+      const lastAiNote = [...notes].reverse().find((n) => n.trigger !== 'user');
+      const lastMs = lastAiNote ? Date.parse(lastAiNote.generatedAt) : NaN;
+
+      // For auto triggers: skip silently when the last AI note is still within
+      // the configured interval. This prevents duplicate notes on app restart
+      // when there was activity in the past hour that the previous note already
+      // covered. Manual triggers always proceed.
+      if (trigger === 'auto' && Number.isFinite(lastMs)) {
+        const { autoNotesIntervalMin } = get().settings;
+        const intervalMs = (autoNotesIntervalMin > 0 ? autoNotesIntervalMin : 60) * 60 * 1000;
+        if (now - lastMs < intervalMs) {
+          return;
+        }
+      }
+
+      let windowStartMs = Number.isFinite(lastMs) ? lastMs : now - 86400000;
+      windowStartMs = Math.max(windowStartMs, now - 7 * 86400000);
+      // Do NOT apply the 1-hour minimum clamp here: if the last AI note is only
+      // a few minutes old (e.g. a manual re-run), an artificially widened window
+      // would duplicate activity. The auto-trigger guard above already prevents
+      // running too soon. For manual runs within a short window, honour the
+      // actual elapsed time and let the "no activity found" path handle it.
+      // Exception: if there is no prior note, default to 1 day back (handled
+      // above by the NaN branch) and still apply no artificial minimum.
       const windowStart = new Date(windowStartMs).toISOString();
       const windowEnd = new Date(now).toISOString();
 
       const token = await invoke<string | null>('get_token').catch(() => null);
 
+      const login = token ? await fetchUserLogin(token).catch(() => null) : null;
+      const allEvents = (login && token) ? await fetchUserEvents(login, token, windowStart).catch(() => []) : [];
+
       const repos = get().repos;
+      // SHA-based dedup set shared across repos to avoid cross-repo collisions
+      const seenShas = new Set<string>();
       const repoData = await Promise.all(
         repos.map(async (r) => {
-          // 1. Local git commits (fast, works offline)
-          const localCommits = await invoke<string[]>('git_commits_since', {
+          // 1. Local git commits (fast, works offline) — now returns CommitDetail[]
+          const rawCommits = await invoke<CommitDetail[]>('git_commits_since_numstat', {
             path: r.path,
             sinceIso: windowStart,
-          }).catch(() => [] as string[]);
+          }).catch(() => [] as CommitDetail[]);
+          // Defensive: tolerate a malformed backend response rather than throwing.
+          let localCommits = Array.isArray(rawCommits) ? rawCommits : [];
+
+          // Uncommitted work summary (diff --stat vs HEAD + untracked count).
+          // Backend returns '' on clean tree or any git failure — never throws.
+          const dirtyStat = await invoke<string>('git_dirty_stat', { path: r.path }).catch(() => '');
+
+          // SHA-based dedup: filter out commits already seen from other repos
+          localCommits = localCommits.filter((c) => {
+            if (seenShas.has(c.sha)) return false;
+            seenShas.add(c.sha);
+            return true;
+          });
+
+          // Extract issue refs from subjects across all local commits
+          const issueRefSet = new Set<string>();
+          for (const c of localCommits) {
+            const matches = c.subject.matchAll(/#(\d+)/g);
+            for (const m of matches) issueRefSet.add(`#${m[1]}`);
+          }
 
           // 2. GitHub API commits + PR titles (richer, catches remote-only activity)
-          let ghCommits: string[] = [];
+          const prLines: string[] = [];
+          let ghCommitLines: string[] = [];
           const coords = r.remoteUrl ? parseRemote(r.remoteUrl) : null;
+          const ciRuns = (coords && token) ? await fetchCIOutcomes(coords.owner, coords.repo, token, windowStart).catch(() => []) : [];
           if (coords && token) {
             const headers: Record<string, string> = {
               Authorization: `token ${token}`,
               Accept: 'application/vnd.github+json',
             };
+
+            // Helper: fetch with a hard 8-second timeout. Returns null on
+            // network error or timeout; throws on 429 so the outer loop can
+            // bail out early with a user-friendly rate-limit message.
+            const fetchWithTimeout = async (url: string): Promise<Response | null> => {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 8000);
+              try {
+                const res = await fetch(url, { headers, signal: controller.signal });
+                clearTimeout(timer);
+                if (res.status === 429) {
+                  throw new RateLimitError();
+                }
+                return res;
+              } catch (err) {
+                clearTimeout(timer);
+                if (err instanceof RateLimitError) throw err;
+                // AbortError or network error — treat as a soft miss for this repo.
+                return null;
+              }
+            };
+
             const [commitsRes, prsRes] = await Promise.all([
-              fetch(
-                `https://api.github.com/repos/${coords.owner}/${coords.repo}/commits?since=${windowStart}&per_page=20`,
-                { headers }
-              ).catch(() => null),
-              fetch(
-                `https://api.github.com/repos/${coords.owner}/${coords.repo}/pulls?state=all&sort=updated&per_page=10`,
-                { headers }
-              ).catch(() => null),
+              fetchWithTimeout(
+                `https://api.github.com/repos/${coords.owner}/${coords.repo}/commits?since=${windowStart}&per_page=20`
+              ),
+              fetchWithTimeout(
+                `https://api.github.com/repos/${coords.owner}/${coords.repo}/pulls?state=all&sort=updated&per_page=10`
+              ),
             ]);
             if (commitsRes?.ok) {
-              const data = await commitsRes.json().catch(() => []) as Array<{ commit: { message: string } }>;
-              ghCommits.push(...data.map((c) => c.commit.message.split('\n')[0]));
+              const data = await commitsRes.json().catch(() => []) as Array<{ sha: string; commit: { message: string }; author?: { login?: string } }>;
+              for (const c of data) {
+                // Skip commits already covered by the local numstat scan —
+                // --branches means nearly every pushed commit would duplicate.
+                if (seenShas.has(c.sha)) continue;
+                seenShas.add(c.sha);
+                const subject = c.commit.message.split('\n')[0];
+                const authorLogin = c.author?.login;
+                const line = authorLogin ? `[${authorLogin}] ${subject}` : subject;
+                // Also extract issue refs from gh commit subjects
+                const matches = subject.matchAll(/#(\d+)/g);
+                for (const m of matches) issueRefSet.add(`#${m[1]}`);
+                ghCommitLines.push(line);
+              }
             }
             if (prsRes?.ok) {
-              const prs = await prsRes.json().catch(() => []) as Array<{ title: string; state: string; updated_at: string }>;
+              const prs = await prsRes.json().catch(() => []) as Array<{ number: number; title: string; state: string; updated_at: string }>;
               const recentPrs = prs.filter((pr) => pr.updated_at >= windowStart);
-              ghCommits.push(...recentPrs.map((pr) => `PR: ${pr.title} [${pr.state}]`));
+              // Fetch enriched PR details for top 3; fall back to plain title for the rest
+              const prDetails = await Promise.all(
+                recentPrs.slice(0, 3).map((pr) =>
+                  fetchPRDetails(coords.owner, coords.repo, pr.number, token).catch(() => null)
+                )
+              );
+              prLines.push(
+                ...prDetails
+                  .filter(Boolean)
+                  .map((pr) => formatPRLine(pr!)),
+                ...recentPrs.slice(3).map((pr) => `[PR #${pr.number}] ${pr.title}`),
+              );
             }
           }
 
-          // Merge local + gh, dedupe by message text
-          const seen = new Set<string>();
-          const commits: string[] = [];
-          for (const c of [...localCommits, ...ghCommits]) {
-            const key = c.trim().toLowerCase();
-            if (key && !seen.has(key)) { seen.add(key); commits.push(c.trim()); }
+          // Build EnrichedRepoEntry and format with shared utility
+          const entry: EnrichedRepoEntry = {
+            repoName: r.name,
+            commits: localCommits,
+            prs: prLines,
+            events: allEvents
+              .filter((e) => e.repo.endsWith('/' + r.name))
+              .map((e) => '[event] ' + e.summary),
+            ciLines: ciRuns.map(formatCILine),
+          };
+          const contextLines = formatRepoContext(entry);
+
+          // Append issue refs line if any were found
+          if (issueRefSet.size > 0) {
+            contextLines.push(`[refs] ${[...issueRefSet].sort().join(' ')}`);
           }
 
-          return { name: r.name, commits };
+          // Also include gh-only commit lines (not in local numstat) as plain lines
+          if (ghCommitLines.length > 0) {
+            contextLines.push(...ghCommitLines);
+          }
+
+          // Uncommitted changes count as activity: a dirty-only repo must still
+          // pass the activeRepoData filter (contextLines.length > 0) below.
+          if (dirtyStat !== '') {
+            contextLines.push('[uncommitted] ' + dirtyStat);
+          }
+
+          // Structured stats for the deterministic report skeleton: committed
+          // numbers from numstat plus the parsed dirty stat.
+          const dirty = parseDirtyStat(dirtyStat);
+          const committedFiles = new Set<string>();
+          let committedIns = 0;
+          let committedDel = 0;
+          for (const c of localCommits) {
+            for (const f of c.files) committedFiles.add(f);
+            committedIns += c.added;
+            committedDel += c.deleted;
+          }
+          const activity: RepoActivity = {
+            name: r.name,
+            filesChanged: committedFiles.size + dirty.files,
+            insertions: committedIns + dirty.insertions,
+            deletions: committedDel + dirty.deletions,
+            untracked: dirty.untracked,
+            commitSubjects: localCommits.slice(0, 3).map((c) => c.subject),
+          };
+
+          // Number-free lines for the AI executive summary — the on-device
+          // model parrots (and miscomputes) any digits it is shown, so it gets
+          // only commit subjects, PR/CI/event titles, and a qualitative digest.
+          const aiLines: string[] = [
+            ...activity.commitSubjects.map((s) => 'commit: ' + s),
+            ...entry.prs.map((p) => p.replace(/\s*\(\+\d+\/-\d+,\s*\d+\s*files?\)/g, '')),
+            ...entry.ciLines,
+            ...entry.events,
+          ];
+          const digest = qualitativeDigest(activity);
+          if (digest) aiLines.push(digest);
+
+          return { name: r.name, commits: contextLines, activity, aiLines };
         })
       );
 
@@ -821,48 +1038,85 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const activeRepoData = repoData.filter((r) => r.commits.length > 0);
 
       if (activeRepoData.length === 0) {
-        set({ notesError: 'No recent activity found in the selected time window.' });
+        // Manual click deserves feedback; a recurring auto run with a quiet
+        // window should not paint an error banner.
+        if (trigger === 'manual') {
+          set({ notesError: 'No activity found since the last note.' });
+        }
         return;
       }
 
-      const raw = await invoke<string>('ai_day_notes', { repos: activeRepoData });
-      const parsed = JSON.parse(raw) as { ok: boolean; body?: string; model?: string; error?: string };
+      // Cap total context before sending to sidecar. The AI sees only the
+      // number-free digest lines; the numeric stats live in the composed report.
+      const cappedRepoData = capContextLines(
+        activeRepoData.map(({ name, aiLines }) => ({ name, commits: aiLines })),
+        8000,
+      );
 
-      if (parsed.ok && parsed.body) {
-        const note: DayNote = {
-          id: crypto.randomUUID(),
-          generatedAt: new Date().toISOString(),
-          windowStart,
-          windowEnd,
-          body: parsed.body,
-          repoRefs: extractRepoRefs(parsed.body),
-          model: parsed.model ?? 'apple/foundation-models',
-          trigger,
-        };
-        get().addDayNote(note);
-        set({ notesError: null });
-      } else {
-        const msg = parsed.error === 'unavailable'
-          ? 'Apple Intelligence is not available on this device.'
-          : `Generation failed: ${parsed.error ?? 'unknown error'}`;
-        set({ notesError: msg });
+      // The report skeleton (tiers, metrics, per-repo stats) is deterministic;
+      // Apple Intelligence contributes only the executive-summary narrative.
+      // An AI failure therefore degrades to a stats-only note, never a no-note.
+      let execSummary = '_Apple Intelligence summary unavailable — stats compiled locally._';
+      let model = 'local-stats';
+      try {
+        const raw = await invoke<string>('ai_day_notes', { repos: cappedRepoData });
+        const parsed = JSON.parse(raw) as { ok: boolean; body?: string; model?: string; error?: string };
+        if (parsed.ok && parsed.body) {
+          execSummary = parsed.body.trim();
+          model = parsed.model ?? 'apple/foundation-models';
+        }
+      } catch {
+        // Sidecar spawn/parse failure — keep the fallback summary.
       }
+
+      const body = composeSessionReport(
+        activeRepoData.map((r) => r.activity),
+        execSummary,
+        new Date(now),
+      );
+
+      const note: DayNote = {
+        id: crypto.randomUUID(),
+        generatedAt: new Date().toISOString(),
+        windowStart,
+        windowEnd,
+        body,
+        repoRefs: extractRepoRefs(body),
+        model,
+        trigger,
+      };
+      get().addDayNote(note);
+      set({ notesError: null });
     } catch (e) {
-      set({ notesError: `Error: ${e instanceof Error ? e.message : String(e)}` });
+      if (e instanceof RateLimitError) {
+        set({ notesError: 'GitHub API rate limit reached. Wait a moment and try again.' });
+      } else {
+        set({ notesError: `Error: ${e instanceof Error ? e.message : String(e)}` });
+      }
     } finally {
       set({ generatingNotes: false });
     }
   },
 
-  setupAutoNotesTimer: () => {
+  setupAutoNotesTimer: ({ skipImmediateFire = false } = {}) => {
     if (autoNotesTimerRef) { clearInterval(autoNotesTimerRef); autoNotesTimerRef = null; }
     const { autoNotesEnabled, autoNotesIntervalMin } = get().settings;
     if (autoNotesEnabled && autoNotesIntervalMin > 0) {
+      // Only fire immediately from the startup path (App.tsx). When called from
+      // setAutoNotesEnabled / setAutoNotesIntervalMin (user changing settings),
+      // skipImmediateFire is true so we do not create an unwanted note.
+      if (!skipImmediateFire) {
+        void get().generateDayNotes('auto');
+      }
       autoNotesTimerRef = setInterval(
         () => void get().generateDayNotes('auto'),
         autoNotesIntervalMin * 60 * 1000,
       );
     }
+  },
+
+  clearNotesError: () => {
+    set({ notesError: null });
   },
 
   storeToken: async (token) => {

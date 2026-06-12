@@ -38,6 +38,17 @@ struct DayNotesResponse: Encodable {
     var error: String?
 }
 
+// Guided-generation schema for day notes. The TypeScript side composes the
+// full report (tiers, metrics, per-repo stats) deterministically; the model
+// contributes ONLY the executive-summary narrative. The small on-device model
+// proved unreliable at arithmetic and format-following, so nothing verifiable
+// is delegated to it.
+@Generable
+struct SessionSummary {
+    @Guide(description: "One or two sentences summarizing the overall narrative of this work session: name the 2-4 repositories with the most significant work and characterize it qualitatively (heavy refactoring, new features, bug fixes, work in progress). NEVER repeat, sum, or compute any numbers — the report already shows exact stats. First person, past tense. Plain repo names without brackets. Never invent details, never claim a time span (day, week), no concluding wrap-up phrases.")
+    var executiveSummary: String
+}
+
 @Generable
 struct RepoAnalysis {
     @Guide(description: "One-sentence summary of what this repository is, at most 30 words")
@@ -72,21 +83,22 @@ func buildPrompt(_ req: AiRequest) -> String {
 }
 
 func buildDayNotesPrompt(_ req: DayNotesRequest) -> String {
+    let activeRepos = req.repos.filter { !$0.commits.isEmpty }
     var lines: [String] = []
-    lines.append("Summarize the following git work session. For each repo, write a TLDR and bullet points. Use @repo_name to reference repos.")
+    lines.append("Git activity for my latest work session across \(activeRepos.count) repo(s):")
     lines.append("")
-    lines.append("Repos:")
-    for repo in req.repos {
+    for repo in activeRepos {
+        lines.append("[\(repo.name)]")
+        for c in repo.commits { lines.append("  \(c)") }
         lines.append("")
-        lines.append("@\(repo.name):")
-        if repo.commits.isEmpty {
-            lines.append("  (no commits)")
-        } else {
-            for c in repo.commits {
-                lines.append("  - \(c)")
-            }
-        }
     }
+    lines.append("""
+    Write the executive summary of this work session: 1-2 sentences naming the 2-4 repos with the most \
+    significant work and characterizing it qualitatively (refactoring, fixing, new features, work in progress). \
+    Do NOT repeat or compute any numbers — the report shows exact stats separately. \
+    First-person past tense. Synthesize — do not repeat the raw lines verbatim. \
+    Only facts present in the input; never invent details or claim a time span.
+    """)
     return lines.joined(separator: "\n")
 }
 
@@ -108,6 +120,12 @@ guard let line = readLine(strippingNewline: true),
 
 // ── Dispatch on mode ──
 // Check for "mode" field to distinguish day_notes from the default repo analysis.
+// Contract:
+//   mode == "day_notes"  → DayNotesRequest path (ai_day_notes Rust command)
+//   mode == "analyze"    → AiRequest path / default (ai_analyze Rust command)
+//   mode == nil          → AiRequest path / default (legacy callers without mode field)
+// AiRequest does not declare a `mode` field so the extra key is silently ignored
+// by JSONDecoder, preserving backward compatibility.
 struct ModeProbe: Decodable { var mode: String? }
 let modeProbe = try? JSONDecoder().decode(ModeProbe.self, from: input)
 
@@ -131,13 +149,22 @@ if modeProbe?.mode == "day_notes" {
         emitDayNotes(DayNotesResponse(ok: false, body: nil, model: nil, error: "unavailable")); exit(0)
     }
 
+    guard req.repos.contains(where: { !$0.commits.isEmpty }) else {
+        emitDayNotes(DayNotesResponse(ok: false, body: nil, model: nil, error: "noActivity"))
+        exit(0)
+    }
+
     let session = LanguageModelSession(
-        instructions: "You are a concise technical writer. Summarize git activity clearly and factually. Do not invent details not present in the commit messages."
+        instructions: "You summarize git work sessions for a personal journal. First person, past tense, specific and natural — like updating a teammate. Never invent details not present in the input, and never claim a time span (day, week) the input does not state."
     )
     do {
         let prompt = buildDayNotesPrompt(req)
-        let result = try await session.respond(to: prompt)
-        emitDayNotes(DayNotesResponse(ok: true, body: result.content, model: "apple/foundation-models", error: nil))
+        let result = try await session.respond(to: prompt, generating: SessionSummary.self)
+        emitDayNotes(DayNotesResponse(ok: true, body: result.content.executiveSummary, model: "apple/foundation-models", error: nil))
+    } catch let e as LanguageModelSession.GenerationError where {
+        if case .exceededContextWindowSize = e { return true } else { return false }
+    }() {
+        emitDayNotes(DayNotesResponse(ok: false, body: nil, model: nil, error: "contextOverflow"))
     } catch {
         emitDayNotes(DayNotesResponse(ok: false, body: nil, model: nil, error: "generation"))
     }

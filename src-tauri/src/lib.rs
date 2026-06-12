@@ -18,6 +18,8 @@ pub fn run() {
             commands::git_local_stats,
             commands::git_recent_commits,
             commands::git_commits_since,
+            commands::git_commits_since_numstat,
+            commands::git_dirty_stat,
             commands::ai_analyze,
             commands::ai_day_notes
         ])

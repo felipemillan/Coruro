@@ -1,12 +1,12 @@
 # Context
 
-**Current Task:** Notes tab feature fully implemented and shipped to main.
+**Current Task:** Day notes v2 shipped — tiered session report (deterministic TS skeleton + AI exec summary), user-written notes, markdown editor with @mentions.
 
 **Key Decisions:**
-- `generateDayNotes` fixed: field mismatch `recentCommits`→`commits` was silent failure; now also pulls GitHub API (commits + PRs) per repo.
-- Error surface added: `notesError` shows red banner in NotesTab instead of silent console.warn.
-- Beverly gate: generatingNotes/notesError runtime-only (not persisted), cap 90, no secrets in AI payload.
+- Report structure/stats computed in `sessionReport.ts`; Apple Intelligence gets number-free digest (model parrots/miscomputes digits).
+- Sidecar deploys to `src-tauri/binaries/coruro-ai-aarch64-apple-darwin` — externalBin overwrites target/debug on every cargo rebuild.
+- AI failure degrades to stats-only note (`model: local-stats`), never blocks generation.
 
 **Next Steps:**
-- Test on-device with Apple Intelligence active (sidecar day_notes mode).
-- Consider adding notes clear/delete UI.
+- On-device test of full report format in app UI.
+- Remaining minor review findings: mentions in mixed/bold markdown lines, 403 rate-limit detection.

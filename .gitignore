@@ -27,3 +27,8 @@ dist-ssr
 # Build / tool caches
 .vite/
 .firecrawl/
+.scratch/*
+!.scratch/.gitkeep
+
+# Local agent config
+.claude/

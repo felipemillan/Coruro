@@ -34,6 +34,7 @@ export default function App() {
   const repoCount = useBoardStore((s) => s.repos.length);
   const refreshIntervalMin = useBoardStore((s) => s.settings.refreshIntervalMin);
   const enrichGitHub = useBoardStore((s) => s.enrichGitHub);
+  const setupAutoNotesTimer = useBoardStore((s) => s.setupAutoNotesTimer);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = React.useState<'board' | 'notes'>('notes');
@@ -166,11 +167,20 @@ export default function App() {
   // scanAndDistribute is idempotent: repos already in a column keep their
   // position; only new paths are appended to inbox. It records any failure on
   // store.lastScanError rather than throwing.
+  //
+  // The auto-notes timer is chained AFTER the scan resolves: setupAutoNotesTimer
+  // fires generateDayNotes immediately, and an auto-note generated before
+  // store.repos is populated would always see "no activity" and silently skip.
+  // With no root configured there is nothing to scan, so start the timer right
+  // away (it respects persisted settings either way).
   useEffect(() => {
-    if (loaded && rootDirectory !== null) {
-      void scanAndDistribute(rootDirectory);
+    if (!loaded) return;
+    if (rootDirectory !== null) {
+      void scanAndDistribute(rootDirectory).then(() => setupAutoNotesTimer());
+    } else {
+      setupAutoNotesTimer();
     }
-  }, [loaded, rootDirectory, scanAndDistribute]);
+  }, [loaded, rootDirectory, scanAndDistribute, setupAutoNotesTimer]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-cream text-navy">
