@@ -1,8 +1,10 @@
 mod commands;
+mod pty;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(pty::PtyState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -21,7 +23,11 @@ pub fn run() {
             commands::git_commits_since_numstat,
             commands::git_dirty_stat,
             commands::ai_analyze,
-            commands::ai_day_notes
+            commands::ai_day_notes,
+            pty::pty_spawn,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

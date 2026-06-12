@@ -22,6 +22,7 @@ import { Setup } from './components/Setup';
 import { Board } from './components/Board';
 import { Settings } from './components/Settings';
 import { NotesTab } from './components/NotesTab';
+import { AskTab } from './components/AskTab';
 
 export default function App() {
   const load = useBoardStore((s) => s.load);
@@ -37,7 +38,13 @@ export default function App() {
   const setupAutoNotesTimer = useBoardStore((s) => s.setupAutoNotesTimer);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = React.useState<'board' | 'notes'>('notes');
+  const [activeTab, setActiveTab] = React.useState<'board' | 'notes' | 'ask'>('notes');
+  // AskTab mounts lazily on first visit, then stays mounted (hidden) so a
+  // running Claude Code PTY session survives switching to Notes/Board.
+  const [askVisited, setAskVisited] = useState(false);
+  useEffect(() => {
+    if (activeTab === 'ask') setAskVisited(true);
+  }, [activeTab]);
 
   useEffect(() => {
     void load();
@@ -244,14 +251,33 @@ export default function App() {
               >
                 Board
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ask')}
+                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  activeTab === 'ask' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Ask
+              </button>
             </div>
 
-            {/* Tab content */}
+            {/* Tab content. AskTab is display-toggled (not unmounted) so its
+                PTY session keeps running while other tabs are open. */}
             <div className="flex flex-col flex-1 min-h-0">
               {activeTab === 'notes' ? (
                 <NotesTab />
-              ) : (
+              ) : activeTab === 'board' ? (
                 <Board onOpenSettings={() => setSettingsOpen(true)} />
+              ) : null}
+              {askVisited && (
+                <div
+                  className={
+                    activeTab === 'ask' ? 'flex flex-col flex-1 min-h-0' : 'hidden'
+                  }
+                >
+                  <AskTab />
+                </div>
               )}
             </div>
           </>
