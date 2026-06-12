@@ -30,6 +30,7 @@ import {
   type RepoGitHub,
   type AiCacheEntry,
   type AiResult,
+  type DayNote,
   COLUMN_IDS,
   createEmptyAppState,
 } from '../types';
@@ -55,6 +56,10 @@ interface BoardStore extends AppState {
   analyzingPaths: Set<string>;
   /** Runtime-only: reason Apple Intelligence is unavailable this session, else null. */
   aiUnavailableReason: string | null;
+  /** Runtime-only: true while the AI sidecar is generating a day note. NOT persisted. */
+  generatingNotes: boolean;
+  /** Runtime-only: last notes-generation error message; null when clean. NOT persisted. */
+  notesError: string | null;
 
   /** Read state from disk (or initialise defaults if the file is missing). */
   load: () => Promise<void>;
@@ -118,10 +123,36 @@ interface BoardStore extends AppState {
   /** Set the macOS terminal app name (open -a) and persist. */
   setTerminalApp: (app: string) => Promise<void>;
 
+  /** Append a DayNote; trims the list to 90 entries and persists. */
+  addDayNote: (note: DayNote) => void;
+  /** Clear all day notes and persist. */
+  clearDayNotes: () => void;
+  /** Toggle auto-note generation on/off and persist. */
+  setAutoNotesEnabled: (enabled: boolean) => void;
+  /** Set the auto-note interval (minutes) and persist. */
+  setAutoNotesIntervalMin: (min: number) => void;
+
+  /** Generate a day-note by querying the AI sidecar over the recent commit window. */
+  generateDayNotes: (trigger: 'manual' | 'auto') => Promise<void>;
+  /** Start (or restart) the auto-notes interval timer based on current settings. */
+  setupAutoNotesTimer: () => void;
+
   /** Store a PAT in the Keychain and flip hasToken; persists the flag. */
   storeToken: (token: string) => Promise<void>;
   /** Refresh hasToken from the Keychain (does not expose the raw token). */
   refreshHasToken: () => Promise<void>;
+}
+
+/** Module-level ref for the auto-notes setInterval handle. */
+let autoNotesTimerRef: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Extract repo name refs from a day-note body (tokens prefixed with @).
+ * Returns a deduplicated array of the name strings (without the @).
+ */
+function extractRepoRefs(body: string): string[] {
+  const matches = body.match(/@([a-zA-Z0-9_-]+)/g) || [];
+  return [...new Set(matches.map((m: string) => m.slice(1)))];
 }
 
 /** Serialise only the persisted AppState slice (never runtime fields/token). */
@@ -132,6 +163,7 @@ function serialise(state: AppState): string {
     repoMetadata: state.repoMetadata,
     ghCache: state.ghCache,
     aiCache: state.aiCache,
+    dayNotes: state.dayNotes,
   };
   return JSON.stringify(snapshot, null, 2);
 }
@@ -174,6 +206,10 @@ function validateAppState(raw: unknown): AppState {
     if (typeof s.terminalApp === 'string' && s.terminalApp.length > 0) settings.terminalApp = s.terminalApp;
     if (typeof s.refreshIntervalMin === 'number' && Number.isFinite(s.refreshIntervalMin) && s.refreshIntervalMin >= 0) {
       settings.refreshIntervalMin = s.refreshIntervalMin;
+    }
+    if (typeof s.autoNotesEnabled === 'boolean') settings.autoNotesEnabled = s.autoNotesEnabled;
+    if (typeof s.autoNotesIntervalMin === 'number' && Number.isFinite(s.autoNotesIntervalMin) && s.autoNotesIntervalMin > 0) {
+      settings.autoNotesIntervalMin = s.autoNotesIntervalMin;
     }
   }
 
@@ -234,7 +270,27 @@ function validateAppState(raw: unknown): AppState {
     }
   }
 
-  return { settings, board, repoMetadata, ghCache, aiCache };
+  // dayNotes: keep only well-shaped notes in the array; drop anything malformed.
+  const dayNotes = base.dayNotes;
+  const rawDayNotes = (parsed as { dayNotes?: unknown }).dayNotes;
+  if (rawDayNotes && typeof rawDayNotes === 'object') {
+    const dn = rawDayNotes as Record<string, unknown>;
+    if (Array.isArray(dn.notes)) {
+      dayNotes.notes = dn.notes.filter((note): note is any => {
+        return typeof note === 'object' && note !== null &&
+          typeof (note as any).id === 'string' &&
+          typeof (note as any).generatedAt === 'string' &&
+          typeof (note as any).windowStart === 'string' &&
+          typeof (note as any).windowEnd === 'string' &&
+          typeof (note as any).body === 'string' &&
+          Array.isArray((note as any).repoRefs) &&
+          typeof (note as any).model === 'string' &&
+          ((note as any).trigger === 'manual' || (note as any).trigger === 'auto');
+      });
+    }
+  }
+
+  return { settings, board, repoMetadata, ghCache, aiCache, dayNotes };
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
@@ -244,6 +300,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   lastScanError: null,
   analyzingPaths: new Set(),
   aiUnavailableReason: null,
+  generatingNotes: false,
+  notesError: null,
 
   load: async () => {
     try {
@@ -262,6 +320,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           repoMetadata: state.repoMetadata,
           ghCache: state.ghCache,
           aiCache: state.aiCache,
+          dayNotes: state.dayNotes,
           loaded: true,
         });
       } else {
@@ -282,8 +341,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (!get().loaded) return Promise.resolve();
     // Serialise the snapshot now (synchronously), but commit the disk write
     // through writeChain so concurrent saves never interleave partial writes.
-    const { settings, board, repoMetadata, ghCache, aiCache } = get();
-    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache });
+    const { settings, board, repoMetadata, ghCache, aiCache, dayNotes } = get();
+    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache, dayNotes });
     writeChain = writeChain.then(() =>
       writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),
     );
@@ -669,6 +728,141 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   setTerminalApp: async (app) => {
     set((s) => ({ settings: { ...s.settings, terminalApp: app } }));
     await get().save();
+  },
+
+  addDayNote: (note) => {
+    set((s) => {
+      const notes = [...s.dayNotes.notes, note];
+      if (notes.length > 90) notes.splice(0, notes.length - 90);
+      return { dayNotes: { ...s.dayNotes, notes } };
+    });
+    void get().save();
+  },
+
+  clearDayNotes: () => {
+    set((s) => ({ dayNotes: { ...s.dayNotes, notes: [] } }));
+    void get().save();
+  },
+
+  setAutoNotesEnabled: (enabled) => {
+    set((s) => ({ settings: { ...s.settings, autoNotesEnabled: enabled } }));
+    void get().save();
+    get().setupAutoNotesTimer();
+  },
+
+  setAutoNotesIntervalMin: (min) => {
+    set((s) => ({ settings: { ...s.settings, autoNotesIntervalMin: min } }));
+    void get().save();
+    get().setupAutoNotesTimer();
+  },
+
+  generateDayNotes: async (trigger) => {
+    if (get().generatingNotes) return;
+    set({ generatingNotes: true, notesError: null });
+    try {
+      const now = Date.now();
+      const windowStartMs = trigger === 'manual' ? now - 86400000 : now - 3600000;
+      const windowStart = new Date(windowStartMs).toISOString();
+      const windowEnd = new Date(now).toISOString();
+
+      const token = await invoke<string | null>('get_token').catch(() => null);
+
+      const repos = get().repos;
+      const repoData = await Promise.all(
+        repos.map(async (r) => {
+          // 1. Local git commits (fast, works offline)
+          const localCommits = await invoke<string[]>('git_commits_since', {
+            path: r.path,
+            sinceIso: windowStart,
+          }).catch(() => [] as string[]);
+
+          // 2. GitHub API commits + PR titles (richer, catches remote-only activity)
+          let ghCommits: string[] = [];
+          const coords = r.remoteUrl ? parseRemote(r.remoteUrl) : null;
+          if (coords && token) {
+            const headers: Record<string, string> = {
+              Authorization: `token ${token}`,
+              Accept: 'application/vnd.github+json',
+            };
+            const [commitsRes, prsRes] = await Promise.all([
+              fetch(
+                `https://api.github.com/repos/${coords.owner}/${coords.repo}/commits?since=${windowStart}&per_page=20`,
+                { headers }
+              ).catch(() => null),
+              fetch(
+                `https://api.github.com/repos/${coords.owner}/${coords.repo}/pulls?state=all&sort=updated&per_page=10`,
+                { headers }
+              ).catch(() => null),
+            ]);
+            if (commitsRes?.ok) {
+              const data = await commitsRes.json().catch(() => []) as Array<{ commit: { message: string } }>;
+              ghCommits.push(...data.map((c) => c.commit.message.split('\n')[0]));
+            }
+            if (prsRes?.ok) {
+              const prs = await prsRes.json().catch(() => []) as Array<{ title: string; state: string; updated_at: string }>;
+              const recentPrs = prs.filter((pr) => pr.updated_at >= windowStart);
+              ghCommits.push(...recentPrs.map((pr) => `PR: ${pr.title} [${pr.state}]`));
+            }
+          }
+
+          // Merge local + gh, dedupe by message text
+          const seen = new Set<string>();
+          const commits: string[] = [];
+          for (const c of [...localCommits, ...ghCommits]) {
+            const key = c.trim().toLowerCase();
+            if (key && !seen.has(key)) { seen.add(key); commits.push(c.trim()); }
+          }
+
+          return { name: r.name, commits };
+        })
+      );
+
+      // Only include repos that have activity in the window
+      const activeRepoData = repoData.filter((r) => r.commits.length > 0);
+
+      if (activeRepoData.length === 0) {
+        set({ notesError: 'No recent activity found in the selected time window.' });
+        return;
+      }
+
+      const raw = await invoke<string>('ai_day_notes', { repos: activeRepoData });
+      const parsed = JSON.parse(raw) as { ok: boolean; body?: string; model?: string; error?: string };
+
+      if (parsed.ok && parsed.body) {
+        const note: DayNote = {
+          id: crypto.randomUUID(),
+          generatedAt: new Date().toISOString(),
+          windowStart,
+          windowEnd,
+          body: parsed.body,
+          repoRefs: extractRepoRefs(parsed.body),
+          model: parsed.model ?? 'apple/foundation-models',
+          trigger,
+        };
+        get().addDayNote(note);
+        set({ notesError: null });
+      } else {
+        const msg = parsed.error === 'unavailable'
+          ? 'Apple Intelligence is not available on this device.'
+          : `Generation failed: ${parsed.error ?? 'unknown error'}`;
+        set({ notesError: msg });
+      }
+    } catch (e) {
+      set({ notesError: `Error: ${e instanceof Error ? e.message : String(e)}` });
+    } finally {
+      set({ generatingNotes: false });
+    }
+  },
+
+  setupAutoNotesTimer: () => {
+    if (autoNotesTimerRef) { clearInterval(autoNotesTimerRef); autoNotesTimerRef = null; }
+    const { autoNotesEnabled, autoNotesIntervalMin } = get().settings;
+    if (autoNotesEnabled && autoNotesIntervalMin > 0) {
+      autoNotesTimerRef = setInterval(
+        () => void get().generateDayNotes('auto'),
+        autoNotesIntervalMin * 60 * 1000,
+      );
+    }
   },
 
   storeToken: async (token) => {

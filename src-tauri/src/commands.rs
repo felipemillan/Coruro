@@ -324,6 +324,60 @@ fn run_sidecar(bin: &std::path::Path, payload: &[u8]) -> std::io::Result<String>
     Ok(out)
 }
 
+/// Commit subject lines since a given ISO 8601 timestamp.
+/// `git -C <path> log --since=<iso> --format=%s`
+/// Returns an empty vec on failure; never errors.
+#[tauri::command]
+pub async fn git_commits_since(path: String, since_iso: String) -> Result<Vec<String>, String> {
+    let output = std::process::Command::new("git")
+        .args(["-C", &path, "log", &format!("--since={}", since_iso), "--format=%s"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let commits: Vec<String> = stdout
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.to_string())
+        .collect();
+    Ok(commits)
+}
+
+/// Spawn the coruro-ai sidecar in "day_notes" mode.
+/// Writes {"mode":"day_notes","repos":<repos>} to stdin, returns one JSON line.
+/// On any spawn / sidecar-missing error returns a synthetic error JSON.
+#[tauri::command]
+pub async fn ai_day_notes(repos: serde_json::Value) -> Result<String, String> {
+    let mut payload = serde_json::to_vec(&serde_json::json!({
+        "mode": "day_notes",
+        "repos": repos,
+    }))
+    .map_err(|e| e.to_string())?;
+    payload.push(b'\n');
+
+    let bin = match resolve_sidecar() {
+        Some(p) => p,
+        None => {
+            eprintln!("[ai] sidecar binary not found next to current_exe");
+            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
+        }
+    };
+
+    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
+    match tokio::time::timeout(Duration::from_secs(60), work).await {
+        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
+        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Err(e))) => {
+            eprintln!("[ai] sidecar spawn err: {e}");
+            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
+        }
+        Ok(Err(e)) => {
+            eprintln!("[ai] join err: {e}");
+            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
+        }
+        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
+    }
+}
+
 #[tauri::command]
 pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
     let mut payload = serde_json::to_vec(&serde_json::json!({

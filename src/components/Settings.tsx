@@ -73,6 +73,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const setTerminalApp = useBoardStore((s) => s.setTerminalApp);
   const refreshIntervalMin = useBoardStore((s) => s.settings.refreshIntervalMin);
   const setRefreshInterval = useBoardStore((s) => s.setRefreshInterval);
+  const autoNotesEnabled = useBoardStore((s) => s.settings.autoNotesEnabled);
+  const autoNotesIntervalMin = useBoardStore((s) => s.settings.autoNotesIntervalMin);
+  const setAutoNotesEnabled = useBoardStore((s) => s.setAutoNotesEnabled);
+  const setAutoNotesIntervalMin = useBoardStore((s) => s.setAutoNotesIntervalMin);
 
   const [tokenInput, setTokenInput] = useState('');
   const [tokenSaving, setTokenSaving] = useState(false);
@@ -523,6 +527,50 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   <option value={30}>Every 30 minutes</option>
                   <option value={60}>Every hour</option>
                 </select>
+              </section>
+
+              {/* Divider */}
+              <div className="border-t border-warm-gray" />
+
+              {/* ---- Section: Auto Notes ---- */}
+              <section>
+                <SectionHeading>Auto Notes</SectionHeading>
+                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                  Automatically generate and append day notes from your recent commits.
+                </p>
+                <label className="flex items-center gap-3 cursor-pointer mb-3">
+                  <input
+                    type="checkbox"
+                    checked={autoNotesEnabled}
+                    onChange={(e) => void setAutoNotesEnabled(e.target.checked)}
+                    className="w-4 h-4 accent-navy"
+                  />
+                  <span className="text-[12px] text-navy">Enable hourly auto notes</span>
+                </label>
+                {autoNotesEnabled && (
+                  <label className="flex items-center gap-2">
+                    <span className="text-[12px] text-navy whitespace-nowrap">Interval (minutes)</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={autoNotesIntervalMin}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        if (v > 0) void setAutoNotesIntervalMin(v);
+                      }}
+                      className="
+                        flex-1 px-3 py-2
+                        rounded-lg
+                        bg-warm-gray border border-warm-gray/80
+                        text-[12px] text-navy
+                        placeholder:text-navy-light/40
+                        focus:outline-none focus:border-navy/40 focus:bg-cream
+                        transition-colors duration-150
+                      "
+                    />
+                  </label>
+                )}
               </section>
 
               {/* Divider */}

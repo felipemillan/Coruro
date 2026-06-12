@@ -17,7 +17,9 @@ pub fn run() {
             commands::git_fetch,
             commands::git_local_stats,
             commands::git_recent_commits,
-            commands::ai_analyze
+            commands::git_commits_since,
+            commands::ai_analyze,
+            commands::ai_day_notes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
