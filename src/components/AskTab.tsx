@@ -72,6 +72,9 @@ export function AskTab() {
   const buffersRef = useRef<Map<string, string>>(new Map());
   // Event unlisten fns keyed by session id.
   const unlistenersRef = useRef<Map<string, UnlistenFn[]>>(new Map());
+  // Pending quick-action sequencing timers, keyed by session id, so they can be
+  // cancelled if the session ends or the component unmounts before they fire.
+  const quickActionTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>[]>>(new Map());
 
   useEffect(() => {
     if (repoPath === '' && sorted.length > 0) setRepoPath(sorted[0].path);
@@ -140,7 +143,14 @@ export function AskTab() {
   // `override` lets callers (e.g. a Command Center quick action) launch a
   // session with an explicit cwd/prompt without waiting for a state commit —
   // this avoids stale-closure races entirely.
-  const start = useCallback(async (override?: { cwd: string; prompt: string }) => {
+  //
+  // EVERY session boots at an empty prompt (no `dgc` prompt arg) so we can drive
+  // two inputs over the PTY in order — `/caveman:caveman ultra` first (to cut
+  // token cost on every session), then the user prompt if one was given. This is
+  // the only way to prepend a slash command, since `dgc` takes the prompt as a
+  // single positional arg with no room for a command in front.
+  const start = useCallback(
+    async (override?: { cwd: string; prompt: string }) => {
     const effRepoPath = override?.cwd ?? repoPath;
     const effQuestion = override?.prompt ?? question;
     if (effRepoPath === '' || containerRef.current === null) return;
@@ -169,15 +179,57 @@ export function AskTab() {
     displayedIdRef.current = id;
     setActiveSessionId(id);
 
+    // Caveman sequencing: dgc prints SECONDS of scan/boot logs before claude
+    // actually starts, so we must NOT fire on first output — that lands the
+    // keystrokes in the dgc boot stream and they are lost. Instead gate on
+    // claude's own ready marker (its version banner / the `❯` input prompt) in
+    // the cumulative session buffer, then send `/caveman:caveman ultra`, then
+    // (after the skill has time to activate) the user prompt — if one was given.
+    // Timers are tracked so they can be cancelled on exit/unmount.
+    let cavemanFired = false;
+    const CLAUDE_READY = /Claude Code v|❯/; // banner or the ❯ input caret
+    const CAVEMAN_SETTLE_MS = 1200; // after claude is ready, before caveman
+    const CAVEMAN_TO_PROMPT_MS = 2800; // let the skill finish loading
+    const fireCavemanSequence = () => {
+      if (cavemanFired) return;
+      cavemanFired = true;
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      // Settle after claude's input box appears, then send the caveman command
+      // (submitted), then the user prompt (submitted) when present.
+      timers.push(
+        setTimeout(() => {
+          void invoke('pty_write', { id, data: '/caveman:caveman ultra\r' }).catch(
+            () => undefined,
+          );
+          if (title !== '') {
+            timers.push(
+              setTimeout(() => {
+                void invoke('pty_write', { id, data: `${title}\r` }).catch(() => undefined);
+              }, CAVEMAN_TO_PROMPT_MS),
+            );
+          }
+        }, CAVEMAN_SETTLE_MS),
+      );
+      quickActionTimersRef.current.set(id, timers);
+    };
+
     const unOut = await listen<PtyOutput>('pty-output', (e) => {
       if (e.payload.id !== id) return;
       const chunk = e.payload.data;
       buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
       if (displayedIdRef.current === id) term.write(chunk);
+      // Fire once claude itself is up (banner/❯ in the cumulative buffer),
+      // never on dgc's earlier boot logs.
+      if (CLAUDE_READY.test(buffersRef.current.get(id) ?? '')) {
+        fireCavemanSequence();
+      }
     });
 
     const unExit = await listen<PtyExit>('pty-exit', (e) => {
       if (e.payload.id !== id) return;
+      // Session gone — drop any pending quick-action input timers.
+      quickActionTimersRef.current.get(id)?.forEach((t) => clearTimeout(t));
+      quickActionTimersRef.current.delete(id);
       const msg = `\r\n\x1b[2m── session ended${e.payload.code !== null ? ` (exit ${e.payload.code})` : ''} ──\x1b[0m\r\n`;
       buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + msg);
       if (displayedIdRef.current === id) term.write(msg);
@@ -189,10 +241,13 @@ export function AskTab() {
     unlistenersRef.current.set(id, [unOut, unExit]);
 
     try {
+      // All sessions boot at an empty prompt (no dgc arg) so we can prepend the
+      // caveman command over the PTY; the prompt (when present) is then sent via
+      // pty_write after the caveman skill activates.
       await invoke('pty_spawn', {
         id,
         cwd: effRepoPath,
-        prompt: title === '' ? null : title,
+        prompt: null,
         cols: term.cols,
         rows: term.rows,
       });
@@ -206,7 +261,9 @@ export function AskTab() {
       unlistenersRef.current.get(id)?.forEach((u) => u());
       unlistenersRef.current.delete(id);
     }
-  }, [repoPath, question, getRepoName, ensureTerminal]);
+  },
+  [repoPath, question, getRepoName, ensureTerminal],
+  );
 
   // Command Center quick-action: pre-fill cwd + prompt for the UI, then launch
   // immediately via an explicit override so we never depend on a state commit
@@ -232,6 +289,9 @@ export function AskTab() {
       fitRef.current = null;
       for (const uns of unlistenersRef.current.values()) uns.forEach((u) => u());
       unlistenersRef.current.clear();
+      for (const timers of quickActionTimersRef.current.values())
+        timers.forEach((t) => clearTimeout(t));
+      quickActionTimersRef.current.clear();
     };
   }, []);
 

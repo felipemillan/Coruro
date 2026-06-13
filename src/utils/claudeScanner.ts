@@ -15,7 +15,7 @@
  * runs via Promise.all.
  */
 
-import { readDir, readTextFile, exists } from '@tauri-apps/plugin-fs';
+import { readDir, readTextFile, exists, stat } from '@tauri-apps/plugin-fs';
 import { join, homeDir } from '@tauri-apps/api/path';
 import type {
   ClaudeInventory,
@@ -136,6 +136,41 @@ interface RawMcpServer {
   command?: unknown;
   url?: unknown;
   type?: unknown;
+  args?: unknown;
+}
+
+/** Command names that are generic runners — not informative as a package hint. */
+const MCP_RUNNERS = new Set([
+  'npx', 'uvx', 'node', 'python', 'python3', 'bunx', 'bun', 'deno', 'sh', 'bash', 'env', 'uv',
+]);
+
+/**
+ * Derive a SECRET-FREE package/binary identifier from a stdio command + args,
+ * to give the enrichment model real signal about what a server is. Only
+ * package-shaped tokens are accepted; anything containing `=` (flag values),
+ * starting with `-` (flags), or overly long (possible secrets) is rejected, so
+ * no credential can leak through. Returns null when nothing identifiable.
+ */
+function derivePackageHint(command: string | null, args: unknown): string | null {
+  const argList = Array.isArray(args)
+    ? args.filter((a): a is string => typeof a === 'string')
+    : [];
+  // 1) A scoped/path-shaped package token (e.g. @scope/server-x or a/b).
+  for (const a of argList) {
+    if (a.startsWith('-') || a.includes('=') || a.length > 60) continue;
+    if (/^@?[\w.-]+\/[\w.@/-]+$/.test(a)) return a;
+  }
+  // 2) A bare *-mcp / *-server style token.
+  for (const a of argList) {
+    if (a.startsWith('-') || a.includes('=') || a.length > 40) continue;
+    if (/-(mcp|server)$/i.test(a) || /mcp/i.test(a)) return a;
+  }
+  // 3) A non-runner command binary (e.g. a custom executable name).
+  if (command !== null) {
+    const base = command.split('/').pop() ?? command;
+    if (!MCP_RUNNERS.has(base) && /^[\w.-]+$/.test(base) && base.length <= 40) return base;
+  }
+  return null;
 }
 interface RawClaudeJsonProject {
   mcpServers?: Record<string, RawMcpServer> | undefined;
@@ -212,7 +247,8 @@ function buildMcpServer(
     url = redactUrl(raw.url);
   }
 
-  const server: ClaudeMcpServer = { name, scope, transport, command, url, source };
+  const packageHint = transport === 'stdio' ? derivePackageHint(command, raw.args) : null;
+  const server: ClaudeMcpServer = { name, scope, transport, command, url, source, packageHint };
   if (scope === 'project' && projectPath !== undefined) {
     server.projectPath = projectPath;
   }
@@ -429,20 +465,36 @@ async function scanPlugins(
   const plugins: ClaudePlugin[] = [];
   const roots: PluginRoot[] = [];
 
-  for (const [key, records] of Object.entries(map)) {
-    const atIdx = key.lastIndexOf('@');
-    const name = atIdx === -1 ? key : key.slice(0, atIdx);
-    const marketplace = atIdx === -1 ? null : key.slice(atIdx + 1);
-    const first = Array.isArray(records) ? records[0] : undefined;
-    const installPath = first && typeof first.installPath === 'string' ? first.installPath : null;
-    const version = first && typeof first.version === 'string' ? first.version : null;
-    // enabledPlugins keys are the full "name@marketplace"; default true.
-    const enabledRaw = enabledPlugins[key];
-    const enabled = typeof enabledRaw === 'boolean' ? enabledRaw : true;
+  await Promise.all(
+    Object.entries(map).map(async ([key, records]) => {
+      const atIdx = key.lastIndexOf('@');
+      const name = atIdx === -1 ? key : key.slice(0, atIdx);
+      const marketplace = atIdx === -1 ? null : key.slice(atIdx + 1);
+      const first = Array.isArray(records) ? records[0] : undefined;
+      const installPath = first && typeof first.installPath === 'string' ? first.installPath : null;
+      const version = first && typeof first.version === 'string' ? first.version : null;
+      // enabledPlugins keys are the full "name@marketplace"; default true.
+      const enabledRaw = enabledPlugins[key];
+      const enabled = typeof enabledRaw === 'boolean' ? enabledRaw : true;
 
-    plugins.push({ name, marketplace, source: marketplace, version, enabled });
-    if (installPath !== null) roots.push({ name, installPath, enabled });
-  }
+      // Authoritative description from the plugin manifest, when present.
+      let description: string | null = null;
+      if (installPath !== null) {
+        try {
+          const manifestPath = await join(installPath, '.claude-plugin', 'plugin.json');
+          const manifest = await readJsonLoose<{ description?: unknown }>(manifestPath);
+          if (manifest && typeof manifest.description === 'string' && manifest.description.length > 0) {
+            description = manifest.description;
+          }
+        } catch {
+          // missing/unreadable manifest — leave description null
+        }
+      }
+
+      plugins.push({ name, marketplace, source: marketplace, version, enabled, description });
+      if (installPath !== null) roots.push({ name, installPath, enabled });
+    }),
+  );
 
   plugins.sort((a, b) => a.name.localeCompare(b.name));
   return { plugins, roots };
@@ -598,14 +650,39 @@ async function scanSessions(projectsDir: string): Promise<ClaudeSessionStat[]> {
   const stats = await Promise.all(
     dirs.map(async (dir): Promise<ClaudeSessionStat> => {
       let transcriptCount = 0;
+      let lastModified: number | null = null;
       try {
         const dirPath = await join(projectsDir, dir.name);
         const files = await readDir(dirPath);
-        transcriptCount = files.filter((f) => !f.isDirectory && /\.jsonl$/i.test(f.name)).length;
+        const jsonlFiles = files.filter((f) => !f.isDirectory && /\.jsonl$/i.test(f.name));
+        transcriptCount = jsonlFiles.length;
+
+        // Compute newest mtime across all *.jsonl files in this project dir.
+        const mtimes = await Promise.all(
+          jsonlFiles.map(async (f): Promise<number | null> => {
+            try {
+              const filePath = await join(dirPath, f.name);
+              const info = await stat(filePath);
+              const mtime = info.mtime;
+              if (mtime instanceof Date) return mtime.getTime();
+              if (typeof mtime === 'number') return mtime;
+              return null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        for (const ms of mtimes) {
+          if (ms !== null && (lastModified === null || ms > lastModified)) {
+            lastModified = ms;
+          }
+        }
       } catch {
         transcriptCount = 0;
+        lastModified = null;
       }
-      return { projectSlug: dir.name, transcriptCount };
+      return { projectSlug: dir.name, transcriptCount, lastModified };
     }),
   );
 

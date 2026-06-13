@@ -286,6 +286,12 @@ export interface ClaudeMcpServer {
   url?: string | null;
   /** Origin: 'user' (from ~/.claude.json) or the providing plugin's name. */
   source: string;
+  /**
+   * Secret-free package/binary identifier derived from the stdio command+args
+   * (e.g. "@modelcontextprotocol/server-github"). Flags and flag VALUES are
+   * stripped, so no token ever lands here. null when none could be identified.
+   */
+  packageHint?: string | null;
 }
 
 /** One installed skill, from a `<root>/skills/<dir>/SKILL.md`. */
@@ -332,6 +338,8 @@ export interface ClaudePlugin {
   version: string | null;
   /** Enabled state from settings.json `enabledPlugins`. */
   enabled: boolean;
+  /** Authoritative one-liner from the plugin's `.claude-plugin/plugin.json`. */
+  description: string | null;
 }
 
 /** One configured hook: either a settings.json entry or a standalone script. */
@@ -365,6 +373,8 @@ export interface ClaudeSettings {
 export interface ClaudeSessionStat {
   projectSlug: string;
   transcriptCount: number;
+  /** Epoch ms of the newest transcript (*.jsonl) in the project dir; null if unknown. */
+  lastModified: number | null;
 }
 
 /** Full inventory of the user's Claude Code setup. */
@@ -383,6 +393,29 @@ export interface ClaudeInventory {
   scannedAt: string;
   /** Per-source non-fatal errors; mirrors useBoardStore.lastScanError. */
   errors: string[];
+}
+
+/** One item sent to the on-device model for a short descriptive blurb. Secret-free. */
+export interface ClaudeEnrichItem {
+  /** Stable id, e.g. "mcp:posthog" or "session:-Users-admin-Github-Coruro". */
+  id: string;
+  kind: 'mcp' | 'session';
+  /** Secret-free context string (name/transport/url-host or humanized slug). */
+  context: string;
+}
+
+/** One generated blurb keyed back to a ClaudeEnrichItem.id. */
+export interface ClaudeEnrichBlurb {
+  id: string;
+  text: string;
+}
+
+/** Sidecar enrichment response (mirrors ai_day_notes JSON envelope). */
+export interface ClaudeEnrichResponse {
+  ok: boolean;
+  blurbs?: ClaudeEnrichBlurb[];
+  model?: string | null;
+  error?: string;
 }
 
 /**

@@ -45,6 +45,12 @@
       ]
     },
     {
+      "identifier": "fs:allow-stat",
+      "allow": [
+        { "path": "$HOME/.claude/**" }
+      ]
+    },
+    {
       "identifier": "shell:allow-execute",
       "allow": [
         {
