@@ -37,6 +37,8 @@ export default function App() {
   const enrichGitHub = useBoardStore((s) => s.enrichGitHub);
   const setupAutoNotesTimer = useBoardStore((s) => s.setupAutoNotesTimer);
 
+  const pendingAskPath = useViewStore((s) => s.pendingAskPath);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = React.useState<'board' | 'notes' | 'ask'>('notes');
   // AskTab mounts lazily on first visit, then stays mounted (hidden) so a
@@ -45,6 +47,14 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'ask') setAskVisited(true);
   }, [activeTab]);
+
+  // Card "Ask" button → switch to Ask tab (AskTab reads pendingAskPath itself).
+  useEffect(() => {
+    if (pendingAskPath !== null) {
+      setActiveTab('ask');
+      setAskVisited(true);
+    }
+  }, [pendingAskPath]);
 
   useEffect(() => {
     void load();

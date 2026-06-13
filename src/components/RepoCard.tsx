@@ -9,7 +9,7 @@
 // Both are produced by deriveCardData — later AI cycles just populate fields.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, ExternalLink, TerminalSquare, RefreshCw, Lock, GitFork, Archive, Sparkles } from 'lucide-react';
+import { Code2, FolderOpen, FileText, ExternalLink, SquareTerminal, Lock, GitFork, Archive } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { safeOpenUrl } from '../utils/openUrl';
@@ -28,14 +28,10 @@ interface RepoCardProps {
 export function RepoCard({ repo, selected = false }: RepoCardProps) {
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
-  const terminalApp = useBoardStore((s) => s.settings.terminalApp);
   const setDetail = useViewStore((s) => s.setDetail);
-  const enrichOne = useBoardStore((s) => s.enrichOne);
-  const analyzing = useBoardStore((s) => s.analyzingPaths.has(repo.path));
-  const enrichAiOne = useBoardStore((s) => s.enrichAiOne);
+  const requestAsk = useViewStore((s) => s.requestAsk);
 
   const [openError, setOpenError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const d = deriveCardData(repo);
   const htmlUrl = repo.gh?.htmlUrl ?? null;
@@ -49,27 +45,8 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
     }
   }
 
-  async function openInTerminal() {
-    setOpenError(null);
-    try {
-      await invoke('open_in_terminal', { app: terminalApp, path: repo.path });
-    } catch (e: unknown) {
-      setOpenError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
   async function revealInFinder() {
     await Command.create('open', ['--', repo.path]).execute();
-  }
-
-  async function refreshGitHub() {
-    if (refreshing) return;
-    setRefreshing(true);
-    try {
-      await enrichOne(repo.path);
-    } finally {
-      setRefreshing(false);
-    }
   }
 
   const iconBtn =
@@ -109,11 +86,6 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           </div>
         </div>
 
-        {analyzing && !d.description && (
-          <p className="text-[12px] text-navy-light leading-snug flex items-center gap-1">
-            <Sparkles size={11} strokeWidth={2} className="animate-pulse" /> analyzing…
-          </p>
-        )}
         {d.description && (
           <p className="text-[12px] text-navy leading-snug border-l-2 border-terracotta pl-2 line-clamp-2">
             {d.description}
@@ -144,15 +116,6 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
 
       {/* Action row */}
       <div className="flex items-center justify-end gap-1 border-t border-navy/10 px-2 py-1">
-        <button type="button" onClick={() => { void enrichAiOne(repo.path); }} disabled={analyzing}
-          className={`${iconBtn} disabled:opacity-50`} title="Analyze with Apple Intelligence" aria-label="Analyze with AI">
-          <Sparkles size={14} strokeWidth={1.75} className={analyzing ? 'animate-pulse' : ''} />
-        </button>
-        <button type="button" onClick={() => { void refreshGitHub(); }} disabled={refreshing}
-          className={`${iconBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Refresh GitHub data" aria-label="Refresh GitHub data">
-          <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'animate-spin' : ''} />
-        </button>
         {htmlUrl && (
           <button type="button" onClick={() => { void safeOpenUrl(htmlUrl); }}
             className={iconBtn} title="Open on GitHub" aria-label="Open repository on GitHub">
@@ -167,9 +130,9 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
           className={iconBtn} title={`Open in IDE (${editorCommand || editorApp})`} aria-label="Open in IDE">
           <Code2 size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => { void openInTerminal(); }}
-          className={iconBtn} title={`Open in terminal (${terminalApp})`} aria-label="Open in terminal">
-          <TerminalSquare size={14} strokeWidth={1.75} />
+        <button type="button" onClick={() => requestAsk(repo.path)}
+          className={iconBtn} title="Ask Claude Code about this repo" aria-label="Ask Claude Code">
+          <SquareTerminal size={14} strokeWidth={1.75} />
         </button>
         <button type="button" onClick={() => { void revealInFinder(); }}
           className={iconBtn} title="Reveal in Finder" aria-label="Reveal in Finder">
