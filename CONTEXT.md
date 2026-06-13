@@ -1,13 +1,13 @@
 # Context
 
-**Current Task:** Shipped the Claude Command Center — a "Claude" tab that scans `~/.claude` for an inventory (MCP, skills, plugins, agents, commands, hooks, settings, sessions) with terminal quick-actions and an on-device AI health summary.
+**Current Task:** Shipped the Setup Curator — a "Curate" sub-tab in the Command Center that judges the scanned `~/.claude` inventory (remove / consolidate / stale findings) with an additive on-device AI narrative.
 
 **Key Decisions:**
-- Read-only + secret-free: env var names only, MCP URLs redacted, transcripts/memory bodies never read.
-- Scan fresh on tab open (no persistence, 60s freshness guard); dedicated `useClaudeStore`.
-- AI summary reuses the `ai_day_notes` sidecar path — no Swift change; terminal quick-actions via `pendingAskCommand`.
+- Deterministic findings (TS) render instantly + carry all numbers; AI narrative is additive, number-free, omitted if unavailable.
+- Secret-free: model payload carries finding `title` only — Swift `Finding` has no `detail` field. No MCP server; reuses sidecar pattern.
+- "Ask Claude to fix" delegates execution to a real Claude session via the Ask bridge; Curator never mutates the setup.
 
 **Next Steps:**
-- Validate plugins `config.json` parsing against a real config; tighten counts.
-- Optional: raw-shell PTY mode for literal `claude mcp list`; dedicated `claude_health` sidecar prompt.
-- Runtime spot-check on macOS (live scan, PTY actions, FoundationModels summary).
+- Manual UI click-through: Curate tab findings render, narrative banner, "Ask Claude to fix" → Ask tab.
+- Future: deterministic `gap`/`keep` slice; `cost`/context-budget category.
+- Optional: build + replace `/Applications` app with the new sidecar.
