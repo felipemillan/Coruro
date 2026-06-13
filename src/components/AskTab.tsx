@@ -12,6 +12,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { Plus, Square, SquareTerminal } from 'lucide-react';
 import { useBoardStore } from '../store/useBoardStore';
+import { useViewStore } from '../store/useViewStore';
 
 interface PtyOutput {
   id: string;
@@ -51,6 +52,9 @@ export function AskTab() {
   const rootDirectory = useBoardStore((s) => s.settings.rootDirectory);
   const sorted = [...repos].sort((a, b) => a.name.localeCompare(b.name));
 
+  const pendingAskPath = useViewStore((s) => s.pendingAskPath);
+  const clearPendingAsk = useViewStore((s) => s.clearPendingAsk);
+
   const [repoPath, setRepoPath] = useState('');
   const [question, setQuestion] = useState('');
   const [spawnError, setSpawnError] = useState<string | null>(null);
@@ -70,6 +74,14 @@ export function AskTab() {
   useEffect(() => {
     if (repoPath === '' && sorted.length > 0) setRepoPath(sorted[0].path);
   }, [repoPath, sorted]);
+
+  // Card "Ask" button pre-selects a repo; clear the signal after consuming it.
+  useEffect(() => {
+    if (pendingAskPath !== null) {
+      setRepoPath(pendingAskPath);
+      clearPendingAsk();
+    }
+  }, [pendingAskPath, clearPendingAsk]);
 
   const getRepoName = useCallback(
     (path: string) => {

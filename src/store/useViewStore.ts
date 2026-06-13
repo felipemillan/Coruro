@@ -10,6 +10,8 @@ import { type ViewState, type FilterKey, type SortMode } from '../view';
 interface ViewStore extends ViewState {
   /** Path of the repo whose detail modal is open, or null. Runtime-only. */
   detailPath: string | null;
+  /** Path to pre-select in Ask tab when navigating from a repo card. */
+  pendingAskPath: string | null;
   setSearch: (q: string) => void;
   toggleFilter: (k: FilterKey) => void;
   clearFilters: () => void;
@@ -17,6 +19,9 @@ interface ViewStore extends ViewState {
   setSelected: (path: string | null) => void;
   /** Open/close the detail modal (single modal lifted out of RepoCard). */
   setDetail: (path: string | null) => void;
+  /** Navigate to Ask tab with this repo pre-selected. */
+  requestAsk: (path: string) => void;
+  clearPendingAsk: () => void;
   resetView: () => void;
 }
 
@@ -26,6 +31,7 @@ export const useViewStore = create<ViewStore>((set) => ({
   sort: 'manual',
   selectedPath: null,
   detailPath: null,
+  pendingAskPath: null,
 
   setSearch: (q: string) => {
     set({ search: q });
@@ -57,6 +63,14 @@ export const useViewStore = create<ViewStore>((set) => ({
 
   setDetail: (path: string | null) => {
     set({ detailPath: path });
+  },
+
+  requestAsk: (path: string) => {
+    set({ pendingAskPath: path });
+  },
+
+  clearPendingAsk: () => {
+    set({ pendingAskPath: null });
   },
 
   resetView: () => {
