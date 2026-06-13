@@ -160,6 +160,25 @@ interface RawSettings {
   } | undefined;
   env?: Record<string, unknown> | undefined;
   hooks?: Record<string, RawHookMatcherGroup[]> | undefined;
+  /** Map of "name@marketplace" → enabled flag. */
+  enabledPlugins?: Record<string, unknown> | undefined;
+}
+
+/** One installed-plugin record from installed_plugins.json (array per key). */
+interface RawInstalledPluginEntry {
+  installPath?: unknown;
+  version?: unknown;
+  scope?: unknown;
+}
+interface RawInstalledPlugins {
+  plugins?: Record<string, RawInstalledPluginEntry[]> | undefined;
+}
+
+/** Resolved active plugin root used to scan plugin-provided content. */
+interface PluginRoot {
+  name: string;
+  installPath: string;
+  enabled: boolean;
 }
 
 /** Coerce an unknown into a string array (filtering non-strings). */
@@ -177,6 +196,7 @@ function buildMcpServer(
   name: string,
   raw: RawMcpServer,
   scope: 'global' | 'project',
+  source: string,
   projectPath?: string,
 ): ClaudeMcpServer {
   let transport: ClaudeMcpTransport = 'unknown';
@@ -192,7 +212,7 @@ function buildMcpServer(
     url = redactUrl(raw.url);
   }
 
-  const server: ClaudeMcpServer = { name, scope, transport, command, url };
+  const server: ClaudeMcpServer = { name, scope, transport, command, url, source };
   if (scope === 'project' && projectPath !== undefined) {
     server.projectPath = projectPath;
   }
@@ -213,12 +233,24 @@ function buildMcpServer(
 async function scanMcpServers(claudeJson: RawClaudeJson | null): Promise<ClaudeMcpServer[]> {
   if (claudeJson === null) return [];
   const servers: ClaudeMcpServer[] = [];
-  const seen = new Set<string>();
+  // Dedup by NAME: the same server is cached under every project that has
+  // ever used it, so a scope+project+name key inflates the count many-fold.
+  // A user cares about how many *distinct* servers exist. Global scope wins
+  // over project scope when a name appears in both.
+  const byName = new Map<string, ClaudeMcpServer>();
   const add = (s: ClaudeMcpServer): void => {
-    const key = `${s.scope}:${s.projectPath ?? ''}:${s.name}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    servers.push(s);
+    const existing = byName.get(s.name);
+    if (existing === undefined) {
+      byName.set(s.name, s);
+      servers.push(s);
+      return;
+    }
+    // Upgrade a previously-seen project entry to global if we now see one.
+    if (existing.scope === 'project' && s.scope === 'global') {
+      const idx = servers.indexOf(existing);
+      if (idx !== -1) servers[idx] = s;
+      byName.set(s.name, s);
+    }
   };
   const addRecord = (
     record: Record<string, RawMcpServer>,
@@ -226,7 +258,7 @@ async function scanMcpServers(claudeJson: RawClaudeJson | null): Promise<ClaudeM
     projectPath?: string,
   ): void => {
     for (const [name, raw] of Object.entries(record)) {
-      if (raw && typeof raw === 'object') add(buildMcpServer(name, raw, scope, projectPath));
+      if (raw && typeof raw === 'object') add(buildMcpServer(name, raw, scope, 'user', projectPath));
     }
   };
 
@@ -259,8 +291,8 @@ async function scanMcpServers(claudeJson: RawClaudeJson | null): Promise<ClaudeM
   return servers;
 }
 
-/** Skills from ~/.claude/skills/<dir>/SKILL.md. */
-async function scanSkills(skillsDir: string): Promise<ClaudeSkill[]> {
+/** Skills from a `<root>/skills/<dir>/SKILL.md` tree, tagged with `source`. */
+async function scanSkills(skillsDir: string, source: string): Promise<ClaudeSkill[]> {
   if (!(await exists(skillsDir))) return [];
   const entries = await readDir(skillsDir);
 
@@ -278,6 +310,7 @@ async function scanSkills(skillsDir: string): Promise<ClaudeSkill[]> {
           description: data.description && data.description.length > 0 ? data.description : null,
           dirName: entry.name,
           path: skillMd,
+          source,
         };
       }),
   );
@@ -285,36 +318,57 @@ async function scanSkills(skillsDir: string): Promise<ClaudeSkill[]> {
   return skills.filter((s): s is ClaudeSkill => s !== null);
 }
 
-/** Subagents from ~/.claude/agents/<file>.md. */
-async function scanAgents(agentsDir: string): Promise<ClaudeAgent[]> {
+/**
+ * Subagents from a `<root>/agents` dir, tagged with `source`. Handles BOTH
+ * layouts seen in the wild:
+ *   - flat:   agents/<name>.md            (user dir, most CC plugins)
+ *   - nested: agents/<name>/AGENT.md      (e.g. bigbang-crew personas)
+ * Nested dirs without an AGENT.md contribute nothing.
+ */
+async function scanAgents(agentsDir: string, source: string): Promise<ClaudeAgent[]> {
   if (!(await exists(agentsDir))) return [];
   const entries = await readDir(agentsDir);
 
   const agents = await Promise.all(
-    entries
-      .filter((e) => !e.isDirectory && /\.md$/i.test(e.name))
-      .map(async (entry): Promise<ClaudeAgent> => {
-        const filePath = await join(agentsDir, entry.name);
-        const md = await readTextFile(filePath);
+    entries.map(async (entry): Promise<ClaudeAgent | null> => {
+      // Nested layout: a directory holding an AGENT.md.
+      if (entry.isDirectory) {
+        const agentMd = await join(agentsDir, entry.name, 'AGENT.md');
+        if (!(await exists(agentMd))) return null;
+        const md = await readTextFile(agentMd);
         const { data } = parseFrontmatter(md);
-        const fallback = stripMdExt(entry.name);
         return {
-          name: data.name && data.name.length > 0 ? data.name : fallback,
+          name: data.name && data.name.length > 0 ? data.name : entry.name,
           description: data.description && data.description.length > 0 ? data.description : null,
-          fileName: entry.name,
-          path: filePath,
+          fileName: `${entry.name}/AGENT.md`,
+          path: agentMd,
+          source,
         };
-      }),
+      }
+      // Flat layout: a top-level *.md file.
+      if (!/\.md$/i.test(entry.name)) return null;
+      const filePath = await join(agentsDir, entry.name);
+      const md = await readTextFile(filePath);
+      const { data } = parseFrontmatter(md);
+      const fallback = stripMdExt(entry.name);
+      return {
+        name: data.name && data.name.length > 0 ? data.name : fallback,
+        description: data.description && data.description.length > 0 ? data.description : null,
+        fileName: entry.name,
+        path: filePath,
+        source,
+      };
+    }),
   );
 
-  return agents;
+  return agents.filter((a): a is ClaudeAgent => a !== null);
 }
 
 /**
  * Slash commands: a depth-guarded recursive walk of ~/.claude/commands for
  * `*.md`. The command name is namespaced from the subdir path, e.g. "git/commit".
  */
-async function scanCommands(commandsDir: string): Promise<ClaudeCommand[]> {
+async function scanCommands(commandsDir: string, source: string): Promise<ClaudeCommand[]> {
   if (!(await exists(commandsDir))) return [];
 
   const out: ClaudeCommand[] = [];
@@ -344,7 +398,7 @@ async function scanCommands(commandsDir: string): Promise<ClaudeCommand[]> {
           } catch {
             description = null;
           }
-          out.push({ name, description, path: childPath });
+          out.push({ name, description, path: childPath, source });
         }
       }),
     );
@@ -355,71 +409,102 @@ async function scanCommands(commandsDir: string): Promise<ClaudeCommand[]> {
 }
 
 /**
- * Plugins from ~/.claude/plugins/config.json. The shape varies across Claude
- * versions, so this enumerates entries defensively: pull a name, an enabled
- * flag (default true) and a source string (else null). Missing dir/file → [].
+ * Plugins from ~/.claude/plugins/installed_plugins.json. Keys are
+ * "name@marketplace"; each value is an array of install records (one per
+ * scope). The active version is the first record's installPath/version.
+ * Enabled state comes from settings.json `enabledPlugins` (default true when
+ * a plugin is installed but absent from the map).
+ *
+ * Returns both the display list AND the resolved roots, so the caller can scan
+ * each enabled plugin's skills/agents/commands/mcp without re-parsing.
  */
-async function scanPlugins(pluginsConfig: string): Promise<ClaudePlugin[]> {
-  const raw = await readJsonLoose<unknown>(pluginsConfig);
-  if (raw === null || typeof raw !== 'object') return [];
+async function scanPlugins(
+  installedPluginsPath: string,
+  enabledPlugins: Record<string, unknown>,
+): Promise<{ plugins: ClaudePlugin[]; roots: PluginRoot[] }> {
+  const raw = await readJsonLoose<RawInstalledPlugins>(installedPluginsPath);
+  const map = raw?.plugins;
+  if (!map || typeof map !== 'object') return { plugins: [], roots: [] };
 
-  const out: ClaudePlugin[] = [];
-  const seen = new Set<string>();
+  const plugins: ClaudePlugin[] = [];
+  const roots: PluginRoot[] = [];
 
-  const pushFrom = (key: string, value: unknown): void => {
-    if (value === null || value === undefined) return;
-    let source: string | null = null;
-    let enabled = true;
-    if (typeof value === 'object') {
-      const obj = value as Record<string, unknown>;
-      if (typeof obj.source === 'string') source = obj.source;
-      else if (typeof obj.marketplace === 'string') source = obj.marketplace;
-      else if (typeof obj.repo === 'string') source = obj.repo;
-      if (typeof obj.enabled === 'boolean') enabled = obj.enabled;
-      else if (typeof obj.disabled === 'boolean') enabled = !obj.disabled;
-    } else if (typeof value === 'boolean') {
-      enabled = value;
-    } else if (typeof value === 'string') {
-      source = value;
-    }
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push({ name: key, source, enabled });
-    }
-  };
+  for (const [key, records] of Object.entries(map)) {
+    const atIdx = key.lastIndexOf('@');
+    const name = atIdx === -1 ? key : key.slice(0, atIdx);
+    const marketplace = atIdx === -1 ? null : key.slice(atIdx + 1);
+    const first = Array.isArray(records) ? records[0] : undefined;
+    const installPath = first && typeof first.installPath === 'string' ? first.installPath : null;
+    const version = first && typeof first.version === 'string' ? first.version : null;
+    // enabledPlugins keys are the full "name@marketplace"; default true.
+    const enabledRaw = enabledPlugins[key];
+    const enabled = typeof enabledRaw === 'boolean' ? enabledRaw : true;
 
-  const root = raw as Record<string, unknown>;
-  // Common container keys: plugins, marketplaces, installedPlugins, repositories.
-  const containers = [root.plugins, root.marketplaces, root.installedPlugins, root.repositories];
-  let found = false;
-  for (const container of containers) {
-    if (container && typeof container === 'object' && !Array.isArray(container)) {
-      found = true;
-      for (const [k, v] of Object.entries(container as Record<string, unknown>)) {
-        pushFrom(k, v);
-      }
-    } else if (Array.isArray(container)) {
-      found = true;
-      for (const item of container) {
-        if (item && typeof item === 'object') {
-          const obj = item as Record<string, unknown>;
-          const name = typeof obj.name === 'string' ? obj.name : null;
-          if (name !== null) pushFrom(name, obj);
-        } else if (typeof item === 'string') {
-          pushFrom(item, item);
+    plugins.push({ name, marketplace, source: marketplace, version, enabled });
+    if (installPath !== null) roots.push({ name, installPath, enabled });
+  }
+
+  plugins.sort((a, b) => a.name.localeCompare(b.name));
+  return { plugins, roots };
+}
+
+/**
+ * Scan the skills/agents/commands/mcp content provided by each ENABLED plugin,
+ * tagging every item with the plugin name as its `source`. Only the active
+ * installPath is read (no stale cached versions), so counts reflect reality.
+ * Disabled plugins contribute nothing here (their count still shows on the
+ * Plugins card via the enabled/disabled split).
+ */
+async function scanPluginContents(
+  roots: PluginRoot[],
+): Promise<{
+  skills: ClaudeSkill[];
+  agents: ClaudeAgent[];
+  commands: ClaudeCommand[];
+  mcpServers: ClaudeMcpServer[];
+}> {
+  const skills: ClaudeSkill[] = [];
+  const agents: ClaudeAgent[] = [];
+  const commands: ClaudeCommand[] = [];
+  const mcpServers: ClaudeMcpServer[] = [];
+
+  await Promise.all(
+    roots
+      .filter((r) => r.enabled)
+      .map(async (root) => {
+        const skillsDir = await join(root.installPath, 'skills');
+        const agentsDir = await join(root.installPath, 'agents');
+        const commandsDir = await join(root.installPath, 'commands');
+        const mcpJsonPath = await join(root.installPath, 'mcp.json');
+
+        const [s, a, c] = await Promise.all([
+          scanSkills(skillsDir, root.name).catch(() => [] as ClaudeSkill[]),
+          scanAgents(agentsDir, root.name).catch(() => [] as ClaudeAgent[]),
+          scanCommands(commandsDir, root.name).catch(() => [] as ClaudeCommand[]),
+        ]);
+        skills.push(...s);
+        agents.push(...a);
+        commands.push(...c);
+
+        try {
+          if (await exists(mcpJsonPath)) {
+            const parsed = await readJsonLoose<{ mcpServers?: Record<string, RawMcpServer> }>(mcpJsonPath);
+            const m = parsed?.mcpServers;
+            if (m && typeof m === 'object') {
+              for (const [srvName, srvRaw] of Object.entries(m)) {
+                if (srvRaw && typeof srvRaw === 'object') {
+                  mcpServers.push(buildMcpServer(srvName, srvRaw, 'global', root.name));
+                }
+              }
+            }
+          }
+        } catch {
+          // unreadable plugin mcp.json — skip
         }
-      }
-    }
-  }
+      }),
+  );
 
-  // Fall back to treating the top-level object as a name→entry map.
-  if (!found) {
-    for (const [k, v] of Object.entries(root)) {
-      pushFrom(k, v);
-    }
-  }
-
-  return out;
+  return { skills, agents, commands, mcpServers };
 }
 
 /**
@@ -547,7 +632,7 @@ export async function scanClaude(): Promise<ClaudeInventory> {
   const skillsDir = await join(claudeDir, 'skills');
   const agentsDir = await join(claudeDir, 'agents');
   const commandsDir = await join(claudeDir, 'commands');
-  const pluginsConfig = await join(claudeDir, 'plugins', 'config.json');
+  const installedPluginsPath = await join(claudeDir, 'plugins', 'installed_plugins.json');
   const settingsPath = await join(claudeDir, 'settings.json');
   const globalMemoryPath = await join(claudeDir, 'CLAUDE.md');
   const projectsDir = await join(claudeDir, 'projects');
@@ -565,6 +650,20 @@ export async function scanClaude(): Promise<ClaudeInventory> {
   let resolvedSettings: ClaudeSettings | null = null;
   let globalMemory: { present: boolean; charCount: number } | null = null;
   let sessions: ClaudeSessionStat[] = [];
+  // Plugin-provided content is collected separately, then merged AFTER the
+  // Promise.all barrier so concurrent reassignment of the local arrays cannot
+  // clobber it.
+  let pluginContent: {
+    skills: ClaudeSkill[];
+    agents: ClaudeAgent[];
+    commands: ClaudeCommand[];
+    mcpServers: ClaudeMcpServer[];
+  } = { skills: [], agents: [], commands: [], mcpServers: [] };
+
+  const enabledPlugins =
+    settings?.enabledPlugins && typeof settings.enabledPlugins === 'object'
+      ? settings.enabledPlugins
+      : {};
 
   await Promise.all([
     (async () => {
@@ -576,28 +675,30 @@ export async function scanClaude(): Promise<ClaudeInventory> {
     })(),
     (async () => {
       try {
-        skills = await scanSkills(skillsDir);
+        skills = await scanSkills(skillsDir, 'local');
       } catch (e) {
         errors.push('Skills scan failed: ' + String(e));
       }
     })(),
     (async () => {
       try {
-        agents = await scanAgents(agentsDir);
+        agents = await scanAgents(agentsDir, 'local');
       } catch (e) {
         errors.push('Agents scan failed: ' + String(e));
       }
     })(),
     (async () => {
       try {
-        commands = await scanCommands(commandsDir);
+        commands = await scanCommands(commandsDir, 'local');
       } catch (e) {
         errors.push('Commands scan failed: ' + String(e));
       }
     })(),
     (async () => {
       try {
-        plugins = await scanPlugins(pluginsConfig);
+        const { plugins: p, roots } = await scanPlugins(installedPluginsPath, enabledPlugins);
+        plugins = p;
+        pluginContent = await scanPluginContents(roots);
       } catch (e) {
         errors.push('Plugins scan failed: ' + String(e));
       }
@@ -637,6 +738,20 @@ export async function scanClaude(): Promise<ClaudeInventory> {
       }
     })(),
   ]);
+
+  // Merge plugin-provided content into the local inventory. Skills/agents/
+  // commands simply concatenate (each carries its `source`). MCP servers dedup
+  // by name with user config winning over plugin-provided duplicates.
+  skills = [...skills, ...pluginContent.skills];
+  agents = [...agents, ...pluginContent.agents];
+  commands = [...commands, ...pluginContent.commands];
+  const seenMcp = new Set(mcpServers.map((s) => s.name));
+  for (const srv of pluginContent.mcpServers) {
+    if (!seenMcp.has(srv.name)) {
+      seenMcp.add(srv.name);
+      mcpServers.push(srv);
+    }
+  }
 
   return {
     mcpServers,

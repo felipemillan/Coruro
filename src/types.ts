@@ -272,7 +272,7 @@ export interface NotesTimeline {
 /** Transport kind for an MCP server, inferred from its config shape. */
 export type ClaudeMcpTransport = 'stdio' | 'sse' | 'http' | 'unknown';
 
-/** One configured MCP server, from ~/.claude.json (global or per-project). */
+/** One configured MCP server, from ~/.claude.json or a plugin's mcp.json. */
 export interface ClaudeMcpServer {
   name: string;
   /** 'global' = top-level mcpServers; 'project' = under projects[path]. */
@@ -284,9 +284,11 @@ export interface ClaudeMcpServer {
   command?: string | null;
   /** Endpoint URL for sse/http transports (null otherwise). */
   url?: string | null;
+  /** Origin: 'user' (from ~/.claude.json) or the providing plugin's name. */
+  source: string;
 }
 
-/** One installed skill, from ~/.claude/skills/<dir>/SKILL.md. */
+/** One installed skill, from a `<root>/skills/<dir>/SKILL.md`. */
 export interface ClaudeSkill {
   /** Frontmatter `name`, falling back to the directory name. */
   name: string;
@@ -294,30 +296,41 @@ export interface ClaudeSkill {
   description: string | null;
   dirName: string;
   path: string;
+  /** Origin: 'local' (~/.claude/skills) or the providing plugin's name. */
+  source: string;
 }
 
-/** One subagent definition, from ~/.claude/agents/<file>.md. */
+/** One subagent definition, from a `<root>/agents/<file>.md`. */
 export interface ClaudeAgent {
   /** Frontmatter `name`, falling back to the filename. */
   name: string;
   description: string | null;
   fileName: string;
   path: string;
+  /** Origin: 'local' (~/.claude/agents) or the providing plugin's name. */
+  source: string;
 }
 
-/** One slash command, from a `.md` file under ~/.claude/commands (any depth). */
+/** One slash command, from a `.md` file under a `<root>/commands` tree. */
 export interface ClaudeCommand {
   /** Namespaced from subdirs, e.g. "git/commit". */
   name: string;
   description: string | null;
   path: string;
+  /** Origin: 'local' (~/.claude/commands) or the providing plugin's name. */
+  source: string;
 }
 
-/** One installed plugin, from ~/.claude/plugins/config.json (shape varies). */
+/** One installed plugin, from ~/.claude/plugins/installed_plugins.json. */
 export interface ClaudePlugin {
   name: string;
-  /** Marketplace/repo source when known. */
+  /** Marketplace the plugin was installed from (e.g. "claude-plugins-official"). */
+  marketplace: string | null;
+  /** Legacy/source identifier kept for display (mirrors marketplace). */
   source: string | null;
+  /** Resolved active version, or null when unknown. */
+  version: string | null;
+  /** Enabled state from settings.json `enabledPlugins`. */
   enabled: boolean;
 }
 
