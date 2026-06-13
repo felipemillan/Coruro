@@ -10,10 +10,13 @@ import {
   type AiDayNotesRepo,
   type ClaudeEnrichItem,
   type ClaudeEnrichResponse,
+  type CurateFinding,
+  type ClaudeCurateResponse,
 } from '../types';
 import { scanClaude as scanClaudeFs } from '../utils/claudeScanner';
 import { buildClaudeHealthDigest } from '../utils/claudeHealthContext';
 import { buildEnrichmentItems } from '../utils/claudeEnrich';
+import { buildCurateFindings, buildCuratePayload } from '../utils/claudeCurate';
 
 /** Freshness window: skip rescan if inventory is younger than this. */
 const SCAN_FRESHNESS_MS = 60_000;
@@ -35,6 +38,13 @@ interface ClaudeStore {
   enrichUnavailableReason: string | null;
   /** Live progress of the background enrichment pass; null when idle. */
   enrichProgress: { done: number; total: number } | null;
+
+  /** Deterministic curator findings (computed in TS). null until first run. */
+  recommendations: CurateFinding[] | null;
+  /** Additive AI narrative over the findings. null when none/ungenerated. */
+  curateNarrative: string | null;
+  curateLoading: boolean;
+  curateUnavailableReason: string | null;
 
   /**
    * Scan the user's Claude Code setup and populate `inventory`.
@@ -58,6 +68,14 @@ interface ClaudeStore {
    * regenerated. Sets `enrichUnavailableReason` on failure.
    */
   generateEnrichments: () => Promise<void>;
+
+  /**
+   * Compute curator findings synchronously from the current inventory, then
+   * (additively) request a qualitative AI narrative via the on-device sidecar.
+   * Findings render immediately and independently of AI availability.
+   * Requires `inventory` to be populated.
+   */
+  generateRecommendations: () => Promise<void>;
 }
 
 export const useClaudeStore = create<ClaudeStore>((set, get) => ({
@@ -71,6 +89,10 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
   enrichLoading: false,
   enrichUnavailableReason: null,
   enrichProgress: null,
+  recommendations: null,
+  curateNarrative: null,
+  curateLoading: false,
+  curateUnavailableReason: null,
 
   scanClaude: async (opts?: { force?: boolean }) => {
     const { inventory } = get();
@@ -86,8 +108,15 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
     set({ scanning: true, scanError: null });
     try {
       const result = await scanClaudeFs();
-      // Fresh inventory invalidates the per-item blurb cache.
-      set({ inventory: result, enrichments: {} });
+      // Fresh inventory invalidates the per-item blurb cache and stale curator state.
+      set({
+        inventory: result,
+        enrichments: {},
+        recommendations: null,
+        curateNarrative: null,
+        curateUnavailableReason: null,
+        curateLoading: false,
+      });
       // Kick off background enrichment (best-effort; never blocks the scan).
       void get().generateEnrichments();
     } catch (err) {
@@ -203,6 +232,49 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
       }
     } finally {
       set({ enrichLoading: false, enrichProgress: null });
+    }
+  },
+
+  generateRecommendations: async () => {
+    const { inventory } = get();
+    if (inventory === null) {
+      return;
+    }
+
+    // DETERMINISTIC: compute + commit findings first. These render instantly
+    // and never depend on AI availability.
+    const findings: CurateFinding[] = buildCurateFindings(inventory);
+    set({ recommendations: findings });
+
+    // ADDITIVE: qualitative narrative only. Mirrors generateHealthSummary.
+    set({ curateLoading: true, curateUnavailableReason: null });
+    try {
+      const payload = buildCuratePayload(findings);
+      const raw = await invoke<string>('ai_curate', {
+        findings: payload.findings,
+        summary: payload.summary,
+      });
+      const parsed = JSON.parse(raw) as ClaudeCurateResponse;
+
+      if (parsed.ok && parsed.body) {
+        set({ curateNarrative: parsed.body.trim() });
+      } else {
+        const errCode = parsed.error ?? '';
+        // A tidy setup (noFindings) or an unavailable device are benign — the
+        // deterministic findings (or empty state) already convey everything.
+        if (errCode.includes('noFindings') || errCode.includes('unavailable') || errCode.includes('sidecar_missing')) {
+          set({ curateUnavailableReason: null });
+        } else if (errCode.length > 0) {
+          set({ curateUnavailableReason: `AI narrative unavailable: ${errCode}` });
+        } else {
+          set({ curateUnavailableReason: 'AI narrative unavailable — unknown error.' });
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      set({ curateUnavailableReason: `AI narrative unavailable: ${message}` });
+    } finally {
+      set({ curateLoading: false });
     }
   },
 }));
