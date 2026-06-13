@@ -1,13 +1,13 @@
 # Context
 
-**Current Task:** Board + Ask tab polish — card UI cleanup, session sidebar, card→Ask navigation.
+**Current Task:** Shipped the Claude Command Center — a "Claude" tab that scans `~/.claude` for an inventory (MCP, skills, plugins, agents, commands, hooks, settings, sessions) with terminal quick-actions and an on-device AI health summary.
 
 **Key Decisions:**
-- Card stats: commits/branches/last commit for all repos (removed stars/issues/forks).
-- Card action row: removed Analyze + Refresh; Terminal → Ask button (navigates via pendingAskPath in viewStore).
-- Ask sidebar: sessions grouped by repo, single Terminal instance with buffer replay on switch.
+- Read-only + secret-free: env var names only, MCP URLs redacted, transcripts/memory bodies never read.
+- Scan fresh on tab open (no persistence, 60s freshness guard); dedicated `useClaudeStore`.
+- AI summary reuses the `ai_day_notes` sidecar path — no Swift change; terminal quick-actions via `pendingAskCommand`.
 
 **Next Steps:**
-- Roadmap top-5 from crew synthesis (see memory: coruro-roadmap-crew) — SQLite+FTS first.
-- Ask phase B: transcript mirror from `~/.claude/projects/<slug>/*.jsonl`.
-- Menu bar presence + notifications (roadmap #3).
+- Validate plugins `config.json` parsing against a real config; tighten counts.
+- Optional: raw-shell PTY mode for literal `claude mcp list`; dedicated `claude_health` sidecar prompt.
+- Runtime spot-check on macOS (live scan, PTY actions, FoundationModels summary).

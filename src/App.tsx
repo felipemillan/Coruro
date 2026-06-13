@@ -23,6 +23,7 @@ import { Board } from './components/Board';
 import { Settings } from './components/Settings';
 import { NotesTab } from './components/NotesTab';
 import { AskTab } from './components/AskTab';
+import { CommandCenterTab } from './components/CommandCenterTab';
 
 export default function App() {
   const load = useBoardStore((s) => s.load);
@@ -38,9 +39,10 @@ export default function App() {
   const setupAutoNotesTimer = useBoardStore((s) => s.setupAutoNotesTimer);
 
   const pendingAskPath = useViewStore((s) => s.pendingAskPath);
+  const pendingAskCommand = useViewStore((s) => s.pendingAskCommand);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = React.useState<'board' | 'notes' | 'ask'>('notes');
+  const [activeTab, setActiveTab] = React.useState<'board' | 'notes' | 'ask' | 'claude'>('notes');
   // AskTab mounts lazily on first visit, then stays mounted (hidden) so a
   // running Claude Code PTY session survives switching to Notes/Board.
   const [askVisited, setAskVisited] = useState(false);
@@ -49,12 +51,13 @@ export default function App() {
   }, [activeTab]);
 
   // Card "Ask" button → switch to Ask tab (AskTab reads pendingAskPath itself).
+  // Quick-action buttons → also switch to Ask when pendingAskCommand is set.
   useEffect(() => {
-    if (pendingAskPath !== null) {
+    if (pendingAskPath !== null || pendingAskCommand !== null) {
       setActiveTab('ask');
       setAskVisited(true);
     }
-  }, [pendingAskPath]);
+  }, [pendingAskPath, pendingAskCommand]);
 
   useEffect(() => {
     void load();
@@ -270,6 +273,15 @@ export default function App() {
               >
                 Ask
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('claude')}
+                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  activeTab === 'claude' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Claude
+              </button>
             </div>
 
             {/* Tab content. AskTab is display-toggled (not unmounted) so its
@@ -279,6 +291,8 @@ export default function App() {
                 <NotesTab />
               ) : activeTab === 'board' ? (
                 <Board onOpenSettings={() => setSettingsOpen(true)} />
+              ) : activeTab === 'claude' ? (
+                <CommandCenterTab />
               ) : null}
               {askVisited && (
                 <div

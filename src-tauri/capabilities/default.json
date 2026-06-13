@@ -10,7 +10,10 @@
       "identifier": "fs:allow-read-text-file",
       "allow": [
         { "path": "$HOME/.repo_dashboard_state.json" },
-        { "path": "$HOME/**" }
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.claude.json" },
+        { "path": "$HOME/.claude/**" },
+        { "path": "$HOME/**/.mcp.json" }
       ]
     },
     {
@@ -26,12 +29,26 @@
         { "path": "$HOME/.repo_dashboard_state.json" },
         { "path": "$HOME/**" },
         { "path": "$HOME/*/.git" },
-        { "path": "$HOME/**/.git" }
+        { "path": "$HOME/**/.git" },
+        { "path": "$HOME/.claude.json" },
+        { "path": "$HOME/.claude" },
+        { "path": "$HOME/.claude/**" },
+        { "path": "$HOME/**/.mcp.json" }
       ]
     },
     {
       "identifier": "fs:allow-read-dir",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$HOME/.claude" },
+        { "path": "$HOME/.claude/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-stat",
+      "allow": [
+        { "path": "$HOME/.claude/**" }
+      ]
     },
     {
       "identifier": "shell:allow-execute",

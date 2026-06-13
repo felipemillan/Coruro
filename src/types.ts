@@ -258,3 +258,172 @@ export interface NotesTimeline {
   version: 1;
   notes: TimelineNote[];
 }
+
+// ---------------------------------------------------------------------------
+// Claude Command Center inventory
+//
+// Runtime-only model produced by scanning ~/.claude and ~/.claude.json.
+// NEVER persisted (recomputed fresh on each tab open), and NEVER stores
+// secret values — only env var NAMES, never their values (see ClaudeSettings).
+// Every field tolerates absence: the scanner must never throw on a missing
+// or malformed source file (mirrors scanner.ts / scanAndDistribute resilience).
+// ---------------------------------------------------------------------------
+
+/** Transport kind for an MCP server, inferred from its config shape. */
+export type ClaudeMcpTransport = 'stdio' | 'sse' | 'http' | 'unknown';
+
+/** One configured MCP server, from ~/.claude.json or a plugin's mcp.json. */
+export interface ClaudeMcpServer {
+  name: string;
+  /** 'global' = top-level mcpServers; 'project' = under projects[path]. */
+  scope: 'global' | 'project';
+  /** Owning project path when scope === 'project'. */
+  projectPath?: string;
+  transport: ClaudeMcpTransport;
+  /** Launch command for stdio transports (null otherwise). */
+  command?: string | null;
+  /** Endpoint URL for sse/http transports (null otherwise). */
+  url?: string | null;
+  /** Origin: 'user' (from ~/.claude.json) or the providing plugin's name. */
+  source: string;
+  /**
+   * Secret-free package/binary identifier derived from the stdio command+args
+   * (e.g. "@modelcontextprotocol/server-github"). Flags and flag VALUES are
+   * stripped, so no token ever lands here. null when none could be identified.
+   */
+  packageHint?: string | null;
+}
+
+/** One installed skill, from a `<root>/skills/<dir>/SKILL.md`. */
+export interface ClaudeSkill {
+  /** Frontmatter `name`, falling back to the directory name. */
+  name: string;
+  /** Frontmatter `description` (null when absent). */
+  description: string | null;
+  dirName: string;
+  path: string;
+  /** Origin: 'local' (~/.claude/skills) or the providing plugin's name. */
+  source: string;
+}
+
+/** One subagent definition, from a `<root>/agents/<file>.md`. */
+export interface ClaudeAgent {
+  /** Frontmatter `name`, falling back to the filename. */
+  name: string;
+  description: string | null;
+  fileName: string;
+  path: string;
+  /** Origin: 'local' (~/.claude/agents) or the providing plugin's name. */
+  source: string;
+}
+
+/** One slash command, from a `.md` file under a `<root>/commands` tree. */
+export interface ClaudeCommand {
+  /** Namespaced from subdirs, e.g. "git/commit". */
+  name: string;
+  description: string | null;
+  path: string;
+  /** Origin: 'local' (~/.claude/commands) or the providing plugin's name. */
+  source: string;
+}
+
+/** One installed plugin, from ~/.claude/plugins/installed_plugins.json. */
+export interface ClaudePlugin {
+  name: string;
+  /** Marketplace the plugin was installed from (e.g. "claude-plugins-official"). */
+  marketplace: string | null;
+  /** Legacy/source identifier kept for display (mirrors marketplace). */
+  source: string | null;
+  /** Resolved active version, or null when unknown. */
+  version: string | null;
+  /** Enabled state from settings.json `enabledPlugins`. */
+  enabled: boolean;
+  /** Authoritative one-liner from the plugin's `.claude-plugin/plugin.json`. */
+  description: string | null;
+}
+
+/** One configured hook: either a settings.json entry or a standalone script. */
+export interface ClaudeHook {
+  /** Event name, e.g. "Stop", "PreToolUse" ("script" hooks use the script kind). */
+  event: string;
+  matcher?: string | null;
+  /** Truncated command string for display. */
+  commandPreview: string;
+  source: 'settings' | 'script';
+  /** Absolute path for standalone *-hook-*.sh scripts (source === 'script'). */
+  scriptPath?: string;
+}
+
+/** Permission rule sets from ~/.claude/settings.json. */
+export interface ClaudePermissions {
+  allow: string[];
+  deny: string[];
+  ask?: string[];
+}
+
+/** Resolved view of ~/.claude/settings.json (secret-free). */
+export interface ClaudeSettings {
+  model: string | null;
+  permissions: ClaudePermissions;
+  /** Env var NAMES only — values are deliberately never captured. */
+  envKeys: string[];
+}
+
+/** Lightweight session/usage stat for one project under ~/.claude/projects. */
+export interface ClaudeSessionStat {
+  projectSlug: string;
+  transcriptCount: number;
+  /** Epoch ms of the newest transcript (*.jsonl) in the project dir; null if unknown. */
+  lastModified: number | null;
+}
+
+/** Full inventory of the user's Claude Code setup. */
+export interface ClaudeInventory {
+  mcpServers: ClaudeMcpServer[];
+  skills: ClaudeSkill[];
+  agents: ClaudeAgent[];
+  commands: ClaudeCommand[];
+  plugins: ClaudePlugin[];
+  hooks: ClaudeHook[];
+  settings: ClaudeSettings | null;
+  /** Global ~/.claude/CLAUDE.md presence (body never stored, only its size). */
+  globalMemory: { present: boolean; charCount: number } | null;
+  sessions: ClaudeSessionStat[];
+  /** ISO timestamp of when this inventory was produced. */
+  scannedAt: string;
+  /** Per-source non-fatal errors; mirrors useBoardStore.lastScanError. */
+  errors: string[];
+}
+
+/** One item sent to the on-device model for a short descriptive blurb. Secret-free. */
+export interface ClaudeEnrichItem {
+  /** Stable id, e.g. "mcp:posthog" or "session:-Users-admin-Github-Coruro". */
+  id: string;
+  kind: 'mcp' | 'session';
+  /** Secret-free context string (name/transport/url-host or humanized slug). */
+  context: string;
+}
+
+/** One generated blurb keyed back to a ClaudeEnrichItem.id. */
+export interface ClaudeEnrichBlurb {
+  id: string;
+  text: string;
+}
+
+/** Sidecar enrichment response (mirrors ai_day_notes JSON envelope). */
+export interface ClaudeEnrichResponse {
+  ok: boolean;
+  blurbs?: ClaudeEnrichBlurb[];
+  model?: string | null;
+  error?: string;
+}
+
+/**
+ * One "repo" section in the shape the coruro-ai sidecar already accepts for
+ * `ai_day_notes` (mode "day_notes"). Reused to feed a secret-free digest of
+ * the Claude inventory into the on-device model for the health summary.
+ */
+export interface AiDayNotesRepo {
+  name: string;
+  commits: string[];
+}

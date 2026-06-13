@@ -38,6 +38,33 @@ struct DayNotesResponse: Encodable {
     var error: String?
 }
 
+// ── enrich contracts ──
+// Turns a list of secret-free items (MCP servers, local sessions/workspaces)
+// into short one-line factual blurbs. The caller guarantees `context` carries
+// no secrets; the model only restates what the metadata already implies.
+struct EnrichRequest: Decodable {
+    var mode: String
+    var items: [Item]
+
+    struct Item: Decodable {
+        var id: String
+        var kind: String
+        var context: String
+    }
+}
+
+struct EnrichResponse: Encodable {
+    var ok: Bool
+    var blurbs: [Blurb]?
+    var model: String?
+    var error: String?
+
+    struct Blurb: Encodable {
+        var id: String
+        var text: String
+    }
+}
+
 // Guided-generation schema for day notes. The TypeScript side composes the
 // full report (tiers, metrics, per-repo stats) deterministically; the model
 // contributes ONLY the executive-summary narrative. The small on-device model
@@ -47,6 +74,14 @@ struct DayNotesResponse: Encodable {
 struct SessionSummary {
     @Guide(description: "One or two sentences summarizing the overall narrative of this work session: name the 2-4 repositories with the most significant work and characterize it qualitatively (heavy refactoring, new features, bug fixes, work in progress). NEVER repeat, sum, or compute any numbers — the report already shows exact stats. First person, past tense. Plain repo names without brackets. Never invent details, never claim a time span (day, week), no concluding wrap-up phrases.")
     var executiveSummary: String
+}
+
+// Guided-generation schema for one enrich blurb. The on-device model writes a
+// single plain sentence describing a tool or project from its metadata.
+@Generable
+struct GeneratedBlurb {
+    @Guide(description: "One informative sentence, up to ~22 words, describing what this tool or project is AND what it is used for. Use the package/metadata for specifics. No preamble like 'This is'; do not merely restate the name. Plain, factual, no marketing, never invent capabilities.")
+    var text: String
 }
 
 @Generable
@@ -63,6 +98,11 @@ func emit(_ r: AiResponse) {
 }
 
 func emitDayNotes(_ r: DayNotesResponse) {
+    let data = (try? JSONEncoder().encode(r)) ?? Data("{\"ok\":false,\"error\":\"encode\"}".utf8)
+    FileHandle.standardOutput.write(data)
+}
+
+func emitEnrich(_ r: EnrichResponse) {
     let data = (try? JSONEncoder().encode(r)) ?? Data("{\"ok\":false,\"error\":\"encode\"}".utf8)
     FileHandle.standardOutput.write(data)
 }
@@ -168,6 +208,69 @@ if modeProbe?.mode == "day_notes" {
     } catch {
         emitDayNotes(DayNotesResponse(ok: false, body: nil, model: nil, error: "generation"))
     }
+    exit(0)
+}
+
+if modeProbe?.mode == "enrich" {
+    guard let req = try? JSONDecoder().decode(EnrichRequest.self, from: input) else {
+        emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "badInput"))
+        exit(0)
+    }
+
+    // ── Availability ──
+    switch SystemLanguageModel.default.availability {
+    case .available:
+        break
+    case .unavailable(.deviceNotEligible):
+        emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "unavailable")); exit(0)
+    case .unavailable(.appleIntelligenceNotEnabled):
+        emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "unavailable")); exit(0)
+    case .unavailable(.modelNotReady):
+        emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "unavailable")); exit(0)
+    case .unavailable:
+        emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "unavailable")); exit(0)
+    }
+
+    // Cap the batch; ignore anything beyond the limit.
+    let items = req.items.prefix(40)
+
+    let session = LanguageModelSession(
+        instructions: "You describe developer tools and projects. Given a name and metadata (including a package identifier when available), reply with ONE informative sentence (up to ~22 words) saying what it is and what it is used for. Use the package name to be specific. No preamble, no 'This is', never just restate the name, no marketing, never invent capabilities."
+    )
+
+    // Keep blurbs card-sized: first sentence only, hard-capped.
+    func tighten(_ raw: String) -> String {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let dot = s.firstIndex(of: ".") { s = String(s[...dot]) }
+        s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.count > 170 { s = String(s.prefix(169)).trimmingCharacters(in: .whitespaces) + "…" }
+        return s
+    }
+
+    var collected: [EnrichResponse.Blurb] = []
+    for item in items {
+        let prompt: String
+        switch item.kind {
+        case "mcp":
+            prompt = "In one sentence, what is this MCP server and what is it used for? Metadata: \(item.context)."
+        case "session":
+            prompt = "In one sentence, what is this local coding project likely about? Project: \(item.context)."
+        default:
+            prompt = "In one sentence, what is this developer tool and what is it used for? Metadata: \(item.context)."
+        }
+        // Skip an item that fails to generate; never abort the whole batch.
+        do {
+            let result = try await session.respond(to: prompt, generating: GeneratedBlurb.self)
+            let text = tighten(result.content.text)
+            if !text.isEmpty {
+                collected.append(EnrichResponse.Blurb(id: item.id, text: text))
+            }
+        } catch {
+            continue
+        }
+    }
+
+    emitEnrich(EnrichResponse(ok: true, blurbs: collected, model: "apple-fm", error: nil))
     exit(0)
 }
 

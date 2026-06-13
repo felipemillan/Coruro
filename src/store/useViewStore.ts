@@ -12,6 +12,8 @@ interface ViewStore extends ViewState {
   detailPath: string | null;
   /** Path to pre-select in Ask tab when navigating from a repo card. */
   pendingAskPath: string | null;
+  /** Command to run in Ask tab when launched from Command Center. */
+  pendingAskCommand: { cwd: string; prompt: string } | null;
   setSearch: (q: string) => void;
   toggleFilter: (k: FilterKey) => void;
   clearFilters: () => void;
@@ -22,6 +24,9 @@ interface ViewStore extends ViewState {
   /** Navigate to Ask tab with this repo pre-selected. */
   requestAsk: (path: string) => void;
   clearPendingAsk: () => void;
+  /** Launch a prompt in Ask tab from Command Center. */
+  requestAskCommand: (cwd: string, prompt: string) => void;
+  clearPendingAskCommand: () => void;
   resetView: () => void;
 }
 
@@ -32,6 +37,7 @@ export const useViewStore = create<ViewStore>((set) => ({
   selectedPath: null,
   detailPath: null,
   pendingAskPath: null,
+  pendingAskCommand: null,
 
   setSearch: (q: string) => {
     set({ search: q });
@@ -71,6 +77,14 @@ export const useViewStore = create<ViewStore>((set) => ({
 
   clearPendingAsk: () => {
     set({ pendingAskPath: null });
+  },
+
+  requestAskCommand: (cwd: string, prompt: string) => {
+    set({ pendingAskCommand: { cwd, prompt } });
+  },
+
+  clearPendingAskCommand: () => {
+    set({ pendingAskCommand: null });
   },
 
   resetView: () => {

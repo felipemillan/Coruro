@@ -24,6 +24,7 @@ pub fn run() {
             commands::git_dirty_stat,
             commands::ai_analyze,
             commands::ai_day_notes,
+            commands::ai_enrich,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
