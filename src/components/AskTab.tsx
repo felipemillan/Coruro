@@ -66,9 +66,6 @@ export function AskTab() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  // Set to true when a pendingAskCommand has been loaded into state and we need
-  // to auto-start a session once React has committed the new repoPath/question.
-  const pendingAutoStartRef = useRef(false);
   // Which session's output is currently rendered in the terminal.
   const displayedIdRef = useRef<string | null>(null);
   // Accumulated raw output per session (for buffer replay on switch).
@@ -87,18 +84,6 @@ export function AskTab() {
       clearPendingAsk();
     }
   }, [pendingAskPath, clearPendingAsk]);
-
-  // Command Center quick-action: pre-fill cwd + prompt and auto-start a session.
-  // We set state here and raise a flag; the auto-start effect below fires once
-  // React has committed the new values (avoiding stale-closure issues with start()).
-  useEffect(() => {
-    if (pendingAskCommand !== null) {
-      setRepoPath(pendingAskCommand.cwd);
-      setQuestion(pendingAskCommand.prompt);
-      pendingAutoStartRef.current = true;
-      clearPendingAskCommand();
-    }
-  }, [pendingAskCommand, clearPendingAskCommand]);
 
   const getRepoName = useCallback(
     (path: string) => {
@@ -152,17 +137,22 @@ export function AskTab() {
     [ensureTerminal],
   );
 
-  const start = useCallback(async () => {
-    if (repoPath === '' || containerRef.current === null) return;
+  // `override` lets callers (e.g. a Command Center quick action) launch a
+  // session with an explicit cwd/prompt without waiting for a state commit —
+  // this avoids stale-closure races entirely.
+  const start = useCallback(async (override?: { cwd: string; prompt: string }) => {
+    const effRepoPath = override?.cwd ?? repoPath;
+    const effQuestion = override?.prompt ?? question;
+    if (effRepoPath === '' || containerRef.current === null) return;
     setSpawnError(null);
 
     const id = crypto.randomUUID();
-    const title = question.trim();
-    const rName = getRepoName(repoPath);
+    const title = effQuestion.trim();
+    const rName = getRepoName(effRepoPath);
 
     const session: ChatSession = {
       id,
-      repoPath,
+      repoPath: effRepoPath,
       repoName: rName,
       title,
       startedAt: Date.now(),
@@ -201,7 +191,7 @@ export function AskTab() {
     try {
       await invoke('pty_spawn', {
         id,
-        cwd: repoPath,
+        cwd: effRepoPath,
         prompt: title === '' ? null : title,
         cols: term.cols,
         rows: term.rows,
@@ -218,14 +208,18 @@ export function AskTab() {
     }
   }, [repoPath, question, getRepoName, ensureTerminal]);
 
-  // Auto-start a session after pendingAskCommand has loaded repoPath + question
-  // into state. Runs whenever start() is recreated (i.e. after repoPath/question
-  // change), which is exactly when the new values are captured in its closure.
+  // Command Center quick-action: pre-fill cwd + prompt for the UI, then launch
+  // immediately via an explicit override so we never depend on a state commit
+  // (declared after `start` so the dependency reference is initialized).
   useEffect(() => {
-    if (!pendingAutoStartRef.current) return;
-    pendingAutoStartRef.current = false;
-    void start();
-  }, [start]);
+    if (pendingAskCommand !== null) {
+      const { cwd, prompt } = pendingAskCommand;
+      setRepoPath(cwd);
+      setQuestion(prompt);
+      clearPendingAskCommand();
+      void start({ cwd, prompt });
+    }
+  }, [pendingAskCommand, clearPendingAskCommand, start]);
 
   const stopSession = useCallback((sessionId: string) => {
     void invoke('pty_kill', { id: sessionId }).catch(() => undefined);
