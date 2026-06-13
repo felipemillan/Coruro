@@ -1,12 +1,13 @@
 # Context
 
-**Current Task:** Day notes v2 shipped — tiered session report (deterministic TS skeleton + AI exec summary), user-written notes, markdown editor with @mentions.
+**Current Task:** Board + Ask tab polish — card UI cleanup, session sidebar, card→Ask navigation.
 
 **Key Decisions:**
-- Report structure/stats computed in `sessionReport.ts`; Apple Intelligence gets number-free digest (model parrots/miscomputes digits).
-- Sidecar deploys to `src-tauri/binaries/coruro-ai-aarch64-apple-darwin` — externalBin overwrites target/debug on every cargo rebuild.
-- AI failure degrades to stats-only note (`model: local-stats`), never blocks generation.
+- Card stats: commits/branches/last commit for all repos (removed stars/issues/forks).
+- Card action row: removed Analyze + Refresh; Terminal → Ask button (navigates via pendingAskPath in viewStore).
+- Ask sidebar: sessions grouped by repo, single Terminal instance with buffer replay on switch.
 
 **Next Steps:**
-- On-device test of full report format in app UI.
-- Remaining minor review findings: mentions in mixed/bold markdown lines, 403 rate-limit detection.
+- Roadmap top-5 from crew synthesis (see memory: coruro-roadmap-crew) — SQLite+FTS first.
+- Ask phase B: transcript mirror from `~/.claude/projects/<slug>/*.jsonl`.
+- Menu bar presence + notifications (roadmap #3).
