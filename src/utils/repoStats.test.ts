@@ -37,9 +37,10 @@ describe('relativeAge', () => {
 });
 
 describe('deriveCardData', () => {
-  it('uses GitHub stats when the repo is enriched', () => {
+  it('uses GitHub metadata (description/tags/language) when enriched, with git-activity stats', () => {
     const repo = baseRepo({
       remoteUrl: 'git@github.com:felipemillan/Coruro.git',
+      commitCount: 200, branchCount: 5,
       gh: {
         stars: 128, forks: 4, isPrivate: false, archived: false, openIssues: 12,
         prCount: 0, ciStatus: 'success', latestRelease: null, description: 'Git dashboard',
@@ -52,10 +53,14 @@ describe('deriveCardData', () => {
     const d = deriveCardData(repo, FIXED_NOW);
     expect(d.isLocalOnly).toBe(false);
     expect(d.handle).toBe('@felipemillan');
-    expect(d.displayStats.map((s) => s.label)).toEqual(['STARS', 'ISSUES', 'FORKS']);
-    expect(d.displayStats.map((s) => s.value)).toEqual(['128', '12', '4']);
+    // The 3-stat grid always shows local git activity; the LAST age falls back
+    // to gh.pushedAt (2026-06-07 → 1d) when lastCommitAt is absent.
+    expect(d.displayStats.map((s) => s.label)).toEqual(['COMMITS', 'BRANCHES', 'LAST']);
+    expect(d.displayStats.map((s) => s.value)).toEqual(['200', '5', '1d']);
+    // GitHub enrichment still drives description, tags and language.
     expect(d.description).toBe('Git dashboard');
     expect(d.tags).toEqual(['rust', 'tauri']);
+    expect(d.language).toBe('Rust');
     expect(d.stale).toBe(false);
   });
 
