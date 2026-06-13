@@ -552,3 +552,103 @@ pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<St
         Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Repo type detection (WC-1)
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoDetection {
+    pub repo_type: String, // "Tauri" | "NextJs" | "NodeJs" | "Cargo" | "Make" | "Unknown"
+    pub label: String,     // display string, e.g. "npm run tauri dev"
+}
+
+/// Inspect a local directory and return the project type + recommended run command.
+/// Detection is purely filesystem-based — no shell execution.
+#[tauri::command]
+pub fn detect_repo_type(path: String) -> Result<RepoDetection, String> {
+    use std::path::Path;
+
+    let base = Path::new(&path);
+
+    // 1. Tauri: src-tauri/ subdir OR tauri.conf.json at root.
+    if base.join("src-tauri").exists() || base.join("tauri.conf.json").exists() {
+        return Ok(RepoDetection {
+            repo_type: "Tauri".to_string(),
+            label: "npm run tauri dev".to_string(),
+        });
+    }
+
+    // 2 & 3. package.json present — check for Next.js.
+    let pkg_path = base.join("package.json");
+    if pkg_path.exists() {
+        let has_next = std::fs::read_to_string(&pkg_path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .map(|json| {
+                let in_deps = json
+                    .get("dependencies")
+                    .and_then(|d| d.as_object())
+                    .map(|m| m.contains_key("next"))
+                    .unwrap_or(false);
+                let in_dev = json
+                    .get("devDependencies")
+                    .and_then(|d| d.as_object())
+                    .map(|m| m.contains_key("next"))
+                    .unwrap_or(false);
+                in_deps || in_dev
+            })
+            .unwrap_or(false);
+
+        if has_next {
+            return Ok(RepoDetection {
+                repo_type: "NextJs".to_string(),
+                label: "npm run dev".to_string(),
+            });
+        }
+
+        // Plain Node — use "dev" script if present, else "start".
+        let has_dev_script = std::fs::read_to_string(&pkg_path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .and_then(|json| {
+                json.get("scripts")
+                    .and_then(|s| s.as_object())
+                    .map(|m| m.contains_key("dev"))
+            })
+            .unwrap_or(false);
+
+        let label = if has_dev_script {
+            "npm run dev".to_string()
+        } else {
+            "npm start".to_string()
+        };
+        return Ok(RepoDetection {
+            repo_type: "NodeJs".to_string(),
+            label,
+        });
+    }
+
+    // 4. Cargo (and no src-tauri/ — already excluded above).
+    if base.join("Cargo.toml").exists() {
+        return Ok(RepoDetection {
+            repo_type: "Cargo".to_string(),
+            label: "cargo run".to_string(),
+        });
+    }
+
+    // 5. Make.
+    if base.join("Makefile").exists() {
+        return Ok(RepoDetection {
+            repo_type: "Make".to_string(),
+            label: "make".to_string(),
+        });
+    }
+
+    // 6. Unknown.
+    Ok(RepoDetection {
+        repo_type: "Unknown".to_string(),
+        label: String::new(),
+    })
+}
