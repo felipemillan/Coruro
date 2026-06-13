@@ -120,6 +120,16 @@ function previewCommand(command: string): string {
     : trimmed;
 }
 
+/**
+ * Drop the query string / fragment of an MCP endpoint URL: SSE/HTTP transports
+ * sometimes carry an auth token there (e.g. `?token=…`). We keep only the
+ * origin+path so no secret ever lands in the in-memory inventory.
+ */
+function redactUrl(rawUrl: string): string {
+  const cut = rawUrl.search(/[?#]/);
+  return cut === -1 ? rawUrl : rawUrl.slice(0, cut);
+}
+
 // --- Loose shapes for the JSON sources (parsed defensively, never trusted) ---
 
 interface RawMcpServer {
@@ -179,7 +189,7 @@ function buildMcpServer(
   } else if (typeof raw.url === 'string') {
     const typeStr = typeof raw.type === 'string' ? raw.type.toLowerCase() : '';
     transport = typeStr === 'sse' ? 'sse' : typeStr === 'http' ? 'http' : 'http';
-    url = raw.url;
+    url = redactUrl(raw.url);
   }
 
   const server: ClaudeMcpServer = { name, scope, transport, command, url };
@@ -193,32 +203,57 @@ function buildMcpServer(
 // Per-category scanners (each returns its slice; the caller wraps in try/catch)
 // ---------------------------------------------------------------------------
 
-/** MCP servers from ~/.claude.json (parsed once, passed in). */
-function scanMcpServers(claudeJson: RawClaudeJson | null): ClaudeMcpServer[] {
+/**
+ * MCP servers from three sources, deduped by scope+project+name:
+ *   1. ~/.claude.json top-level `mcpServers` (global)
+ *   2. ~/.claude.json `projects[path].mcpServers` (project, cached)
+ *   3. each project's checked-in `<path>/.mcp.json` `mcpServers` (project)
+ * ~/.claude.json is parsed once and passed in; .mcp.json files are read here.
+ */
+async function scanMcpServers(claudeJson: RawClaudeJson | null): Promise<ClaudeMcpServer[]> {
   if (claudeJson === null) return [];
   const servers: ClaudeMcpServer[] = [];
+  const seen = new Set<string>();
+  const add = (s: ClaudeMcpServer): void => {
+    const key = `${s.scope}:${s.projectPath ?? ''}:${s.name}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    servers.push(s);
+  };
+  const addRecord = (
+    record: Record<string, RawMcpServer>,
+    scope: 'global' | 'project',
+    projectPath?: string,
+  ): void => {
+    for (const [name, raw] of Object.entries(record)) {
+      if (raw && typeof raw === 'object') add(buildMcpServer(name, raw, scope, projectPath));
+    }
+  };
 
   const global = claudeJson.mcpServers;
-  if (global && typeof global === 'object') {
-    for (const [name, raw] of Object.entries(global)) {
-      if (raw && typeof raw === 'object') {
-        servers.push(buildMcpServer(name, raw, 'global'));
-      }
-    }
-  }
+  if (global && typeof global === 'object') addRecord(global, 'global');
 
   const projects = claudeJson.projects;
   if (projects && typeof projects === 'object') {
+    // 2) inline project servers cached in ~/.claude.json
     for (const [projectPath, project] of Object.entries(projects)) {
       const projMcp = project?.mcpServers;
-      if (projMcp && typeof projMcp === 'object') {
-        for (const [name, raw] of Object.entries(projMcp)) {
-          if (raw && typeof raw === 'object') {
-            servers.push(buildMcpServer(name, raw, 'project', projectPath));
-          }
-        }
-      }
+      if (projMcp && typeof projMcp === 'object') addRecord(projMcp, 'project', projectPath);
     }
+    // 3) authoritative project servers from each repo's .mcp.json
+    await Promise.all(
+      Object.keys(projects).map(async (projectPath) => {
+        try {
+          const mcpJsonPath = await join(projectPath, '.mcp.json');
+          if (!(await exists(mcpJsonPath))) return;
+          const parsed = await readJsonLoose<{ mcpServers?: Record<string, RawMcpServer> }>(mcpJsonPath);
+          const m = parsed?.mcpServers;
+          if (m && typeof m === 'object') addRecord(m, 'project', projectPath);
+        } catch {
+          // unreadable / out-of-scope project .mcp.json — skip
+        }
+      }),
+    );
   }
 
   return servers;
@@ -422,13 +457,19 @@ async function scanHooks(claudeDir: string, settings: RawSettings | null): Promi
     const entries = await readDir(claudeDir);
     for (const entry of entries) {
       if (entry.isDirectory) continue;
-      const isHookScript = /-hook-.*\.(sh|py)$/.test(entry.name) || /^stop-hook-/.test(entry.name);
+      const isHookScript =
+        /-hook-.*\.(sh|py)$/.test(entry.name) ||
+        /^stop-hook-/.test(entry.name) ||
+        /^session-start-/.test(entry.name);
       if (!isHookScript) continue;
       const scriptPath = await join(claudeDir, entry.name);
-      // Derive an event from the filename prefix, e.g. "stop-hook-..." → "Stop".
+      // Derive an event from the filename, e.g. "stop-hook-…" → "Stop",
+      // "session-start-…" → "SessionStart".
       let event = 'Unknown';
       const prefixMatch = entry.name.match(/^([a-zA-Z]+)-hook-/);
-      if (prefixMatch) {
+      if (/^session-start-/.test(entry.name)) {
+        event = 'SessionStart';
+      } else if (prefixMatch) {
         const p = prefixMatch[1].toLowerCase();
         event = p.charAt(0).toUpperCase() + p.slice(1);
       }
@@ -528,7 +569,7 @@ export async function scanClaude(): Promise<ClaudeInventory> {
   await Promise.all([
     (async () => {
       try {
-        mcpServers = scanMcpServers(claudeJson);
+        mcpServers = await scanMcpServers(claudeJson);
       } catch (e) {
         errors.push('MCP scan failed: ' + String(e));
       }

@@ -12,7 +12,8 @@
         { "path": "$HOME/.repo_dashboard_state.json" },
         { "path": "$HOME/**" },
         { "path": "$HOME/.claude.json" },
-        { "path": "$HOME/.claude/**" }
+        { "path": "$HOME/.claude/**" },
+        { "path": "$HOME/**/.mcp.json" }
       ]
     },
     {
@@ -31,7 +32,8 @@
         { "path": "$HOME/**/.git" },
         { "path": "$HOME/.claude.json" },
         { "path": "$HOME/.claude" },
-        { "path": "$HOME/.claude/**" }
+        { "path": "$HOME/.claude/**" },
+        { "path": "$HOME/**/.mcp.json" }
       ]
     },
     {
