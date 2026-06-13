@@ -29,6 +29,11 @@ an information-dashboard: language, sync state, stats, and an AI-generated summa
 - **Kanban workflow** — drag repos between columns; per-repo notes timeline
   stored alongside the repo.
 - **Quick actions** — open in editor, terminal, Finder, or on GitHub.
+- **Claude Command Center** — a "Claude" tab that scans your local `~/.claude`
+  setup and inventories your MCP servers, skills, plugins, subagents, slash
+  commands, hooks, settings, and session counts, with an on-device AI health
+  summary and terminal quick-actions. Read-only and secret-free. See
+  [docs/command-center.md](docs/command-center.md).
 
 ## Requirements
 
@@ -47,6 +52,9 @@ an information-dashboard: language, sync state, stats, and an AI-generated summa
   never to a server.
 - **GitHub token** lives in the macOS Keychain (service `repo_dashboard`).
 - **App state** is a single local JSON file at `~/.repo_dashboard_state.json`.
+- **Command Center is read-only and secret-free** — it scans `~/.claude` for an
+  inventory only, capturing env var *names* (never values), redacting MCP endpoint
+  tokens, and never reading session transcripts or memory contents.
 
 ## Build from source
 
