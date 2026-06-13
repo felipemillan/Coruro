@@ -200,3 +200,88 @@ pub fn pty_kill(state: State<'_, PtyState>, id: String) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Spawn a project run/build command (dev server, cargo run, etc.) in a PTY.
+/// Takes repo_type (validated enum string) and maps it to a HARDCODED shell
+/// command — no user-supplied strings ever enter the shell script.
+#[tauri::command]
+pub fn pty_spawn_cmd(
+    app: AppHandle,
+    state: State<'_, PtyState>,
+    id: String,
+    cwd: String,
+    repo_type: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    // Map repo_type to a COMPILE-TIME constant shell script. Never interpolate.
+    let script: &'static str = match repo_type.as_str() {
+        "Tauri"  => "npm run tauri dev",
+        "NextJs" => "npm run dev",
+        "NodeJs" => "npm run dev",
+        "Cargo"  => "cargo run",
+        "Make"   => "make",
+        _ => return Err(format!("unknown repo_type: {repo_type}")),
+    };
+
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if sessions.contains_key(&id) {
+        return Err(format!("session {id} already exists"));
+    }
+
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .map_err(|e| e.to_string())?;
+
+    // Use login shell so PATH includes npm/cargo/make regardless of GUI launch context.
+    // The script string is a &'static str from the match above — never user input.
+    let mut cmd = CommandBuilder::new("/bin/zsh");
+    cmd.args(["-lc", script]);
+    cmd.cwd(&cwd);
+    cmd.env("TERM", "xterm-256color");
+
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    drop(pair.slave);
+
+    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+
+    sessions.insert(id.clone(), PtySession { writer, master: pair.master, child });
+    drop(sessions);
+
+    // Reader thread: identical to pty_spawn — stream PTY output via pty-output events.
+    let sessions_arc = Arc::clone(&state.0);
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 8192];
+        let mut carry: Vec<u8> = Vec::new();
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    carry.extend_from_slice(&buf[..n]);
+                    let valid_up_to = match std::str::from_utf8(&carry) {
+                        Ok(_) => carry.len(),
+                        Err(e) => e.valid_up_to(),
+                    };
+                    if valid_up_to > 0 {
+                        let text = unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) };
+                        let _ = app.emit("pty-output", PtyOutput { id: &id, data: text });
+                        carry.drain(..valid_up_to);
+                    }
+                    if carry.len() > 4 { carry.clear(); }
+                }
+            }
+        }
+        let code = {
+            let mut sessions = match sessions_arc.lock() {
+                Ok(s) => s,
+                Err(p) => p.into_inner(),
+            };
+            sessions.remove(&id).and_then(|mut s| s.child.wait().ok().map(|st| st.exit_code()))
+        };
+        let _ = app.emit("pty-exit", PtyExit { id: &id, code });
+    });
+
+    Ok(())
+}
