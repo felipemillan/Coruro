@@ -399,6 +399,44 @@ pub async fn git_commits_since_numstat(path: String, since_iso: String) -> Resul
     Ok(commits)
 }
 
+/// Spawn the coruro-ai sidecar in "enrich" mode.
+/// Writes {"mode":"enrich","items":<items>} to stdin, returns one JSON line.
+/// On any spawn / sidecar-missing / timeout error returns a synthetic error JSON
+/// with the same envelope shapes used by ai_day_notes so the frontend parser
+/// can reuse the same error-handling path.
+#[tauri::command]
+pub async fn ai_enrich(items: serde_json::Value) -> Result<String, String> {
+    let mut payload = serde_json::to_vec(&serde_json::json!({
+        "mode": "enrich",
+        "items": items,
+    }))
+    .map_err(|e| e.to_string())?;
+    payload.push(b'\n');
+
+    let bin = match resolve_sidecar() {
+        Some(p) => p,
+        None => {
+            eprintln!("[ai] sidecar binary not found next to current_exe");
+            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
+        }
+    };
+
+    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
+    match tokio::time::timeout(Duration::from_secs(45), work).await {
+        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
+        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Err(e))) => {
+            eprintln!("[ai] sidecar spawn err: {e}");
+            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
+        }
+        Ok(Err(e)) => {
+            eprintln!("[ai] join err: {e}");
+            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
+        }
+        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
+    }
+}
+
 /// Uncommitted-work summary for a repo.
 /// git diff --stat HEAD -> last line if it is the "N files changed..." summary,
 /// plus git status --porcelain -> count of "??" (untracked) lines.
