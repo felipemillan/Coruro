@@ -56,17 +56,11 @@ export function deriveCardData(repo: Repo, now: number = Date.now()): CardData {
   const gh = repo.gh ?? null;
   const isLocalOnly = gh === null;
 
-  const displayStats: CardStat[] = isLocalOnly
-    ? [
-        { value: String(repo.commitCount ?? 0), label: 'COMMITS' },
-        { value: String(repo.branchCount ?? 0), label: 'BRANCHES' },
-        { value: relativeAge(repo.lastCommitAt, now) || '—', label: 'LAST' },
-      ]
-    : [
-        { value: String(gh!.stars), label: 'STARS' },
-        { value: String(gh!.openIssues), label: 'ISSUES' },
-        { value: String(gh!.forks), label: 'FORKS' },
-      ];
+  const displayStats: CardStat[] = [
+    { value: String(repo.commitCount ?? 0), label: 'COMMITS' },
+    { value: String(repo.branchCount ?? 0), label: 'BRANCHES' },
+    { value: relativeAge(repo.lastCommitAt ?? gh?.pushedAt, now) || '—', label: 'LAST' },
+  ];
 
   const staleSource = gh?.pushedAt ?? repo.lastCommitAt ?? null;
   const stale =
