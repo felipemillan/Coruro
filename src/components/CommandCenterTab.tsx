@@ -5,6 +5,7 @@
 // Quick-action buttons dispatch natural-language prompts to the Ask tab.
 
 import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { RefreshCw, Sparkles } from 'lucide-react';
@@ -155,6 +156,68 @@ function SourceChip({ source }: { source: 'settings' | 'script' }) {
 }
 
 // ---------------------------------------------------------------------------
+// Grouping helpers — bucket source-tagged items by origin for the inventory.
+// 'local'/'user' groups sort first; the rest by descending count, then name.
+// ---------------------------------------------------------------------------
+
+function groupBySource<T extends { source: string }>(items: T[]): [string, T[]][] {
+  const m = new Map<string, T[]>();
+  for (const it of items) {
+    const arr = m.get(it.source);
+    if (arr === undefined) m.set(it.source, [it]);
+    else arr.push(it);
+  }
+  const isBase = (k: string): boolean => k === 'local' || k === 'user';
+  return [...m.entries()].sort((a, b) => {
+    if (isBase(a[0]) && !isBase(b[0])) return -1;
+    if (isBase(b[0]) && !isBase(a[0])) return 1;
+    return b[1].length - a[1].length || a[0].localeCompare(b[0]);
+  });
+}
+
+/** Sub-header row that labels one source group with its item count. */
+function GroupHeader({ source, count }: { source: string; count: number }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-1 bg-navy/[0.04] border-b border-warm-gray/50">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-navy-light truncate">
+        {source}
+      </span>
+      <span className="text-[10px] tabular-nums text-navy-light shrink-0 ml-2">{count}</span>
+    </div>
+  );
+}
+
+/**
+ * Render a source-grouped inventory list: one GroupHeader per origin, items
+ * beneath. `renderItem`/`keyFor` keep each category's row markup local.
+ */
+function GroupedList<T extends { source: string }>({
+  items,
+  renderItem,
+  keyFor,
+}: {
+  items: T[];
+  renderItem: (item: T) => ReactNode;
+  keyFor: (item: T, index: number) => string;
+}) {
+  const groups = groupBySource(items);
+  return (
+    <div className="rounded-xl border border-warm-gray bg-cream/60 overflow-hidden">
+      {groups.map(([source, list]) => (
+        <div key={source}>
+          <GroupHeader source={source} count={list.length} />
+          <div className="divide-y divide-warm-gray/50">
+            {list.map((item, i) => (
+              <div key={keyFor(item, i)}>{renderItem(item)}</div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -300,15 +363,17 @@ export function CommandCenterTab() {
             {inventory.mcpServers.length > 0 && (
               <section>
                 <SectionHeader label={`MCP Servers (${inventory.mcpServers.length})`} />
-                <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
-                  {inventory.mcpServers.map((srv, i) => (
-                    <div key={`${srv.name}-${i}`} className="flex items-center gap-2 px-3 py-2">
+                <GroupedList
+                  items={inventory.mcpServers}
+                  keyFor={(srv, i) => `${srv.source}-${srv.name}-${i}`}
+                  renderItem={(srv) => (
+                    <div className="flex items-center gap-2 px-3 py-2">
                       <span className="text-sm font-medium text-navy flex-1 truncate">{srv.name}</span>
                       <ScopeChip scope={srv.scope} />
                       <span className="text-[10px] text-navy-light font-mono shrink-0">{srv.transport}</span>
                     </div>
-                  ))}
-                </div>
+                  )}
+                />
               </section>
             )}
 
@@ -316,16 +381,18 @@ export function CommandCenterTab() {
             {inventory.skills.length > 0 && (
               <section>
                 <SectionHeader label={`Skills (${inventory.skills.length})`} />
-                <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
-                  {inventory.skills.map((skill) => (
-                    <div key={skill.dirName} className="flex items-start gap-2 px-3 py-2">
+                <GroupedList
+                  items={inventory.skills}
+                  keyFor={(skill, i) => `${skill.path}-${i}`}
+                  renderItem={(skill) => (
+                    <div className="flex items-start gap-2 px-3 py-2">
                       <span className="text-sm font-medium text-navy shrink-0">{skill.name}</span>
                       {skill.description !== null && (
                         <span className="text-xs text-navy-light truncate">{skill.description}</span>
                       )}
                     </div>
-                  ))}
-                </div>
+                  )}
+                />
               </section>
             )}
 
@@ -333,16 +400,18 @@ export function CommandCenterTab() {
             {inventory.agents.length > 0 && (
               <section>
                 <SectionHeader label={`Subagents (${inventory.agents.length})`} />
-                <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
-                  {inventory.agents.map((agent) => (
-                    <div key={agent.fileName} className="flex items-start gap-2 px-3 py-2">
+                <GroupedList
+                  items={inventory.agents}
+                  keyFor={(agent, i) => `${agent.path}-${i}`}
+                  renderItem={(agent) => (
+                    <div className="flex items-start gap-2 px-3 py-2">
                       <span className="text-sm font-medium text-navy shrink-0">{agent.name}</span>
                       {agent.description !== null && (
                         <span className="text-xs text-navy-light truncate">{agent.description}</span>
                       )}
                     </div>
-                  ))}
-                </div>
+                  )}
+                />
               </section>
             )}
 
@@ -350,37 +419,48 @@ export function CommandCenterTab() {
             {inventory.commands.length > 0 && (
               <section>
                 <SectionHeader label={`Commands (${inventory.commands.length})`} />
-                <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
-                  {inventory.commands.map((cmd) => (
-                    <div key={cmd.path} className="flex items-start gap-2 px-3 py-2">
+                <GroupedList
+                  items={inventory.commands}
+                  keyFor={(cmd, i) => `${cmd.path}-${i}`}
+                  renderItem={(cmd) => (
+                    <div className="flex items-start gap-2 px-3 py-2">
                       <span className="text-sm font-medium text-navy font-mono shrink-0">/{cmd.name}</span>
                       {cmd.description !== null && (
                         <span className="text-xs text-navy-light truncate">{cmd.description}</span>
                       )}
                     </div>
-                  ))}
-                </div>
+                  )}
+                />
               </section>
             )}
 
             {/* Plugins */}
             {inventory.plugins.length > 0 && (
               <section>
-                <SectionHeader label={`Plugins (${inventory.plugins.length})`} />
+                <SectionHeader
+                  label={`Plugins (${inventory.plugins.length} — ${
+                    inventory.plugins.filter((p) => p.enabled).length
+                  } on / ${inventory.plugins.filter((p) => !p.enabled).length} off)`}
+                />
                 <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
                   {inventory.plugins.map((plugin, i) => (
                     <div key={`${plugin.name}-${i}`} className="flex items-center gap-2 px-3 py-2">
-                      <span className="text-sm font-medium text-navy flex-1">{plugin.name}</span>
-                      {plugin.source !== null && (
+                      <span className="text-sm font-medium text-navy flex-1 truncate">{plugin.name}</span>
+                      {plugin.version !== null && (
+                        <span className="text-[10px] text-navy-light tabular-nums shrink-0">
+                          v{plugin.version}
+                        </span>
+                      )}
+                      {plugin.marketplace !== null && (
                         <span className="text-[10px] text-navy-light font-mono truncate max-w-[160px]">
-                          {plugin.source}
+                          {plugin.marketplace}
                         </span>
                       )}
                       <span
                         className={
                           plugin.enabled
-                            ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-sage/20 text-sage'
-                            : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-warm-gray text-navy-light'
+                            ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-sage/20 text-sage shrink-0'
+                            : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-warm-gray text-navy-light shrink-0'
                         }
                       >
                         {plugin.enabled ? 'enabled' : 'disabled'}
