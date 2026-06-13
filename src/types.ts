@@ -305,7 +305,7 @@ export interface ClaudeAgent {
   path: string;
 }
 
-/** One slash command, from ~/.claude/commands/**/<file>.md. */
+/** One slash command, from a `.md` file under ~/.claude/commands (any depth). */
 export interface ClaudeCommand {
   /** Namespaced from subdirs, e.g. "git/commit". */
   name: string;

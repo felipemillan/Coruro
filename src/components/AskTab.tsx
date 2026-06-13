@@ -54,6 +54,8 @@ export function AskTab() {
 
   const pendingAskPath = useViewStore((s) => s.pendingAskPath);
   const clearPendingAsk = useViewStore((s) => s.clearPendingAsk);
+  const pendingAskCommand = useViewStore((s) => s.pendingAskCommand);
+  const clearPendingAskCommand = useViewStore((s) => s.clearPendingAskCommand);
 
   const [repoPath, setRepoPath] = useState('');
   const [question, setQuestion] = useState('');
@@ -64,6 +66,9 @@ export function AskTab() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  // Set to true when a pendingAskCommand has been loaded into state and we need
+  // to auto-start a session once React has committed the new repoPath/question.
+  const pendingAutoStartRef = useRef(false);
   // Which session's output is currently rendered in the terminal.
   const displayedIdRef = useRef<string | null>(null);
   // Accumulated raw output per session (for buffer replay on switch).
@@ -82,6 +87,18 @@ export function AskTab() {
       clearPendingAsk();
     }
   }, [pendingAskPath, clearPendingAsk]);
+
+  // Command Center quick-action: pre-fill cwd + prompt and auto-start a session.
+  // We set state here and raise a flag; the auto-start effect below fires once
+  // React has committed the new values (avoiding stale-closure issues with start()).
+  useEffect(() => {
+    if (pendingAskCommand !== null) {
+      setRepoPath(pendingAskCommand.cwd);
+      setQuestion(pendingAskCommand.prompt);
+      pendingAutoStartRef.current = true;
+      clearPendingAskCommand();
+    }
+  }, [pendingAskCommand, clearPendingAskCommand]);
 
   const getRepoName = useCallback(
     (path: string) => {
@@ -200,6 +217,15 @@ export function AskTab() {
       unlistenersRef.current.delete(id);
     }
   }, [repoPath, question, getRepoName, ensureTerminal]);
+
+  // Auto-start a session after pendingAskCommand has loaded repoPath + question
+  // into state. Runs whenever start() is recreated (i.e. after repoPath/question
+  // change), which is exactly when the new values are captured in its closure.
+  useEffect(() => {
+    if (!pendingAutoStartRef.current) return;
+    pendingAutoStartRef.current = false;
+    void start();
+  }, [start]);
 
   const stopSession = useCallback((sessionId: string) => {
     void invoke('pty_kill', { id: sessionId }).catch(() => undefined);
