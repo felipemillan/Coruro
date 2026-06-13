@@ -14,6 +14,8 @@ interface ViewStore extends ViewState {
   pendingAskPath: string | null;
   /** Command to run in Ask tab when launched from Command Center. */
   pendingAskCommand: { cwd: string; prompt: string } | null;
+  /** Palette (command palette / search dialog) open state. */
+  paletteOpen: boolean;
   setSearch: (q: string) => void;
   toggleFilter: (k: FilterKey) => void;
   clearFilters: () => void;
@@ -27,6 +29,7 @@ interface ViewStore extends ViewState {
   /** Launch a prompt in Ask tab from Command Center. */
   requestAskCommand: (cwd: string, prompt: string) => void;
   clearPendingAskCommand: () => void;
+  setPaletteOpen: (open: boolean) => void;
   resetView: () => void;
 }
 
@@ -38,6 +41,7 @@ export const useViewStore = create<ViewStore>((set) => ({
   detailPath: null,
   pendingAskPath: null,
   pendingAskCommand: null,
+  paletteOpen: false,
 
   setSearch: (q: string) => {
     set({ search: q });
@@ -85,6 +89,10 @@ export const useViewStore = create<ViewStore>((set) => ({
 
   clearPendingAskCommand: () => {
     set({ pendingAskCommand: null });
+  },
+
+  setPaletteOpen: (open: boolean) => {
+    set({ paletteOpen: open });
   },
 
   resetView: () => {
