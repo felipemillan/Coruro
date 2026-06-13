@@ -25,6 +25,7 @@ pub fn run() {
             commands::ai_analyze,
             commands::ai_day_notes,
             commands::ai_enrich,
+            commands::ai_curate,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

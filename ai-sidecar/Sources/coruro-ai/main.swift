@@ -65,6 +65,43 @@ struct EnrichResponse: Encodable {
     }
 }
 
+// ── curate contracts ──
+// Drives the "Claude Setup Curator". The TypeScript side scans the ~/.claude
+// inventory and computes EVERY finding deterministically (remove/consolidate/
+// stale/gap/keep), including all counts. The model receives only qualitative
+// finding titles + the secret-free summary shape; it NEVER sees transcript
+// bodies, names, paths, or any number, and NEVER recomputes or restates one.
+struct CurateRequest: Decodable {
+    var mode: String
+    var findings: [Finding]
+    var summary: Summary
+
+    // Title only — no `detail` (holds counts) and no `items` (holds names/paths)
+    // are ever sent, so nothing numeric or identifying can leak into the prompt.
+    struct Finding: Decodable {
+        var id: String
+        var category: String   // "remove" | "consolidate" | "stale" | "gap" | "keep"
+        var title: String
+    }
+
+    // Deterministic per-category rollup the TS side already computed. Decoded
+    // for contract symmetry only; the prompt never serializes these integers.
+    struct Summary: Decodable {
+        var remove: Int
+        var consolidate: Int
+        var stale: Int
+        var gap: Int
+        var keep: Int
+    }
+}
+
+struct CurateResponse: Encodable {
+    var ok: Bool
+    var body: String?
+    var model: String?
+    var error: String?
+}
+
 // Guided-generation schema for day notes. The TypeScript side composes the
 // full report (tiers, metrics, per-repo stats) deterministically; the model
 // contributes ONLY the executive-summary narrative. The small on-device model
@@ -82,6 +119,16 @@ struct SessionSummary {
 struct GeneratedBlurb {
     @Guide(description: "One informative sentence, up to ~22 words, describing what this tool or project is AND what it is used for. Use the package/metadata for specifics. No preamble like 'This is'; do not merely restate the name. Plain, factual, no marketing, never invent capabilities.")
     var text: String
+}
+
+// Guided-generation schema for the Setup Curator. The TypeScript side renders
+// every finding and count deterministically; the model contributes ONLY a short
+// qualitative note. Nothing verifiable (counts, names) is delegated to the small
+// on-device model.
+@Generable
+struct CurateSummary {
+    @Guide(description: "One or two sentences characterizing the overall state of this Claude setup at a high level: name the 2-4 most salient themes qualitatively (e.g. redundant or duplicate installs, disabled plugins worth pruning, project-scoped tools that look unused, gaps worth filling). NEVER repeat, sum, count, or compute any numbers — the report already shows exact counts per category. Second person, present tense, like a quick note to the setup's owner. Plain names without brackets. Only themes present in the input; never invent findings, tools, or capabilities; never claim a time span; no concluding wrap-up phrases.")
+    var narrative: String
 }
 
 @Generable
@@ -103,6 +150,11 @@ func emitDayNotes(_ r: DayNotesResponse) {
 }
 
 func emitEnrich(_ r: EnrichResponse) {
+    let data = (try? JSONEncoder().encode(r)) ?? Data("{\"ok\":false,\"error\":\"encode\"}".utf8)
+    FileHandle.standardOutput.write(data)
+}
+
+func emitCurate(_ r: CurateResponse) {
     let data = (try? JSONEncoder().encode(r)) ?? Data("{\"ok\":false,\"error\":\"encode\"}".utf8)
     FileHandle.standardOutput.write(data)
 }
@@ -138,6 +190,39 @@ func buildDayNotesPrompt(_ req: DayNotesRequest) -> String {
     Do NOT repeat or compute any numbers — the report shows exact stats separately. \
     First-person past tense. Synthesize — do not repeat the raw lines verbatim. \
     Only facts present in the input; never invent details or claim a time span.
+    """)
+    return lines.joined(separator: "\n")
+}
+
+func buildCuratePrompt(_ req: CurateRequest) -> String {
+    var lines: [String] = []
+    lines.append("Findings from a scan of my Claude Code setup, grouped by recommendation:")
+    lines.append("")
+
+    // Emit qualitative titles grouped by category. Counts are intentionally
+    // NOT included — the model must not recompute or restate any number.
+    let order = ["remove", "consolidate", "stale", "gap", "keep"]
+    let labels = [
+        "remove": "Candidates to remove",
+        "consolidate": "Candidates to consolidate",
+        "stale": "Stale / unused",
+        "gap": "Gaps worth filling",
+        "keep": "Worth keeping",
+    ]
+    for cat in order {
+        let group = req.findings.filter { $0.category == cat }
+        guard !group.isEmpty else { continue }
+        lines.append("\(labels[cat] ?? cat):")
+        for f in group { lines.append("  - \(f.title)") }
+        lines.append("")
+    }
+
+    lines.append("""
+    Write the curator note: 1-2 sentences characterizing the overall state of this setup and the 2-4 \
+    most salient themes qualitatively (redundancy, disabled or unused items, gaps worth filling, what is \
+    healthy). Do NOT repeat, count, or compute any numbers — the report shows exact counts separately. \
+    Second-person present tense. Synthesize the themes — do not list every finding verbatim. \
+    Only themes present in the input; never invent findings or tools, and never claim a time span.
     """)
     return lines.joined(separator: "\n")
 }
@@ -271,6 +356,49 @@ if modeProbe?.mode == "enrich" {
     }
 
     emitEnrich(EnrichResponse(ok: true, blurbs: collected, model: "apple-fm", error: nil))
+    exit(0)
+}
+
+if modeProbe?.mode == "curate" {
+    guard let req = try? JSONDecoder().decode(CurateRequest.self, from: input) else {
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "badInput"))
+        exit(0)
+    }
+
+    // ── Availability ──
+    switch SystemLanguageModel.default.availability {
+    case .available:
+        break
+    case .unavailable(.deviceNotEligible):
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "unavailable")); exit(0)
+    case .unavailable(.appleIntelligenceNotEnabled):
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "unavailable")); exit(0)
+    case .unavailable(.modelNotReady):
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "unavailable")); exit(0)
+    case .unavailable:
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "unavailable")); exit(0)
+    }
+
+    // Nothing to narrate if there are no findings; the TS report still renders.
+    guard !req.findings.isEmpty else {
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "noFindings"))
+        exit(0)
+    }
+
+    let session = LanguageModelSession(
+        instructions: "You write a brief qualitative note about the state of someone's Claude Code setup for a curator report. Second person, present tense, specific and natural. The report already shows every exact count and finding separately, so NEVER repeat, sum, or compute any numbers. Never invent findings, tools, or capabilities not present in the input, and never claim a time span the input does not state."
+    )
+    do {
+        let prompt = buildCuratePrompt(req)
+        let result = try await session.respond(to: prompt, generating: CurateSummary.self)
+        emitCurate(CurateResponse(ok: true, body: result.content.narrative, model: "apple/foundation-models", error: nil))
+    } catch let e as LanguageModelSession.GenerationError where {
+        if case .exceededContextWindowSize = e { return true } else { return false }
+    }() {
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "contextOverflow"))
+    } catch {
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "generation"))
+    }
     exit(0)
 }
 
