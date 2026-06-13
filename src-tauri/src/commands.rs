@@ -516,6 +516,53 @@ pub async fn ai_day_notes(repos: serde_json::Value) -> Result<String, String> {
     }
 }
 
+/// Spawn the coruro-ai sidecar in "curate" mode for the Setup Curator.
+/// Writes {"mode":"curate","findings":<findings>,"summary":<summary>} to stdin,
+/// returns one JSON line. Findings are computed deterministically in TS and
+/// passed through verbatim; the sidecar only narrates qualitatively and must
+/// never recompute or repeat numbers. On any spawn / sidecar-missing / timeout
+/// error returns synthetic error JSON (never Err) so findings still render
+/// without the AI narrative.
+#[tauri::command]
+pub async fn ai_curate(
+    findings: serde_json::Value,
+    summary: serde_json::Value,
+) -> Result<String, String> {
+    let mut payload = serde_json::to_vec(&serde_json::json!({
+        "mode": "curate",
+        "findings": findings,
+        "summary": summary,
+    }))
+    .map_err(|e| e.to_string())?;
+    payload.push(b'\n');
+
+    let bin = match resolve_sidecar() {
+        Some(p) => p,
+        None => {
+            eprintln!("[ai] sidecar binary not found next to current_exe");
+            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
+        }
+    };
+
+    // 90s: the curator narrates the whole scanned inventory (largest of the
+    // sidecar prompts) on the on-device model. Generous ceiling, but the AI
+    // output is additive — findings already rendered — so it never blocks the UI.
+    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
+    match tokio::time::timeout(Duration::from_secs(90), work).await {
+        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
+        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Err(e))) => {
+            eprintln!("[ai] sidecar spawn err: {e}");
+            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
+        }
+        Ok(Err(e)) => {
+            eprintln!("[ai] join err: {e}");
+            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
+        }
+        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
+    }
+}
+
 #[tauri::command]
 pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
     let mut payload = serde_json::to_vec(&serde_json::json!({

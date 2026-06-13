@@ -427,3 +427,49 @@ export interface AiDayNotesRepo {
   name: string;
   commits: string[];
 }
+
+// ── Setup Curator ───────────────────────────────────────────────────────────
+// Deterministic recommendations over the scanned inventory. Computed in TS;
+// every number lives in `detail`/`items` and renders without any model. The
+// on-device AI layer only NARRATES qualitatively (see ai_curate / CurateSummary)
+// and is fed `title` strings ONLY — never `detail` (counts) or `items` (names).
+
+export type CurateCategory = 'remove' | 'consolidate' | 'stale' | 'gap' | 'keep';
+export type CurateSeverity = 'info' | 'warn';
+
+/** One deterministic curation finding. */
+export interface CurateFinding {
+  /** Stable id, e.g. "remove:disabled-plugins". */
+  id: string;
+  category: CurateCategory;
+  severity: CurateSeverity;
+  /** Qualitative one-liner — MUST be count-free (safe to hand to the model). */
+  title: string;
+  /** Deterministic explanation; may contain counts. Never sent to the model. */
+  detail: string;
+  /** Secret-free entity refs (names/slugs) for the UI. Never sent to the model. */
+  items: string[];
+}
+
+/** One finding row forwarded to the model — title only, nothing numeric. */
+export interface CuratePayloadFinding {
+  id: string;
+  category: CurateCategory;
+  severity: CurateSeverity;
+  title: string;
+}
+
+/** Secret-free narration payload for the ai_curate sidecar call. */
+export interface CuratePayload {
+  findings: CuratePayloadFinding[];
+  /** Per-category counts (awareness only — the model must never repeat/sum them). */
+  summary: Record<CurateCategory, number>;
+}
+
+/** Sidecar curate response — NARRATIVE ONLY (mirrors ai_day_notes envelope). */
+export interface ClaudeCurateResponse {
+  ok: boolean;
+  body?: string;
+  model?: string | null;
+  error?: string;
+}
