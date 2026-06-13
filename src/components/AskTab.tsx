@@ -13,6 +13,8 @@ import '@xterm/xterm/css/xterm.css';
 import { Plus, Square, SquareTerminal } from 'lucide-react';
 import { useBoardStore } from '../store/useBoardStore';
 import { useViewStore } from '../store/useViewStore';
+import { CommandPalette } from './CommandPalette';
+import { TopActionBar } from './TopActionBar';
 
 interface PtyOutput {
   id: string;
@@ -56,12 +58,15 @@ export function AskTab() {
   const clearPendingAsk = useViewStore((s) => s.clearPendingAsk);
   const pendingAskCommand = useViewStore((s) => s.pendingAskCommand);
   const clearPendingAskCommand = useViewStore((s) => s.clearPendingAskCommand);
+  const paletteOpen = useViewStore((s) => s.paletteOpen);
+  const setPaletteOpen = useViewStore((s) => s.setPaletteOpen);
 
   const [repoPath, setRepoPath] = useState('');
   const [question, setQuestion] = useState('');
   const [spawnError, setSpawnError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [repoDetection, setRepoDetection] = useState<{ repoType: string; label: string } | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -87,6 +92,26 @@ export function AskTab() {
       clearPendingAsk();
     }
   }, [pendingAskPath, clearPendingAsk]);
+
+  // Detect the project type whenever the selected repo changes (for the Run button).
+  useEffect(() => {
+    if (repoPath === '' || repoPath === rootDirectory) { setRepoDetection(null); return; }
+    invoke<{ repoType: string; label: string }>('detect_repo_type', { path: repoPath })
+      .then(d => setRepoDetection(d.repoType !== 'Unknown' ? d : null))
+      .catch(() => setRepoDetection(null));
+  }, [repoPath, rootDirectory]);
+
+  // Cmd+K / Ctrl+K opens the command palette from anywhere in the Ask tab.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [setPaletteOpen]);
 
   const getRepoName = useCallback(
     (path: string) => {
@@ -282,6 +307,91 @@ export function AskTab() {
     void invoke('pty_kill', { id: sessionId }).catch(() => undefined);
   }, []);
 
+  // Spawns a dev-server / build session using the detected repo type.
+  // No caveman injection — this is a build runner, not a claude session.
+  const handleRunBuild = useCallback(async () => {
+    if (repoDetection === null || repoPath === '' || containerRef.current === null) return;
+    setSpawnError(null);
+
+    const id = crypto.randomUUID();
+    const title = repoDetection.label;
+    const rName = getRepoName(repoPath);
+
+    const session: ChatSession = {
+      id,
+      repoPath,
+      repoName: rName,
+      title,
+      startedAt: Date.now(),
+      status: 'running',
+      exitCode: null,
+    };
+
+    setSessions((prev) => [session, ...prev]);
+    buffersRef.current.set(id, '');
+
+    const term = ensureTerminal()!;
+    term.reset();
+    displayedIdRef.current = id;
+    setActiveSessionId(id);
+
+    const unOut = await listen<PtyOutput>('pty-output', (e) => {
+      if (e.payload.id !== id) return;
+      const chunk = e.payload.data;
+      buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
+      if (displayedIdRef.current === id) term.write(chunk);
+    });
+
+    const unExit = await listen<PtyExit>('pty-exit', (e) => {
+      if (e.payload.id !== id) return;
+      const msg = `\r\n\x1b[2m── session ended${e.payload.code !== null ? ` (exit ${e.payload.code})` : ''} ──\x1b[0m\r\n`;
+      buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + msg);
+      if (displayedIdRef.current === id) term.write(msg);
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: 'ended', exitCode: e.payload.code } : s)),
+      );
+    });
+
+    unlistenersRef.current.set(id, [unOut, unExit]);
+
+    try {
+      await invoke('pty_spawn_cmd', {
+        id,
+        cwd: repoPath,
+        repoType: repoDetection.repoType,
+        cols: term.cols,
+        rows: term.rows,
+      });
+      switchToSession(id);
+      term.focus();
+    } catch (e: unknown) {
+      setSpawnError(e instanceof Error ? e.message : String(e));
+      setSessions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: 'ended', exitCode: -1 } : s)),
+      );
+      unlistenersRef.current.get(id)?.forEach((u) => u());
+      unlistenersRef.current.delete(id);
+    }
+  }, [repoDetection, repoPath, getRepoName, ensureTerminal, switchToSession]);
+
+  // Palette: send the selected invocation string to the active PTY session.
+  const handlePaletteSelect = useCallback((command: string) => {
+    setPaletteOpen(false);
+    const id = displayedIdRef.current;
+    if (id !== null) {
+      void invoke('pty_write', { id, data: command + '\r' }).catch(() => undefined);
+    }
+  }, [setPaletteOpen]);
+
+  // Insert text onto the active session's prompt line WITHOUT submitting (no \r),
+  // so the user can edit or append args before pressing Enter themselves.
+  const handleInsert = useCallback((text: string) => {
+    const id = displayedIdRef.current;
+    if (id === null) return;
+    void invoke('pty_write', { id, data: text }).catch(() => undefined);
+    termRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     return () => {
       termRef.current?.dispose();
@@ -327,6 +437,13 @@ export function AskTab() {
   const activeRunning = activeSession?.status === 'running';
 
   return (
+    <>
+    <CommandPalette
+      open={paletteOpen}
+      onClose={() => setPaletteOpen(false)}
+      repoPath={repoPath}
+      onSelect={handlePaletteSelect}
+    />
     <div className="flex flex-1 min-h-0">
       {/* ── Sidebar ─────────────────────────────────── */}
       <div className="w-52 shrink-0 border-r border-warm-gray flex flex-col bg-cream/30 overflow-y-auto">
@@ -418,6 +535,28 @@ export function AskTab() {
               <Square size={12} strokeWidth={2} /> End
             </button>
           )}
+          {/* Run/build button — shown only when we know the project type */}
+          {repoDetection !== null && (
+            <button
+              type="button"
+              onClick={() => void handleRunBuild()}
+              className="flex flex-col items-start px-3 py-1 text-[11px] font-medium text-sage bg-sage/10 hover:bg-sage/20 transition-colors cursor-pointer rounded-full leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            >
+              <span>Run</span>
+              <span className="text-[9px] font-mono text-sage/70">{repoDetection.label}</span>
+            </button>
+          )}
+
+          {/* Cmd+K palette hint badge */}
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Open command palette (⌘K)"
+            className="px-2 py-1 text-[10px] font-mono text-navy-light/50 bg-warm-gray hover:bg-warm-gray/80 rounded-lg cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          >
+            ⌘K
+          </button>
+
           <button
             type="button"
             onClick={() => void start()}
@@ -427,6 +566,9 @@ export function AskTab() {
             <Plus size={12} strokeWidth={2.5} /> New
           </button>
         </div>
+
+        {/* Global action bar — insert skills/agents/commands/MCP into the prompt */}
+        <TopActionBar onInsert={handleInsert} disabled={activeSessionId === null} />
 
         {spawnError !== null && (
           <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono bg-terracotta/15 text-terracotta border-b border-terracotta/40">
@@ -454,5 +596,6 @@ export function AskTab() {
         </div>
       </div>
     </div>
+    </>
   );
 }
