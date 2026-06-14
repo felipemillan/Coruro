@@ -25,11 +25,7 @@ import type { Repo } from '../types';
  * Returns trimmed stdout, or null on non-zero exit or error.
  * Never concatenates user-supplied strings into a shell.
  */
-async function runGit(
-  name: string,
-  args: string[],
-  cwd: string,
-): Promise<string | null> {
+async function runGit(name: string, args: string[], cwd: string): Promise<string | null> {
   try {
     // `name` is the scope-entry identifier (capabilities/default.json), not the
     // binary. Each fixed git arg-shape has its own pinned scope entry, so the

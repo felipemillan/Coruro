@@ -10,7 +10,15 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { RefreshCw, Sparkles, Server, Webhook, Wrench, SquareTerminal, FileJson } from 'lucide-react';
+import {
+  RefreshCw,
+  Sparkles,
+  Server,
+  Webhook,
+  Wrench,
+  SquareTerminal,
+  FileJson,
+} from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { homeDir, join } from '@tauri-apps/api/path';
 import { useClaudeStore } from '../store/useClaudeStore';
@@ -142,7 +150,9 @@ function PluginCard({
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-navy flex-1 truncate">{plugin.name}</span>
         {plugin.version !== null && (
-          <span className="text-[10px] text-navy-light tabular-nums shrink-0">v{plugin.version}</span>
+          <span className="text-[10px] text-navy-light tabular-nums shrink-0">
+            v{plugin.version}
+          </span>
         )}
         <span
           className={
@@ -165,7 +175,10 @@ function PluginCard({
         )}
         {pills.length > 0 && <span className="text-navy-light/30 text-[10px]">·</span>}
         {pills.map((p) => (
-          <span key={p} className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-navy/8 text-navy-light">
+          <span
+            key={p}
+            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-navy/8 text-navy-light"
+          >
             {p}
           </span>
         ))}
@@ -260,10 +273,30 @@ export function CommandCenterTab() {
 
   // Quick actions, surfaced as compact icon+label buttons in the header bar.
   const quickActions = [
-    { label: 'List my MCP servers', short: 'MCP', icon: Server, run: () => handleQuickAction('list my configured MCP servers') },
-    { label: 'Summarize my hooks', short: 'Hooks', icon: Webhook, run: () => handleQuickAction('summarize my Claude Code hooks') },
-    { label: 'Explain my skills', short: 'Skills', icon: Wrench, run: () => handleQuickAction('show me my installed skills and what they do') },
-    { label: 'List my commands', short: 'Commands', icon: SquareTerminal, run: () => handleQuickAction('list my Claude Code slash commands') },
+    {
+      label: 'List my MCP servers',
+      short: 'MCP',
+      icon: Server,
+      run: () => handleQuickAction('list my configured MCP servers'),
+    },
+    {
+      label: 'Summarize my hooks',
+      short: 'Hooks',
+      icon: Webhook,
+      run: () => handleQuickAction('summarize my Claude Code hooks'),
+    },
+    {
+      label: 'Explain my skills',
+      short: 'Skills',
+      icon: Wrench,
+      run: () => handleQuickAction('show me my installed skills and what they do'),
+    },
+    {
+      label: 'List my commands',
+      short: 'Commands',
+      icon: SquareTerminal,
+      run: () => handleQuickAction('list my Claude Code slash commands'),
+    },
     { label: 'Open settings.json', short: 'Settings', icon: FileJson, run: handleOpenSettings },
   ];
 
@@ -286,16 +319,12 @@ export function CommandCenterTab() {
   // Distinct source values (for the skills/agents source filter dropdowns).
   const skillSources = useMemo(
     () =>
-      inventory === null
-        ? ['all']
-        : ['all', ...groupBySource(inventory.skills).map(([s]) => s)],
+      inventory === null ? ['all'] : ['all', ...groupBySource(inventory.skills).map(([s]) => s)],
     [inventory],
   );
   const agentSources = useMemo(
     () =>
-      inventory === null
-        ? ['all']
-        : ['all', ...groupBySource(inventory.agents).map(([s]) => s)],
+      inventory === null ? ['all'] : ['all', ...groupBySource(inventory.agents).map(([s]) => s)],
     [inventory],
   );
 
@@ -339,8 +368,7 @@ export function CommandCenterTab() {
     });
   }, [inventory, agentSearch, agentSource]);
 
-  const enabledPlugins =
-    inventory === null ? 0 : inventory.plugins.filter((p) => p.enabled).length;
+  const enabledPlugins = inventory === null ? 0 : inventory.plugins.filter((p) => p.enabled).length;
 
   // Per-plugin content counts: how many skills/agents/commands/mcp each plugin
   // contributes, keyed by the source tag (= plugin name).
@@ -384,9 +412,7 @@ export function CommandCenterTab() {
         <h2 className="text-sm font-semibold text-navy">Command Center</h2>
         <div className="flex items-center gap-2">
           {scanning && (
-            <span className="text-[11px] text-navy-light animate-pulse">
-              Scanning&hellip;
-            </span>
+            <span className="text-[11px] text-navy-light animate-pulse">Scanning&hellip;</span>
           )}
           {/* Quick actions — compact icon+label buttons that dispatch prompts to the Ask tab */}
           <div className="flex items-center gap-1">
@@ -447,13 +473,48 @@ export function CommandCenterTab() {
       {inventory !== null && (
         <div className="shrink-0 border-b border-warm-gray bg-cream/60">
           <div className="px-4 pt-3 pb-2 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            <KpiCard label="MCP" value={inventory.mcpServers.length} caption="UNIQUE" accent="sage" />
-            <KpiCard label="Skills" value={inventory.skills.length} caption="INSTALLED" accent="tertiary" />
-            <KpiCard label="Agents" value={inventory.agents.length} caption="LOCAL+PLUGIN" accent="navy" />
-            <KpiCard label="Commands" value={inventory.commands.length} caption="SLASH" accent="sage" />
-            <KpiCard label="Plugins" value={enabledPlugins} total={inventory.plugins.length} accent="tertiary" />
-            <KpiCard label="Hooks" value={inventory.hooks.length} caption="CONFIGURED" accent="terracotta" />
-            <KpiCard label="Sessions" value={inventory.sessions.length} caption="PROJECTS" accent="navy" />
+            <KpiCard
+              label="MCP"
+              value={inventory.mcpServers.length}
+              caption="UNIQUE"
+              accent="sage"
+            />
+            <KpiCard
+              label="Skills"
+              value={inventory.skills.length}
+              caption="INSTALLED"
+              accent="tertiary"
+            />
+            <KpiCard
+              label="Agents"
+              value={inventory.agents.length}
+              caption="LOCAL+PLUGIN"
+              accent="navy"
+            />
+            <KpiCard
+              label="Commands"
+              value={inventory.commands.length}
+              caption="SLASH"
+              accent="sage"
+            />
+            <KpiCard
+              label="Plugins"
+              value={enabledPlugins}
+              total={inventory.plugins.length}
+              accent="tertiary"
+            />
+            <KpiCard
+              label="Hooks"
+              value={inventory.hooks.length}
+              caption="CONFIGURED"
+              accent="terracotta"
+            />
+            <KpiCard
+              label="Sessions"
+              value={inventory.sessions.length}
+              caption="PROJECTS"
+              accent="navy"
+            />
           </div>
           <SubTabNav
             active={subTab}
@@ -471,7 +532,6 @@ export function CommandCenterTab() {
 
       {/* ── Body ────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-6">
-
         {/* Empty state */}
         {inventory === null && !scanning && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16">
@@ -518,7 +578,10 @@ export function CommandCenterTab() {
                       <SectionHeader label={`Hooks (${inventory.hooks.length})`} />
                       <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
                         {inventory.hooks.map((hook, i) => (
-                          <div key={`${hook.event}-${i}`} className="flex items-start gap-2 px-3 py-2 flex-wrap">
+                          <div
+                            key={`${hook.event}-${i}`}
+                            className="flex items-start gap-2 px-3 py-2 flex-wrap"
+                          >
                             <EventChip event={hook.event} />
                             <span className="text-xs font-mono text-navy-light flex-1 min-w-0 truncate self-center">
                               {hook.commandPreview}
@@ -540,7 +603,9 @@ export function CommandCenterTab() {
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light w-20 shrink-0">
                               Model
                             </span>
-                            <span className="text-sm font-mono text-navy">{inventory.settings.model}</span>
+                            <span className="text-sm font-mono text-navy">
+                              {inventory.settings.model}
+                            </span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 px-3 py-2">
@@ -610,17 +675,16 @@ export function CommandCenterTab() {
                     <SectionHeader label="AI Health Summary" />
                     <div className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-3">
                       {aiSummaryLoading && (
-                        <p className="text-sm text-navy-light animate-pulse">Generating summary&hellip;</p>
+                        <p className="text-sm text-navy-light animate-pulse">
+                          Generating summary&hellip;
+                        </p>
                       )}
                       {aiUnavailableReason !== null && !aiSummaryLoading && (
                         <p className="text-xs text-navy-light">{aiUnavailableReason}</p>
                       )}
                       {aiSummary !== null && !aiSummaryLoading && (
                         <div className="text-sm text-navy leading-relaxed">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={mdComponents}
-                          >
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                             {aiSummary}
                           </ReactMarkdown>
                         </div>
@@ -845,9 +909,13 @@ export function CommandCenterTab() {
                           className="flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-navy/[0.03]
                                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage/50"
                         >
-                          <span className="text-sm font-medium text-navy font-mono shrink-0">/{cmd.name}</span>
+                          <span className="text-sm font-medium text-navy font-mono shrink-0">
+                            /{cmd.name}
+                          </span>
                           {cmd.description !== null && (
-                            <span className="text-xs text-navy-light truncate">{cmd.description}</span>
+                            <span className="text-xs text-navy-light truncate">
+                              {cmd.description}
+                            </span>
                           )}
                         </div>
                       )}
@@ -878,14 +946,17 @@ export function CommandCenterTab() {
             )}
 
             {/* Empty-config notice (shared across sub-tabs) */}
-            {inventory.sessions.length === 0 && inventory.hooks.length === 0 &&
-              inventory.skills.length === 0 && inventory.agents.length === 0 &&
-              inventory.commands.length === 0 && inventory.mcpServers.length === 0 &&
+            {inventory.sessions.length === 0 &&
+              inventory.hooks.length === 0 &&
+              inventory.skills.length === 0 &&
+              inventory.agents.length === 0 &&
+              inventory.commands.length === 0 &&
+              inventory.mcpServers.length === 0 &&
               inventory.plugins.length === 0 && (
-              <p className="text-sm text-navy-light text-center py-4">
-                No Claude Code configuration found in ~/.claude.
-              </p>
-            )}
+                <p className="text-sm text-navy-light text-center py-4">
+                  No Claude Code configuration found in ~/.claude.
+                </p>
+              )}
 
             {/* Non-fatal scan errors (shared across sub-tabs) */}
             {inventory.errors.length > 0 && (
@@ -893,7 +964,9 @@ export function CommandCenterTab() {
                 <SectionHeader label="Scan Warnings" />
                 <div className="rounded-xl border border-terracotta/30 bg-terracotta/8 px-3 py-2 flex flex-col gap-1">
                   {inventory.errors.map((err, i) => (
-                    <p key={i} className="text-xs text-terracotta font-mono">{err}</p>
+                    <p key={i} className="text-xs text-terracotta font-mono">
+                      {err}
+                    </p>
                   ))}
                 </div>
               </section>

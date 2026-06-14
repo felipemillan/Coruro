@@ -39,7 +39,7 @@ export const NOTE_TYPES: readonly NoteType[] = [
 
 /** One entry in a repo's notes timeline. */
 export interface TimelineNote {
-  id: string;        // crypto.randomUUID()
+  id: string; // crypto.randomUUID()
   type: NoteType;
   body: string;
   createdAt: string; // ISO 8601 (new Date().toISOString())
@@ -66,6 +66,7 @@ Owns the JSON store and the markdown export. Isolated and unit-testable.
   - If no JSON exists but a legacy `coruro_notes.md` exists with non-empty content, return a timeline seeded with a single `thought` note containing that content. Does not write — caller decides when to persist (on first note add, or immediately after migration).
 - `renderTimelineMarkdown(timeline, repoName): string`
   - Pure function. Produces the `.md` export. One section per note, **oldest-first** (chronological journal), matching the on-screen timeline order:
+
     ```
     # Notes — <repoName>
 
@@ -75,6 +76,7 @@ Owns the JSON store and the markdown export. Isolated and unit-testable.
     ## 💡 Idea · 2026-06-01
     <body>
     ```
+
   - Type → emoji/label map lives here.
 
 Note: writing the JSON and `.md` modifies the working tree, flipping the repo's dirty badge until committed. This is expected and consistent with the existing `notesFile.ts` behavior.

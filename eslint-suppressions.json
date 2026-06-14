@@ -1,0 +1,153 @@
+{
+  "src/App.tsx": {
+    "complexity": {
+      "count": 2
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/AskTab.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 4
+    }
+  },
+  "src/components/CommandCenterTab.tsx": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/components/CommandPalette.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/NotesTab.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/RepoCard.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/RepoDetail.tsx": {
+    "complexity": {
+      "count": 2
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 3
+    },
+    "react-hooks/static-components": {
+      "count": 3
+    }
+  },
+  "src/components/Settings.tsx": {
+    "complexity": {
+      "count": 1
+    },
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/TopActionBar.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/claude/ClaudeDetail.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/claude/Recommendations.tsx": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/components/claude/SkillsDonut.tsx": {
+    "react-hooks/immutability": {
+      "count": 1
+    }
+  },
+  "src/store/useBoardStore.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 11
+    },
+    "complexity": {
+      "count": 5
+    },
+    "max-depth": {
+      "count": 3
+    },
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "src/store/useClaudeStore.ts": {
+    "complexity": {
+      "count": 2
+    },
+    "max-depth": {
+      "count": 3
+    }
+  },
+  "src/utils/aiContext.ts": {
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "src/utils/claudeHealthContext.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/utils/claudeScanner.ts": {
+    "complexity": {
+      "count": 5
+    },
+    "max-depth": {
+      "count": 5
+    },
+    "no-irregular-whitespace": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "src/utils/filterSort.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/utils/github.ts": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/utils/githubActivity.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/utils/githubClient.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/utils/githubEvents.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/utils/repoStats.ts": {
+    "complexity": {
+      "count": 1
+    }
+  }
+}

@@ -188,41 +188,42 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     <>
       {/* Modal — portalled to <body>. Open state owned by App (floating gear
           button + ⌘, shortcut). */}
-      {isOpen && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Settings"
-          className="
+      {isOpen &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Settings"
+            className="
             fixed inset-0 z-50
             flex items-center justify-center
             backdrop-blur-md bg-navy/20
           "
-          onClick={handleOverlayClick}
-        >
-          {/* Panel — full viewport */}
-          <div
-            className="
+            onClick={handleOverlayClick}
+          >
+            {/* Panel — full viewport */}
+            <div
+              className="
               relative
               w-screen h-screen
               bg-cream
               flex flex-col
               overflow-hidden
             "
-          >
-            {/* Panel header */}
-            <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-warm-gray border-b border-warm-gray/60">
-              <div className="flex items-center gap-2">
-                <SettingsIcon size={14} strokeWidth={1.5} className="text-navy-light" />
-                <span className="text-[13px] font-semibold text-navy tracking-wide select-none">
-                  Settings
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                aria-label="Close settings"
-                className="
+            >
+              {/* Panel header */}
+              <div className="shrink-0 flex items-center justify-between px-6 py-4 bg-warm-gray border-b border-warm-gray/60">
+                <div className="flex items-center gap-2">
+                  <SettingsIcon size={14} strokeWidth={1.5} className="text-navy-light" />
+                  <span className="text-[13px] font-semibold text-navy tracking-wide select-none">
+                    Settings
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  aria-label="Close settings"
+                  className="
                   flex items-center justify-center
                   w-6 h-6
                   rounded-full
@@ -230,51 +231,48 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   transition-colors duration-150
                   cursor-pointer
                 "
-              >
-                <X size={14} strokeWidth={1.5} />
-              </button>
-            </div>
+                >
+                  <X size={14} strokeWidth={1.5} />
+                </button>
+              </div>
 
-            {/* Panel body — two columns, centered with a readable max width */}
-            <div className="flex-1 overflow-auto px-8 py-6">
-              <div className="mx-auto w-full max-w-[1100px] grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              {/* Panel body — two columns, centered with a readable max width */}
+              <div className="flex-1 overflow-auto px-8 py-6">
+                <div className="mx-auto w-full max-w-[1100px] grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                  {/* ===== Left column: GitHub folder + token ===== */}
+                  <div className="flex flex-col gap-6">
+                    {/* ---- Section: Root directory ---- */}
+                    <section>
+                      <SectionHeading>Root directory</SectionHeading>
+                      <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                        The folder scanned for local Git repositories. Any subdirectory with a{' '}
+                        <code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">.git</code>{' '}
+                        folder is picked up automatically.
+                      </p>
 
-                {/* ===== Left column: GitHub folder + token ===== */}
-                <div className="flex flex-col gap-6">
-
-              {/* ---- Section: Root directory ---- */}
-              <section>
-                <SectionHeading>Root directory</SectionHeading>
-                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
-                  The folder scanned for local Git repositories. Any subdirectory
-                  with a{' '}
-                  <code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">
-                    .git
-                  </code>{' '}
-                  folder is picked up automatically.
-                </p>
-
-                {/* Current path display */}
-                <div className="
+                      {/* Current path display */}
+                      <div
+                        className="
                   flex items-center
                   px-3 py-2 mb-3
                   rounded-lg
                   bg-warm-gray border border-warm-gray/80
                   text-[12px] font-mono text-navy-light
                   overflow-hidden
-                ">
-                  {rootDirectory !== null ? (
-                    <span className="truncate select-all">{rootDirectory}</span>
-                  ) : (
-                    <span className="italic text-navy-light/50">Not set</span>
-                  )}
-                </div>
+                "
+                      >
+                        {rootDirectory !== null ? (
+                          <span className="truncate select-all">{rootDirectory}</span>
+                        ) : (
+                          <span className="italic text-navy-light/50">Not set</span>
+                        )}
+                      </div>
 
-                <button
-                  type="button"
-                  onClick={() => void handlePickDirectory()}
-                  disabled={dirPicking}
-                  className="
+                      <button
+                        type="button"
+                        onClick={() => void handlePickDirectory()}
+                        disabled={dirPicking}
+                        className="
                     flex items-center gap-2
                     px-4 py-2
                     rounded-full
@@ -285,63 +283,63 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     transition-colors duration-150
                     cursor-pointer
                   "
-                >
-                  <FolderOpen size={13} strokeWidth={1.5} />
-                  {dirPicking ? 'Picking…' : 'Choose folder'}
-                </button>
-              </section>
+                      >
+                        <FolderOpen size={13} strokeWidth={1.5} />
+                        {dirPicking ? 'Picking…' : 'Choose folder'}
+                      </button>
+                    </section>
 
-              {/* Divider */}
-              <div className="border-t border-warm-gray" />
+                    {/* Divider */}
+                    <div className="border-t border-warm-gray" />
 
-              {/* ---- Section: GitHub token ---- */}
-              <section>
-                <SectionHeading>GitHub personal access token</SectionHeading>
-                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
-                  Used to fetch open pull-request counts. Stored in the macOS
-                  Keychain — never written to disk.
-                </p>
+                    {/* ---- Section: GitHub token ---- */}
+                    <section>
+                      <SectionHeading>GitHub personal access token</SectionHeading>
+                      <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                        Used to fetch open pull-request counts. Stored in the macOS Keychain — never
+                        written to disk.
+                      </p>
 
-                {/* Token status badge */}
-                <div className="flex items-center gap-1.5 mb-3">
-                  {hasToken ? (
-                    <>
-                      <CheckCircle2 size={13} strokeWidth={1.5} className="text-sage" />
-                      <span className="text-[12px] text-sage font-medium select-none rounded-full">
-                        Token saved
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Circle size={13} strokeWidth={1.5} className="text-navy-light/40" />
-                      <span className="text-[12px] text-navy-light/50 select-none rounded-full">
-                        No token set
-                      </span>
-                    </>
-                  )}
-                </div>
+                      {/* Token status badge */}
+                      <div className="flex items-center gap-1.5 mb-3">
+                        {hasToken ? (
+                          <>
+                            <CheckCircle2 size={13} strokeWidth={1.5} className="text-sage" />
+                            <span className="text-[12px] text-sage font-medium select-none rounded-full">
+                              Token saved
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Circle size={13} strokeWidth={1.5} className="text-navy-light/40" />
+                            <span className="text-[12px] text-navy-light/50 select-none rounded-full">
+                              No token set
+                            </span>
+                          </>
+                        )}
+                      </div>
 
-                {/* PAT input + save button */}
-                <div className="flex items-stretch gap-2">
-                  <div className="relative flex-1">
-                    <KeyRound
-                      size={13}
-                      strokeWidth={1.5}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-light/40 pointer-events-none"
-                    />
-                    <input
-                      type="password"
-                      value={tokenInput}
-                      onChange={(e) => {
-                        setTokenInput(e.target.value);
-                        if (tokenError !== null) setTokenError(null);
-                      }}
-                      onKeyDown={handleTokenKeyDown}
-                      placeholder={hasToken ? 'Replace existing token…' : 'ghp_…'}
-                      disabled={tokenSaving}
-                      autoComplete="off"
-                      spellCheck={false}
-                      className="
+                      {/* PAT input + save button */}
+                      <div className="flex items-stretch gap-2">
+                        <div className="relative flex-1">
+                          <KeyRound
+                            size={13}
+                            strokeWidth={1.5}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-light/40 pointer-events-none"
+                          />
+                          <input
+                            type="password"
+                            value={tokenInput}
+                            onChange={(e) => {
+                              setTokenInput(e.target.value);
+                              if (tokenError !== null) setTokenError(null);
+                            }}
+                            onKeyDown={handleTokenKeyDown}
+                            placeholder={hasToken ? 'Replace existing token…' : 'ghp_…'}
+                            disabled={tokenSaving}
+                            autoComplete="off"
+                            spellCheck={false}
+                            className="
                         w-full pl-8 pr-3 py-2
                         rounded-lg
                         bg-warm-gray border border-warm-gray/80
@@ -351,14 +349,14 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                         disabled:opacity-50 disabled:cursor-not-allowed
                         transition-colors duration-150
                       "
-                    />
-                  </div>
+                          />
+                        </div>
 
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveToken()}
-                    disabled={tokenSaving || tokenInput.trim().length === 0}
-                    className="
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveToken()}
+                          disabled={tokenSaving || tokenInput.trim().length === 0}
+                          className="
                       px-4 py-2
                       rounded-full
                       bg-sage text-cream
@@ -369,46 +367,47 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                       cursor-pointer
                       whitespace-nowrap
                     "
-                  >
-                    {tokenSaving ? 'Saving…' : 'Save token'}
-                  </button>
-                </div>
+                        >
+                          {tokenSaving ? 'Saving…' : 'Save token'}
+                        </button>
+                      </div>
 
-                {/* Inline error message */}
-                {tokenError !== null && (
-                  <p className="mt-2 text-[11px] text-terracotta leading-snug">
-                    {tokenError}
-                  </p>
-                )}
-              </section>
+                      {/* Inline error message */}
+                      {tokenError !== null && (
+                        <p className="mt-2 text-[11px] text-terracotta leading-snug">
+                          {tokenError}
+                        </p>
+                      )}
+                    </section>
+                  </div>
 
-                </div>
+                  {/* ===== Right column: Editor + Debug ===== */}
+                  <div className="flex flex-col gap-6">
+                    {/* ---- Section: Editor ---- */}
+                    <section>
+                      <SectionHeading>Editor</SectionHeading>
+                      <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                        The “open in editor” button tries the CLI command first, then falls back to
+                        launching the macOS app by name (
+                        <code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">
+                          open -a
+                        </code>
+                        ). Leave the CLI blank to always use the app.
+                      </p>
 
-                {/* ===== Right column: Editor + Debug ===== */}
-                <div className="flex flex-col gap-6">
-
-              {/* ---- Section: Editor ---- */}
-              <section>
-                <SectionHeading>Editor</SectionHeading>
-                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
-                  The “open in editor” button tries the CLI command first, then
-                  falls back to launching the macOS app by name
-                  (<code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">open -a</code>).
-                  Leave the CLI blank to always use the app.
-                </p>
-
-                <label className="block text-[11px] text-navy-light mb-1">CLI command</label>
-                <input
-                  type="text"
-                  value={editorCmdInput}
-                  onChange={(e) => setEditorCmdInput(e.target.value)}
-                  onBlur={() => {
-                    if (editorCmdInput !== editorCommand) void setEditorCommand(editorCmdInput.trim());
-                  }}
-                  placeholder="code"
-                  spellCheck={false}
-                  autoComplete="off"
-                  className="
+                      <label className="block text-[11px] text-navy-light mb-1">CLI command</label>
+                      <input
+                        type="text"
+                        value={editorCmdInput}
+                        onChange={(e) => setEditorCmdInput(e.target.value)}
+                        onBlur={() => {
+                          if (editorCmdInput !== editorCommand)
+                            void setEditorCommand(editorCmdInput.trim());
+                        }}
+                        placeholder="code"
+                        spellCheck={false}
+                        autoComplete="off"
+                        className="
                     w-full px-3 py-2 mb-3
                     rounded-lg
                     bg-warm-gray border border-warm-gray/80
@@ -417,20 +416,23 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     focus:outline-none focus:border-navy/40 focus:bg-cream
                     transition-colors duration-150
                   "
-                />
+                      />
 
-                <label className="block text-[11px] text-navy-light mb-1">macOS app name (fallback)</label>
-                <input
-                  type="text"
-                  value={editorAppInput}
-                  onChange={(e) => setEditorAppInput(e.target.value)}
-                  onBlur={() => {
-                    if (editorAppInput !== editorApp) void setEditorApp(editorAppInput.trim());
-                  }}
-                  placeholder="Visual Studio Code"
-                  spellCheck={false}
-                  autoComplete="off"
-                  className="
+                      <label className="block text-[11px] text-navy-light mb-1">
+                        macOS app name (fallback)
+                      </label>
+                      <input
+                        type="text"
+                        value={editorAppInput}
+                        onChange={(e) => setEditorAppInput(e.target.value)}
+                        onBlur={() => {
+                          if (editorAppInput !== editorApp)
+                            void setEditorApp(editorAppInput.trim());
+                        }}
+                        placeholder="Visual Studio Code"
+                        spellCheck={false}
+                        autoComplete="off"
+                        className="
                     w-full px-3 py-2
                     rounded-lg
                     bg-warm-gray border border-warm-gray/80
@@ -439,46 +441,52 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     focus:outline-none focus:border-navy/40 focus:bg-cream
                     transition-colors duration-150
                   "
-                />
-                <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">
-                  Examples — CLI: <span className="font-mono">code</span>,{' '}
-                  <span className="font-mono">cursor</span>,{' '}
-                  <span className="font-mono">antigravity</span> · App:{' '}
-                  <span className="font-mono">Antigravity</span>,{' '}
-                  <span className="font-mono">Cursor</span>.
-                </p>
-              </section>
+                      />
+                      <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">
+                        Examples — CLI: <span className="font-mono">code</span>,{' '}
+                        <span className="font-mono">cursor</span>,{' '}
+                        <span className="font-mono">antigravity</span> · App:{' '}
+                        <span className="font-mono">Antigravity</span>,{' '}
+                        <span className="font-mono">Cursor</span>.
+                      </p>
+                    </section>
 
-              {/* Divider */}
-              <div className="border-t border-warm-gray" />
+                    {/* Divider */}
+                    <div className="border-t border-warm-gray" />
 
-              {/* ---- Section: Terminal ---- */}
-              <section>
-                <SectionHeading>Terminal</SectionHeading>
-                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
-                  The “open in terminal” button on each card launches this macOS
-                  app rooted at the repo
-                  (<code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">open -a</code>).
-                </p>
+                    {/* ---- Section: Terminal ---- */}
+                    <section>
+                      <SectionHeading>Terminal</SectionHeading>
+                      <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                        The “open in terminal” button on each card launches this macOS app rooted at
+                        the repo (
+                        <code className="font-mono text-[11px] bg-warm-gray px-1 py-0.5">
+                          open -a
+                        </code>
+                        ).
+                      </p>
 
-                <label className="block text-[11px] text-navy-light mb-1">macOS app name</label>
-                <div className="relative">
-                  <TerminalSquare
-                    size={13}
-                    strokeWidth={1.5}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-light/40 pointer-events-none"
-                  />
-                  <input
-                    type="text"
-                    value={terminalAppInput}
-                    onChange={(e) => setTerminalAppInput(e.target.value)}
-                    onBlur={() => {
-                      if (terminalAppInput !== terminalApp) void setTerminalApp(terminalAppInput.trim());
-                    }}
-                    placeholder="Terminal"
-                    spellCheck={false}
-                    autoComplete="off"
-                    className="
+                      <label className="block text-[11px] text-navy-light mb-1">
+                        macOS app name
+                      </label>
+                      <div className="relative">
+                        <TerminalSquare
+                          size={13}
+                          strokeWidth={1.5}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-navy-light/40 pointer-events-none"
+                        />
+                        <input
+                          type="text"
+                          value={terminalAppInput}
+                          onChange={(e) => setTerminalAppInput(e.target.value)}
+                          onBlur={() => {
+                            if (terminalAppInput !== terminalApp)
+                              void setTerminalApp(terminalAppInput.trim());
+                          }}
+                          placeholder="Terminal"
+                          spellCheck={false}
+                          autoComplete="off"
+                          className="
                       w-full pl-8 pr-3 py-2
                       rounded-lg
                       bg-warm-gray border border-warm-gray/80
@@ -487,31 +495,33 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                       focus:outline-none focus:border-navy/40 focus:bg-cream
                       transition-colors duration-150
                     "
-                  />
-                </div>
-                <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">
-                  Examples: <span className="font-mono">Terminal</span>,{' '}
-                  <span className="font-mono">iTerm</span>,{' '}
-                  <span className="font-mono">Ghostty</span>,{' '}
-                  <span className="font-mono">Warp</span>.
-                </p>
-              </section>
+                        />
+                      </div>
+                      <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">
+                        Examples: <span className="font-mono">Terminal</span>,{' '}
+                        <span className="font-mono">iTerm</span>,{' '}
+                        <span className="font-mono">Ghostty</span>,{' '}
+                        <span className="font-mono">Warp</span>.
+                      </p>
+                    </section>
 
-              {/* Divider */}
-              <div className="border-t border-warm-gray" />
+                    {/* Divider */}
+                    <div className="border-t border-warm-gray" />
 
-              {/* ---- Section: Auto-refresh ---- */}
-              <section>
-                <SectionHeading>Auto-refresh</SectionHeading>
-                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
-                  How often to refresh GitHub data in the background. Per-card refresh and
-                  rescan always work regardless of this setting.
-                </p>
-                <label className="block text-[11px] text-navy-light mb-1">Interval</label>
-                <select
-                  value={refreshIntervalMin}
-                  onChange={(e) => { void setRefreshInterval(Number(e.target.value)); }}
-                  className="
+                    {/* ---- Section: Auto-refresh ---- */}
+                    <section>
+                      <SectionHeading>Auto-refresh</SectionHeading>
+                      <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                        How often to refresh GitHub data in the background. Per-card refresh and
+                        rescan always work regardless of this setting.
+                      </p>
+                      <label className="block text-[11px] text-navy-light mb-1">Interval</label>
+                      <select
+                        value={refreshIntervalMin}
+                        onChange={(e) => {
+                          void setRefreshInterval(Number(e.target.value));
+                        }}
+                        className="
                     w-full px-3 py-2
                     rounded-lg
                     bg-warm-gray border border-warm-gray/80
@@ -519,47 +529,49 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     focus:outline-none focus:border-navy/40 focus:bg-cream
                     transition-colors duration-150 cursor-pointer
                   "
-                >
-                  <option value={0}>Off</option>
-                  <option value={5}>Every 5 minutes</option>
-                  <option value={10}>Every 10 minutes</option>
-                  <option value={15}>Every 15 minutes</option>
-                  <option value={30}>Every 30 minutes</option>
-                  <option value={60}>Every hour</option>
-                </select>
-              </section>
+                      >
+                        <option value={0}>Off</option>
+                        <option value={5}>Every 5 minutes</option>
+                        <option value={10}>Every 10 minutes</option>
+                        <option value={15}>Every 15 minutes</option>
+                        <option value={30}>Every 30 minutes</option>
+                        <option value={60}>Every hour</option>
+                      </select>
+                    </section>
 
-              {/* Divider */}
-              <div className="border-t border-warm-gray" />
+                    {/* Divider */}
+                    <div className="border-t border-warm-gray" />
 
-              {/* ---- Section: Auto Notes ---- */}
-              <section>
-                <SectionHeading>Auto Notes</SectionHeading>
-                <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
-                  Automatically generate and append day notes from your recent commits.
-                </p>
-                <label className="flex items-center gap-3 cursor-pointer mb-3">
-                  <input
-                    type="checkbox"
-                    checked={autoNotesEnabled}
-                    onChange={(e) => void setAutoNotesEnabled(e.target.checked)}
-                    className="w-4 h-4 accent-navy"
-                  />
-                  <span className="text-[12px] text-navy">Enable hourly auto notes</span>
-                </label>
-                {autoNotesEnabled && (
-                  <label className="flex items-center gap-2">
-                    <span className="text-[12px] text-navy whitespace-nowrap">Interval (minutes)</span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={autoNotesIntervalMin}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        if (v > 0) void setAutoNotesIntervalMin(v);
-                      }}
-                      className="
+                    {/* ---- Section: Auto Notes ---- */}
+                    <section>
+                      <SectionHeading>Auto Notes</SectionHeading>
+                      <p className="text-[12px] text-navy-light mb-3 leading-relaxed">
+                        Automatically generate and append day notes from your recent commits.
+                      </p>
+                      <label className="flex items-center gap-3 cursor-pointer mb-3">
+                        <input
+                          type="checkbox"
+                          checked={autoNotesEnabled}
+                          onChange={(e) => void setAutoNotesEnabled(e.target.checked)}
+                          className="w-4 h-4 accent-navy"
+                        />
+                        <span className="text-[12px] text-navy">Enable hourly auto notes</span>
+                      </label>
+                      {autoNotesEnabled && (
+                        <label className="flex items-center gap-2">
+                          <span className="text-[12px] text-navy whitespace-nowrap">
+                            Interval (minutes)
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={autoNotesIntervalMin}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (v > 0) void setAutoNotesIntervalMin(v);
+                            }}
+                            className="
                         flex-1 px-3 py-2
                         rounded-lg
                         bg-warm-gray border border-warm-gray/80
@@ -568,47 +580,51 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                         focus:outline-none focus:border-navy/40 focus:bg-cream
                         transition-colors duration-150
                       "
-                    />
-                  </label>
-                )}
-              </section>
+                          />
+                        </label>
+                      )}
+                    </section>
 
-              {/* Divider */}
-              <div className="border-t border-warm-gray" />
+                    {/* Divider */}
+                    <div className="border-t border-warm-gray" />
 
-              {/* ---- Section: Debug ---- */}
-              <section>
-                <SectionHeading>Debug</SectionHeading>
+                    {/* ---- Section: Debug ---- */}
+                    <section>
+                      <SectionHeading>Debug</SectionHeading>
 
-                {/* Live readout */}
-                <div className="
+                      {/* Live readout */}
+                      <div
+                        className="
                   px-3 py-2 mb-3
                   rounded-lg
                   bg-warm-gray border border-warm-gray/80
                   text-[11px] font-mono text-navy-light
                   flex flex-col gap-1
-                ">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-navy-light/60">root</span>
-                    <span className="truncate text-right">{rootDirectory ?? 'not set'}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-navy-light/60">repos found</span>
-                    <span className="text-right">{repoCount}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-navy-light/60">last scan</span>
-                    <span className={`text-right ${lastScanError !== null ? 'text-terracotta' : 'text-sage'}`}>
-                      {lastScanError !== null ? lastScanError : 'ok'}
-                    </span>
-                  </div>
-                </div>
+                "
+                      >
+                        <div className="flex justify-between gap-3">
+                          <span className="text-navy-light/60">root</span>
+                          <span className="truncate text-right">{rootDirectory ?? 'not set'}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-navy-light/60">repos found</span>
+                          <span className="text-right">{repoCount}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                          <span className="text-navy-light/60">last scan</span>
+                          <span
+                            className={`text-right ${lastScanError !== null ? 'text-terracotta' : 'text-sage'}`}
+                          >
+                            {lastScanError !== null ? lastScanError : 'ok'}
+                          </span>
+                        </div>
+                      </div>
 
-                {/* Banner toggle */}
-                <button
-                  type="button"
-                  onClick={() => void setDebugBannerEnabled(!debugBannerEnabled)}
-                  className="
+                      {/* Banner toggle */}
+                      <button
+                        type="button"
+                        onClick={() => void setDebugBannerEnabled(!debugBannerEnabled)}
+                        className="
                     flex items-center justify-between w-full
                     px-3 py-2 mb-3
                     rounded-lg
@@ -616,26 +632,28 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     text-[12px] text-navy
                     transition-colors duration-150 cursor-pointer
                   "
-                >
-                  <span className="flex items-center gap-2">
-                    <Bug size={13} strokeWidth={1.5} className="text-navy-light" />
-                    Show debug banner in top bar
-                  </span>
-                  <span className={`
+                      >
+                        <span className="flex items-center gap-2">
+                          <Bug size={13} strokeWidth={1.5} className="text-navy-light" />
+                          Show debug banner in top bar
+                        </span>
+                        <span
+                          className={`
                     px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide
                     rounded-full
                     ${debugBannerEnabled ? 'bg-sage text-cream' : 'bg-navy/10 text-navy-light'}
-                  `}>
-                    {debugBannerEnabled ? 'On' : 'Off'}
-                  </span>
-                </button>
+                  `}
+                        >
+                          {debugBannerEnabled ? 'On' : 'Off'}
+                        </span>
+                      </button>
 
-                {/* Rescan */}
-                <button
-                  type="button"
-                  onClick={() => void handleRescan()}
-                  disabled={rescanning || rootDirectory === null}
-                  className="
+                      {/* Rescan */}
+                      <button
+                        type="button"
+                        onClick={() => void handleRescan()}
+                        disabled={rescanning || rootDirectory === null}
+                        className="
                     flex items-center gap-2
                     px-4 py-2
                     rounded-full
@@ -644,41 +662,46 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     disabled:opacity-50 disabled:cursor-not-allowed
                     transition-colors duration-150 cursor-pointer
                   "
-                >
-                  <RefreshCw size={13} strokeWidth={1.5} className={rescanning ? 'animate-spin' : ''} />
-                  {rescanning ? 'Rescanning…' : 'Rescan now'}
-                </button>
-              </section>
-
+                      >
+                        <RefreshCw
+                          size={13}
+                          strokeWidth={1.5}
+                          className={rescanning ? 'animate-spin' : ''}
+                        />
+                        {rescanning ? 'Rescanning…' : 'Rescan now'}
+                      </button>
+                    </section>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Panel footer */}
-            <div className="
+              {/* Panel footer */}
+              <div
+                className="
               shrink-0
               px-6 py-3
               bg-warm-gray/50 border-t border-warm-gray/60
               flex justify-end
-            ">
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="
+            "
+              >
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="
                   px-4 py-1.5
                   text-[12px] text-navy-light
                   hover:text-navy hover:bg-warm-gray
                   transition-colors duration-150
                   cursor-pointer
                 "
-              >
-                Close
-              </button>
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

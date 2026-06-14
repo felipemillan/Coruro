@@ -179,7 +179,8 @@ function ActivityPane({
     return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No github.com remote.</p>;
   }
   if (loading) return <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading activity…</p>;
-  if (error !== null) return <p className="px-3 py-2 text-[12px] text-terracotta font-mono">{error}</p>;
+  if (error !== null)
+    return <p className="px-3 py-2 text-[12px] text-terracotta font-mono">{error}</p>;
   if (activity === null) return null;
 
   const Row = ({ url, children }: { url: string; children: React.ReactNode }) => (
@@ -200,14 +201,19 @@ function ActivityPane({
     </div>
   );
 
-  const empty = activity.prs.length === 0 && activity.commits.length === 0 && activity.issues.length === 0;
-  if (empty) return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No recent activity.</p>;
+  const empty =
+    activity.prs.length === 0 && activity.commits.length === 0 && activity.issues.length === 0;
+  if (empty)
+    return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No recent activity.</p>;
 
   return (
     <div className="flex flex-col gap-2 pb-2">
       {activity.prs.length > 0 && (
         <section>
-          <Heading><GitPullRequest size={10} strokeWidth={1.5} className="inline mr-1" />Open PRs</Heading>
+          <Heading>
+            <GitPullRequest size={10} strokeWidth={1.5} className="inline mr-1" />
+            Open PRs
+          </Heading>
           {activity.prs.map((p) => (
             <Row key={p.number} url={p.url}>
               <span className="font-mono text-navy-light/50">#{p.number}</span> {p.title}
@@ -218,7 +224,10 @@ function ActivityPane({
       )}
       {activity.commits.length > 0 && (
         <section>
-          <Heading><GitCommit size={10} strokeWidth={1.5} className="inline mr-1" />Recent commits</Heading>
+          <Heading>
+            <GitCommit size={10} strokeWidth={1.5} className="inline mr-1" />
+            Recent commits
+          </Heading>
           {activity.commits.map((c) => (
             <Row key={c.sha} url={c.url}>
               {c.message} <span className="text-navy-light/40">· {c.author}</span>
@@ -228,7 +237,10 @@ function ActivityPane({
       )}
       {activity.issues.length > 0 && (
         <section>
-          <Heading><CircleDot size={10} strokeWidth={1.5} className="inline mr-1" />Recent issues</Heading>
+          <Heading>
+            <CircleDot size={10} strokeWidth={1.5} className="inline mr-1" />
+            Recent issues
+          </Heading>
           {activity.issues.map((i) => (
             <Row key={i.number} url={i.url}>
               <span className="font-mono text-navy-light/50">#{i.number}</span> {i.title}
@@ -299,8 +311,8 @@ function AiSummaryPane({
         </div>
       ) : unavailableReason ? (
         <p className="text-[13px] text-navy-light/60 italic">
-          Apple Intelligence unavailable ({unavailableReason}). On-device summaries are
-          skipped on this machine.
+          Apple Intelligence unavailable ({unavailableReason}). On-device summaries are skipped on
+          this machine.
         </p>
       ) : (
         <div className="flex flex-col items-start gap-3">
@@ -476,9 +488,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   );
 
   // What the preview pane renders: selected file, else README.
-  const previewContent = selected
-    ? previewBody
-    : (readme?.content ?? null);
+  const previewContent = selected ? previewBody : (readme?.content ?? null);
   const previewTitle = selected ? selected.name : (readme?.name ?? 'README');
 
   // Lazily fetch PRs/commits/issues the first time the Activity tab opens.
@@ -506,7 +516,10 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         console.debug('[activity] token', token ? `present(len ${token.length})` : 'none');
         const result = await fetchActivity(coords, token ?? undefined);
         console.debug('[activity] result', {
-          prs: result.prs.length, commits: result.commits.length, issues: result.issues.length, cancelled,
+          prs: result.prs.length,
+          commits: result.commits.length,
+          issues: result.issues.length,
+          cancelled,
         });
         if (!cancelled) setActivity(result);
       } catch (e: unknown) {
@@ -516,7 +529,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         if (!cancelled) setActivityLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [tab, activity, repo.remoteUrl]);
 
   // Reset tab + activity + preview mode when switching repos.
@@ -544,9 +559,15 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   useEffect(() => {
     let cancelled = false;
     void invoke<string[]>('git_branches', { path: repo.path })
-      .then((b) => { if (!cancelled) setBranches(b); })
-      .catch(() => { if (!cancelled) setBranches([]); });
-    return () => { cancelled = true; };
+      .then((b) => {
+        if (!cancelled) setBranches(b);
+      })
+      .catch(() => {
+        if (!cancelled) setBranches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [repo.path]);
 
   const handleFetch = useCallback(async () => {
@@ -606,11 +627,14 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               {repo.gh.htmlUrl && (
                 <button
                   type="button"
-                  onClick={() => { if (repo.gh?.htmlUrl) void safeOpenUrl(repo.gh.htmlUrl); }}
+                  onClick={() => {
+                    if (repo.gh?.htmlUrl) void safeOpenUrl(repo.gh.htmlUrl);
+                  }}
                   className="flex items-center gap-1 text-sage hover:underline cursor-pointer font-medium"
                   title={repo.gh.htmlUrl}
                 >
-                  <ExternalLink size={13} strokeWidth={1.75} />GitHub
+                  <ExternalLink size={13} strokeWidth={1.75} />
+                  GitHub
                 </button>
               )}
               {repo.gh.description && (
@@ -618,7 +642,10 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               )}
               {repo.gh.language && <span className="font-mono">{repo.gh.language}</span>}
               {repo.gh.license && <span className="font-mono">{repo.gh.license}</span>}
-              <span className="flex items-center gap-1"><Star size={12} strokeWidth={1.75} />{repo.gh.stars}</span>
+              <span className="flex items-center gap-1">
+                <Star size={12} strokeWidth={1.75} />
+                {repo.gh.stars}
+              </span>
               <span className="font-mono">⑂ {repo.gh.forks}</span>
               <span title="Open issues">{repo.gh.openIssues} issues</span>
               <span title="Open PRs">{repo.gh.prCount} PRs</span>
@@ -632,32 +659,52 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                         : 'text-amber-500 flex items-center gap-1'
                   }
                 >
-                  <CircleDot size={12} strokeWidth={2} />CI {repo.gh.ciStatus}
+                  <CircleDot size={12} strokeWidth={2} />
+                  CI {repo.gh.ciStatus}
                 </span>
               )}
               {repo.gh.latestRelease && (
                 <span className="flex items-center gap-1 font-mono">
-                  <Tag size={12} strokeWidth={1.75} />{repo.gh.latestRelease.tag}
+                  <Tag size={12} strokeWidth={1.75} />
+                  {repo.gh.latestRelease.tag}
                 </span>
               )}
               {repo.gh.topics.length > 0 && (
                 <span className="flex items-center gap-1 flex-wrap">
                   {repo.gh.topics.slice(0, 5).map((t) => (
                     // Topic chips — M3: rounded-full
-                    <span key={t} className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">{t}</span>
+                    <span
+                      key={t}
+                      className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full"
+                    >
+                      {t}
+                    </span>
                   ))}
                 </span>
               )}
-              <span className="flex items-center gap-1" title="Watchers"><Eye size={12} strokeWidth={1.75} />{repo.gh.watchers}</span>
-              {relativeAge(repo.gh.updatedAt) && <span title={`Updated ${repo.gh.updatedAt}`}>updated {relativeAge(repo.gh.updatedAt)}</span>}
+              <span className="flex items-center gap-1" title="Watchers">
+                <Eye size={12} strokeWidth={1.75} />
+                {repo.gh.watchers}
+              </span>
+              {relativeAge(repo.gh.updatedAt) && (
+                <span title={`Updated ${repo.gh.updatedAt}`}>
+                  updated {relativeAge(repo.gh.updatedAt)}
+                </span>
+              )}
               <span className="font-mono">{formatSize(repo.gh.size)}</span>
               <span className="font-mono">branch: {repo.gh.defaultBranch}</span>
               {/* Badge — M3: rounded-full */}
-              {repo.gh.disabled && <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light text-[10px] rounded-full">disabled</span>}
+              {repo.gh.disabled && (
+                <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light text-[10px] rounded-full">
+                  disabled
+                </span>
+              )}
               {repo.gh.fork && repo.gh.parent && (
                 <button
                   type="button"
-                  onClick={() => { if (repo.gh?.parent) void safeOpenUrl(repo.gh.parent.url); }}
+                  onClick={() => {
+                    if (repo.gh?.parent) void safeOpenUrl(repo.gh.parent.url);
+                  }}
                   className="text-sage hover:underline cursor-pointer"
                   title="Open upstream repository"
                 >
@@ -667,24 +714,41 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
               {repo.gh.homepage && (
                 <button
                   type="button"
-                  onClick={() => { if (repo.gh?.homepage) void safeOpenUrl(repo.gh.homepage); }}
+                  onClick={() => {
+                    if (repo.gh?.homepage) void safeOpenUrl(repo.gh.homepage);
+                  }}
                   className="flex items-center gap-1 text-sage hover:underline cursor-pointer"
                   title={repo.gh.homepage}
                 >
-                  <ExternalLink size={12} strokeWidth={1.75} />homepage
+                  <ExternalLink size={12} strokeWidth={1.75} />
+                  homepage
                 </button>
               )}
               {(repo.gh.hasIssues || repo.gh.hasWiki || repo.gh.hasPages) && (
                 <span className="flex items-center gap-1">
                   {/* Feature-presence chips — M3: rounded-full */}
-                  {repo.gh.hasIssues && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">issues</span>}
-                  {repo.gh.hasWiki && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">wiki</span>}
-                  {repo.gh.hasPages && <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">pages</span>}
+                  {repo.gh.hasIssues && (
+                    <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">
+                      issues
+                    </span>
+                  )}
+                  {repo.gh.hasWiki && (
+                    <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">
+                      wiki
+                    </span>
+                  )}
+                  {repo.gh.hasPages && (
+                    <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">
+                      pages
+                    </span>
+                  )}
                 </span>
               )}
             </>
           ) : (
-            <span className="italic text-navy-light/50">No GitHub data (local-only or no github.com remote).</span>
+            <span className="italic text-navy-light/50">
+              No GitHub data (local-only or no github.com remote).
+            </span>
           )}
         </div>
 
@@ -707,12 +771,12 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   <span
                     key={b}
                     className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono rounded-full ${
-                      isCurrent
-                        ? 'bg-sage/20 text-navy font-semibold'
-                        : 'text-navy-light'
+                      isCurrent ? 'bg-sage/20 text-navy font-semibold' : 'text-navy-light'
                     }`}
                   >
-                    {isCurrent && <GitBranch size={10} strokeWidth={1.5} className="text-sage shrink-0" />}
+                    {isCurrent && (
+                      <GitBranch size={10} strokeWidth={1.5} className="text-sage shrink-0" />
+                    )}
                     {b}
                     {isCurrent && (
                       <span className="ml-0.5 text-[9px] uppercase tracking-wide text-sage/80 font-semibold">
@@ -730,17 +794,15 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           {/* Fetch button — M3: rounded-full filled/primary */}
           <button
             type="button"
-            onClick={() => { void handleFetch(); }}
+            onClick={() => {
+              void handleFetch();
+            }}
             disabled={fetching}
             aria-label="Fetch remote refs"
             title="Fetch remote refs"
             className="flex items-center gap-1 shrink-0 text-[11px] text-navy-light hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer rounded-full px-2 py-0.5"
           >
-            <RefreshCw
-              size={12}
-              strokeWidth={1.5}
-              className={fetching ? 'animate-spin' : ''}
-            />
+            <RefreshCw size={12} strokeWidth={1.5} className={fetching ? 'animate-spin' : ''} />
             {fetching ? 'Fetching…' : 'Fetch'}
           </button>
         </div>
@@ -758,7 +820,13 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   tab === 'files' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
                 }`}
               >
-                Files{tree && <span className="ml-1.5 font-mono normal-case tracking-normal text-navy-light/40">{tree.total}{tree.truncated ? '+' : ''}</span>}
+                Files
+                {tree && (
+                  <span className="ml-1.5 font-mono normal-case tracking-normal text-navy-light/40">
+                    {tree.total}
+                    {tree.truncated ? '+' : ''}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -796,7 +864,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                     )}
                   </>
                 ) : (
-                  <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No markdown files.</p>
+                  <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">
+                    No markdown files.
+                  </p>
                 )
               ) : (
                 <ActivityPane
@@ -820,7 +890,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   type="button"
                   onClick={() => setPreviewMode('doc')}
                   className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                    previewMode === 'doc' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                    previewMode === 'doc'
+                      ? 'text-navy bg-cream'
+                      : 'text-navy-light/60 hover:text-navy'
                   }`}
                 >
                   {selected ? 'Preview' : 'README'}
@@ -829,7 +901,9 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
                   type="button"
                   onClick={() => setPreviewMode('ai')}
                   className={`flex items-center gap-1 px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                    previewMode === 'ai' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                    previewMode === 'ai'
+                      ? 'text-navy bg-cream'
+                      : 'text-navy-light/60 hover:text-navy'
                   }`}
                 >
                   <Sparkles

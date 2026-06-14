@@ -74,6 +74,7 @@ energy of a brutalist reference card, but with the soft M3 skin.
 ```
 
 **Header sync logic (the glance):**
+
 - Language dot color from a language → hex map.
 - `↑ahead ↓behind` chips, hidden when 0 or no upstream.
 - Dirty state: `●dirty` (red) / `●clean` (green).
@@ -81,6 +82,7 @@ energy of a brutalist reference card, but with the soft M3 skin.
 - Staleness: `pushedAt` (or `lastCommitAt`) older than 90 days → faded card + "stale" hint.
 
 **Adaptive stat grid (3 cells, divider-separated):**
+
 - Has `gh`: stars · issues · forks.
 - Local-only: commits · branches · last-commit age.
 
@@ -90,12 +92,14 @@ energy of a brutalist reference card, but with the soft M3 skin.
 ## 4. Data
 
 ### Existing (sufficient)
+
 - `Repo`: name, path, branch, dirty, prCount, remoteUrl, gh, ahead, behind.
 - `RepoGitHub`: stars, forks, openIssues, prCount, ciStatus, topics, language,
   license, description, pushedAt, htmlUrl, isPrivate, fork, archived, parent, …
 - Rust commands: `git_ahead_behind`, `git_branches`, `git_fetch`.
 
 ### New (required for adaptive local-only stats)
+
 - **Rust command** `git_local_stats(path) -> { commitCount: i64, lastCommitAt: String | null }`
   - `commitCount`: `git -C <path> rev-list --count HEAD`
   - `lastCommitAt`: `git -C <path> log -1 --format=%cI` (ISO 8601), null on empty repo.
@@ -117,7 +121,7 @@ Keep files focused and independently testable.
 - `src/components/card/SyncBadges.tsx` — ahead/behind/dirty/CI badges.
 - `src/utils/languageColor.ts` — `language → hex` map + fallback.
 - `src/utils/repoStats.ts` — **pure**: `Repo → { handle, displayStats[], syncState,
-  staleness, isLocalOnly }`. No React, no IO. Single source of card-derived data.
+staleness, isLocalOnly }`. No React, no IO. Single source of card-derived data.
 
 Each unit: clear single purpose, well-defined props/return, testable in isolation.
 
@@ -151,10 +155,12 @@ Dependency-aware pipeline. Model tier per task complexity
 (haiku = mechanical, sonnet = standard impl, opus = integration / ambiguous / review).
 
 **Phase 1 — Foundation** (blocks rest):
+
 - `Repo` type fields + scan wiring + `git_local_stats` Rust command —
   agent: backend-developer — model: **sonnet**.
 
 **Phase 2 — Parallel build** (independent after P1):
+
 - `utils/languageColor.ts` — general — **haiku** (pure data).
 - `utils/repoStats.ts` + vitest — typescript-pro — **sonnet**.
 - `card/CardHeader.tsx` — ui-designer — **sonnet**.
@@ -162,10 +168,12 @@ Dependency-aware pipeline. Model tier per task complexity
 - `card/SyncBadges.tsx` — ui-designer — **sonnet**.
 
 **Phase 3 — Compose** (barrier, needs all P2):
+
 - `RepoCard.tsx` rewrite, wire AI-ready slots, M3 tokens —
   frontend-developer — **opus** (integration + design coherence).
 
 **Phase 4 — Verify** (adversarial):
+
 - Build + `npm test` + lint gate — general — **sonnet**.
 - Visual + code review (M3 fidelity, 280px width, accessibility) —
   code-reviewer — **opus**.

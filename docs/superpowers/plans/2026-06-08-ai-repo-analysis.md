@@ -14,28 +14,29 @@
 
 ## File Structure
 
-| File | Responsibility | Action |
-|---|---|---|
-| `ai-sidecar/Package.swift` | SPM manifest, macOS 26 platform | Create |
-| `ai-sidecar/Sources/coruro-ai/main.swift` | availability + session + `@Generable` + `--selftest` | Create |
-| `scripts/build-ai-sidecar.sh` | build + place arm64 binary | Create |
-| `src-tauri/binaries/coruro-ai-aarch64-apple-darwin` | built sidecar (artifact) | Generated |
-| `src-tauri/tauri.conf.json` | `bundle.externalBin` | Modify |
-| `src-tauri/capabilities/default.json` | shell sidecar permission | Modify |
-| `src-tauri/src/commands.rs` | `git_recent_commits`, `ai_analyze` | Modify |
-| `src-tauri/src/lib.rs` | register commands | Modify |
-| `src/types.ts` | `AiContext`, `AiCacheEntry`, `AiCache`, `AiResult`, AppState fields | Modify |
-| `src/utils/aiContext.ts` | assemble bounded context + `inputHash` (pure core) | Create |
-| `src/utils/aiContext.test.ts` | tests | Create |
-| `src/store/useBoardStore.ts` | aiCache persist/hydrate + serial `enrichAi`/`enrichAiOne` | Modify |
-| `src/components/AiBanner.tsx` | one-time "Apple Intelligence unavailable" banner | Create |
-| `src/components/RepoCard.tsx` | "✨ analyzing…" indicator + force button | Modify |
+| File                                                | Responsibility                                                      | Action    |
+| --------------------------------------------------- | ------------------------------------------------------------------- | --------- |
+| `ai-sidecar/Package.swift`                          | SPM manifest, macOS 26 platform                                     | Create    |
+| `ai-sidecar/Sources/coruro-ai/main.swift`           | availability + session + `@Generable` + `--selftest`                | Create    |
+| `scripts/build-ai-sidecar.sh`                       | build + place arm64 binary                                          | Create    |
+| `src-tauri/binaries/coruro-ai-aarch64-apple-darwin` | built sidecar (artifact)                                            | Generated |
+| `src-tauri/tauri.conf.json`                         | `bundle.externalBin`                                                | Modify    |
+| `src-tauri/capabilities/default.json`               | shell sidecar permission                                            | Modify    |
+| `src-tauri/src/commands.rs`                         | `git_recent_commits`, `ai_analyze`                                  | Modify    |
+| `src-tauri/src/lib.rs`                              | register commands                                                   | Modify    |
+| `src/types.ts`                                      | `AiContext`, `AiCacheEntry`, `AiCache`, `AiResult`, AppState fields | Modify    |
+| `src/utils/aiContext.ts`                            | assemble bounded context + `inputHash` (pure core)                  | Create    |
+| `src/utils/aiContext.test.ts`                       | tests                                                               | Create    |
+| `src/store/useBoardStore.ts`                        | aiCache persist/hydrate + serial `enrichAi`/`enrichAiOne`           | Modify    |
+| `src/components/AiBanner.tsx`                       | one-time "Apple Intelligence unavailable" banner                    | Create    |
+| `src/components/RepoCard.tsx`                       | "✨ analyzing…" indicator + force button                            | Modify    |
 
 ---
 
 ## Task 1: Swift sidecar `coruro-ai`
 
 **Files:**
+
 - Create: `ai-sidecar/Package.swift`
 - Create: `ai-sidecar/Sources/coruro-ai/main.swift`
 - Create: `scripts/build-ai-sidecar.sh`
@@ -173,11 +174,13 @@ echo "Placed sidecar at $DEST"
 - [ ] **Step 4: Build the sidecar and verify the selftest contract**
 
 Run:
+
 ```bash
 chmod +x scripts/build-ai-sidecar.sh
 ./scripts/build-ai-sidecar.sh
 ./src-tauri/binaries/coruro-ai-aarch64-apple-darwin --selftest
 ```
+
 Expected: build succeeds; selftest prints `{"ok":true,"summary":"Selftest summary.","tags":["selftest","ok"],"model":"selftest"}` (key order may vary).
 
 If `swift build` fails because the Swift toolchain predates FoundationModels, stop and report — this environment cannot build the sidecar; the rest of the plan (Rust/TS) can still proceed against the `--selftest` contract.
@@ -194,6 +197,7 @@ git commit -m "feat(ai): Swift FoundationModels sidecar (coruro-ai) + build scri
 ## Task 2: Bundle + capability for the sidecar
 
 **Files:**
+
 - Modify: `src-tauri/tauri.conf.json` (`bundle` object)
 - Modify: `src-tauri/capabilities/default.json` (shell allow list)
 
@@ -221,11 +225,11 @@ In the `"bundle"` object, add the `externalBin` key (keep existing keys):
 Inside the `"shell:allow-execute"` permission's `"allow"` array, append this entry (after the existing `"open"` entry):
 
 ```json
-        {
-          "name": "binaries/coruro-ai",
-          "sidecar": true,
-          "args": ["--selftest"]
-        }
+{
+  "name": "binaries/coruro-ai",
+  "sidecar": true,
+  "args": ["--selftest"]
+}
 ```
 
 Note: `args` here is the static-validator allow-list for argument shapes; the live call passes no args (it pipes JSON via stdin), and `--selftest` is permitted for the contract test. If Tauri's schema rejects an empty live arg set against this validator, change `"args"` to `true` to allow any args for this sidecar.
@@ -247,6 +251,7 @@ git commit -m "feat(ai): register coruro-ai sidecar (externalBin + shell capabil
 ## Task 3: Rust `git_recent_commits` command
 
 **Files:**
+
 - Modify: `src-tauri/src/commands.rs` (append command + test)
 - Modify: `src-tauri/src/lib.rs` (register)
 
@@ -311,6 +316,7 @@ git commit -m "feat(git): add git_recent_commits command"
 ## Task 4: Rust `ai_analyze` command
 
 **Files:**
+
 - Modify: `src-tauri/src/commands.rs` (append command + imports)
 - Modify: `src-tauri/src/lib.rs` (register)
 
@@ -416,6 +422,7 @@ git commit -m "feat(ai): add ai_analyze command spawning the sidecar"
 ## Task 5: TypeScript types
 
 **Files:**
+
 - Modify: `src/types.ts`
 
 - [ ] **Step 1: Add the AI types**
@@ -439,7 +446,13 @@ export interface AiResult {
   summary?: string;
   tags?: string[];
   model?: string;
-  error?: 'unavailable' | 'contextOverflow' | 'generation' | 'badInput' | 'timeout' | 'sidecar_missing';
+  error?:
+    | 'unavailable'
+    | 'contextOverflow'
+    | 'generation'
+    | 'badInput'
+    | 'timeout'
+    | 'sidecar_missing';
   reason?: string;
 }
 
@@ -449,7 +462,7 @@ export interface AiCacheEntry {
   tags: string[];
   model: string;
   analyzedAt: string; // ISO 8601
-  inputHash: string;  // hash of the assembled context — drives freshness
+  inputHash: string; // hash of the assembled context — drives freshness
 }
 
 /** Persisted AI cache, keyed by repo absolute path. */
@@ -461,8 +474,8 @@ export type AiCache = Record<string, AiCacheEntry>;
 In `export interface AppState`, after `ghCache: GhCache;`, add:
 
 ```ts
-  /** Cached AI analysis per repo; hydrated into Repo.aiSummary/aiTags on scan. */
-  aiCache: AiCache;
+/** Cached AI analysis per repo; hydrated into Repo.aiSummary/aiTags on scan. */
+aiCache: AiCache;
 ```
 
 - [ ] **Step 3: Initialise in `createEmptyAppState`**
@@ -490,6 +503,7 @@ git commit -m "feat(types): add AiContext/AiResult/AiCache types + AppState.aiCa
 ## Task 6: `aiContext` builder (pure core + tests)
 
 **Files:**
+
 - Create: `src/utils/aiContext.ts`
 - Test: `src/utils/aiContext.test.ts`
 
@@ -521,8 +535,12 @@ describe('assembleContext', () => {
 
   it('truncates overly long commit subjects to 100 chars', () => {
     const ctx = assembleContext({
-      repoName: 'r', description: null, languages: [],
-      recentCommits: ['y'.repeat(200)], topEntries: [], readme: null,
+      repoName: 'r',
+      description: null,
+      languages: [],
+      recentCommits: ['y'.repeat(200)],
+      topEntries: [],
+      readme: null,
     });
     expect(ctx.recentCommits[0].length).toBeLessThanOrEqual(100);
   });
@@ -530,9 +548,30 @@ describe('assembleContext', () => {
 
 describe('inputHash', () => {
   it('is stable for identical input and changes when input changes', () => {
-    const a = assembleContext({ repoName: 'r', description: 'd', languages: ['Rust'], recentCommits: ['c'], topEntries: ['src'], readme: null });
-    const b = assembleContext({ repoName: 'r', description: 'd', languages: ['Rust'], recentCommits: ['c'], topEntries: ['src'], readme: null });
-    const c = assembleContext({ repoName: 'r', description: 'd2', languages: ['Rust'], recentCommits: ['c'], topEntries: ['src'], readme: null });
+    const a = assembleContext({
+      repoName: 'r',
+      description: 'd',
+      languages: ['Rust'],
+      recentCommits: ['c'],
+      topEntries: ['src'],
+      readme: null,
+    });
+    const b = assembleContext({
+      repoName: 'r',
+      description: 'd',
+      languages: ['Rust'],
+      recentCommits: ['c'],
+      topEntries: ['src'],
+      readme: null,
+    });
+    const c = assembleContext({
+      repoName: 'r',
+      description: 'd2',
+      languages: ['Rust'],
+      recentCommits: ['c'],
+      topEntries: ['src'],
+      readme: null,
+    });
     expect(inputHash(a)).toBe(inputHash(b));
     expect(inputHash(a)).not.toBe(inputHash(c));
   });
@@ -666,6 +705,7 @@ git commit -m "feat(ai): bounded aiContext builder + content hash"
 ## Task 7: Store — persist, hydrate, and the serial AI queue
 
 **Files:**
+
 - Modify: `src/store/useBoardStore.ts`
 
 This task mirrors the existing `ghCache` persistence pattern. The store already:
@@ -682,30 +722,36 @@ Add `aiCache` everywhere `ghCache` appears in the persistence path:
 2. In `loadState`, after the `ghCache` hydration block, add a parallel block:
 
 ```ts
-  // aiCache: keep only well-shaped entries; drop anything malformed.
-  const aiCache = base.aiCache;
-  const rawAi = (parsed as { aiCache?: unknown }).aiCache;
-  if (rawAi && typeof rawAi === 'object') {
-    for (const [key, entry] of Object.entries(rawAi as Record<string, unknown>)) {
-      const e = entry as Partial<AiCacheEntry>;
-      if (e && typeof e.summary === 'string' && Array.isArray(e.tags) &&
-          typeof e.inputHash === 'string' && typeof e.analyzedAt === 'string') {
-        aiCache[key] = {
-          summary: e.summary, tags: e.tags as string[], model: e.model ?? 'unknown',
-          analyzedAt: e.analyzedAt, inputHash: e.inputHash,
-        };
-      }
+// aiCache: keep only well-shaped entries; drop anything malformed.
+const aiCache = base.aiCache;
+const rawAi = (parsed as { aiCache?: unknown }).aiCache;
+if (rawAi && typeof rawAi === 'object') {
+  for (const [key, entry] of Object.entries(rawAi as Record<string, unknown>)) {
+    const e = entry as Partial<AiCacheEntry>;
+    if (
+      e &&
+      typeof e.summary === 'string' &&
+      Array.isArray(e.tags) &&
+      typeof e.inputHash === 'string' &&
+      typeof e.analyzedAt === 'string'
+    ) {
+      aiCache[key] = {
+        summary: e.summary,
+        tags: e.tags as string[],
+        model: e.model ?? 'unknown',
+        analyzedAt: e.analyzedAt,
+        inputHash: e.inputHash,
+      };
     }
   }
+}
 ```
 
-   and add `aiCache` to the returned object: `return { settings, board, repoMetadata, ghCache, aiCache };`.
-3. In the `set(...)` calls that spread persisted state on load (the two places that pass `ghCache: state.ghCache` / `ghCache: ...`), add `aiCache` alongside.
-4. In `save()`, change the destructure to include `aiCache` and pass it to `serialise`:
+and add `aiCache` to the returned object: `return { settings, board, repoMetadata, ghCache, aiCache };`. 3. In the `set(...)` calls that spread persisted state on load (the two places that pass `ghCache: state.ghCache` / `ghCache: ...`), add `aiCache` alongside. 4. In `save()`, change the destructure to include `aiCache` and pass it to `serialise`:
 
 ```ts
-    const { settings, board, repoMetadata, ghCache, aiCache } = get();
-    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache });
+const { settings, board, repoMetadata, ghCache, aiCache } = get();
+const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache });
 ```
 
 5. Add the import: ensure `AiCacheEntry` (and `AiContext`, `AiResult`) are imported from `../types` at the top.
@@ -716,13 +762,13 @@ In `scanAndDistribute`, where each scanned `Repo` is built and `gh` is hydrated
 from `ghCache`, also hydrate AI fields from `aiCache`:
 
 ```ts
-        const ai = get().aiCache[repo.path];
-        return {
-          ...repo,
-          gh: get().ghCache[repo.path]?.gh ?? null,
-          aiSummary: ai?.summary ?? null,
-          aiTags: ai?.tags ?? null,
-        };
+const ai = get().aiCache[repo.path];
+return {
+  ...repo,
+  gh: get().ghCache[repo.path]?.gh ?? null,
+  aiSummary: ai?.summary ?? null,
+  aiTags: ai?.tags ?? null,
+};
 ```
 
 (Adapt to the exact mapping expression already used for `gh`; the point is to set `aiSummary`/`aiTags` from `aiCache[path]` the same way `gh` is set from `ghCache[path]`.)
@@ -827,6 +873,7 @@ git commit -m "feat(ai): persist aiCache, hydrate on scan, serial enrichAi queue
 ## Task 8: UI — analyzing indicator + unavailable banner
 
 **Files:**
+
 - Create: `src/components/AiBanner.tsx`
 - Modify: `src/components/RepoCard.tsx`
 
@@ -869,8 +916,10 @@ import { useBoardStore } from '../store/useBoardStore';
 
 const MESSAGE: Record<string, string> = {
   deviceNotEligible: 'This Mac cannot run Apple Intelligence, so AI summaries are disabled.',
-  appleIntelligenceNotEnabled: 'Apple Intelligence is off. Enable it in System Settings › Apple Intelligence to get AI summaries.',
-  modelNotReady: 'The Apple Intelligence model is still downloading. AI summaries will appear once it is ready.',
+  appleIntelligenceNotEnabled:
+    'Apple Intelligence is off. Enable it in System Settings › Apple Intelligence to get AI summaries.',
+  modelNotReady:
+    'The Apple Intelligence model is still downloading. AI summaries will appear once it is ready.',
 };
 
 export function AiBanner() {
@@ -879,10 +928,18 @@ export function AiBanner() {
   if (!reason || dismissed) return null;
   const msg = MESSAGE[reason] ?? 'Apple Intelligence is unavailable, so AI summaries are disabled.';
   return (
-    <div className="flex items-center gap-2 bg-amber-500/15 text-navy text-xs px-3 py-2 border-b border-amber-500/30" role="status">
+    <div
+      className="flex items-center gap-2 bg-amber-500/15 text-navy text-xs px-3 py-2 border-b border-amber-500/30"
+      role="status"
+    >
       <Sparkles size={13} strokeWidth={2} className="text-amber-500 shrink-0" />
       <span className="flex-1">{msg}</span>
-      <button type="button" onClick={() => setDismissed(true)} className="text-navy-light hover:text-navy" aria-label="Dismiss">
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="text-navy-light hover:text-navy"
+        aria-label="Dismiss"
+      >
         <X size={13} strokeWidth={2} />
       </button>
     </div>
@@ -904,30 +961,47 @@ In `src/components/Board.tsx`, import `AiBanner` and render `<AiBanner />` just 
 In `src/components/RepoCard.tsx`:
 
 1. Read the analyzing flag and the action:
+
 ```tsx
-  const analyzing = useBoardStore((s) => s.analyzingPaths.has(repo.path));
-  const enrichAiOne = useBoardStore((s) => s.enrichAiOne);
+const analyzing = useBoardStore((s) => s.analyzingPaths.has(repo.path));
+const enrichAiOne = useBoardStore((s) => s.enrichAiOne);
 ```
+
 2. In the identity block, replace the description render so the indicator shows while analyzing and there is no summary yet:
+
 ```tsx
-        {analyzing && !d.description && (
-          <p className="text-[12px] text-navy-light leading-snug flex items-center gap-1">
-            <Sparkles size={11} strokeWidth={2} className="animate-pulse" /> analyzing…
-          </p>
-        )}
-        {d.description && (
-          <p className="text-[12px] text-navy leading-snug border-l-2 border-terracotta pl-2 line-clamp-2">
-            {d.description}
-          </p>
-        )}
+{
+  analyzing && !d.description && (
+    <p className="text-[12px] text-navy-light leading-snug flex items-center gap-1">
+      <Sparkles size={11} strokeWidth={2} className="animate-pulse" /> analyzing…
+    </p>
+  );
+}
+{
+  d.description && (
+    <p className="text-[12px] text-navy leading-snug border-l-2 border-terracotta pl-2 line-clamp-2">
+      {d.description}
+    </p>
+  );
+}
 ```
+
 3. Add `Sparkles` to the lucide import line.
 4. Add a force-analyze button to the action row (before the refresh button):
+
 ```tsx
-        <button type="button" onClick={() => { void enrichAiOne(repo.path); }} disabled={analyzing}
-          className={`${iconBtn} disabled:opacity-50`} title="Analyze with Apple Intelligence" aria-label="Analyze with AI">
-          <Sparkles size={14} strokeWidth={1.75} className={analyzing ? 'animate-pulse' : ''} />
-        </button>
+<button
+  type="button"
+  onClick={() => {
+    void enrichAiOne(repo.path);
+  }}
+  disabled={analyzing}
+  className={`${iconBtn} disabled:opacity-50`}
+  title="Analyze with Apple Intelligence"
+  aria-label="Analyze with AI"
+>
+  <Sparkles size={14} strokeWidth={1.75} className={analyzing ? 'animate-pulse' : ''} />
+</button>
 ```
 
 - [ ] **Step 7: Verify the existing RepoCard test still passes**

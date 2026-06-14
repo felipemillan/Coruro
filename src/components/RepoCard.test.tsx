@@ -6,15 +6,26 @@ import type { Repo } from '../types';
 // Stub stores so the component renders without a live Zustand provider.
 vi.mock('../store/useBoardStore', () => ({
   useBoardStore: (sel: (s: unknown) => unknown) =>
-    sel({ settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' }, enrichOne: () => {}, analyzingPaths: new Set(), enrichAiOne: () => {} }),
+    sel({
+      settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' },
+      enrichOne: () => {},
+      analyzingPaths: new Set(),
+      enrichAiOne: () => {},
+    }),
 }));
 vi.mock('../store/useViewStore', () => ({
   useViewStore: (sel: (s: unknown) => unknown) => sel({ setDetail: () => {} }),
 }));
 
 const localRepo: Repo = {
-  name: 'Coruro', path: '/x/Coruro', branch: 'main', dirty: true,
-  prCount: 0, commitCount: 340, branchCount: 6, lastCommitAt: '2026-06-05T00:00:00Z',
+  name: 'Coruro',
+  path: '/x/Coruro',
+  branch: 'main',
+  dirty: true,
+  prCount: 0,
+  commitCount: 340,
+  branchCount: 6,
+  lastCommitAt: '2026-06-05T00:00:00Z',
 };
 
 describe('RepoCard', () => {

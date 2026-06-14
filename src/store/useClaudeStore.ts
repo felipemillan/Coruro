@@ -149,10 +149,7 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
       } else {
         const errCode = parsed.error ?? '';
         let reason: string;
-        if (
-          errCode.includes('sidecar_missing') ||
-          errCode.includes('unavailable')
-        ) {
+        if (errCode.includes('sidecar_missing') || errCode.includes('unavailable')) {
           reason = 'Apple Intelligence is unavailable on this device.';
         } else if (errCode.length > 0) {
           reason = `AI summary unavailable: ${errCode}`;
@@ -205,7 +202,12 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
           // Transient invoke/parse failure on one chunk — skip it, keep going.
           const message = err instanceof Error ? err.message : String(err);
           set({ enrichUnavailableReason: `AI enrichment issue: ${message}` });
-          set({ enrichProgress: { done: Math.min(i + chunk.length, newItems.length), total: newItems.length } });
+          set({
+            enrichProgress: {
+              done: Math.min(i + chunk.length, newItems.length),
+              total: newItems.length,
+            },
+          });
           continue;
         }
 
@@ -228,7 +230,12 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
           }
         }
 
-        set({ enrichProgress: { done: Math.min(i + chunk.length, newItems.length), total: newItems.length } });
+        set({
+          enrichProgress: {
+            done: Math.min(i + chunk.length, newItems.length),
+            total: newItems.length,
+          },
+        });
       }
     } finally {
       set({ enrichLoading: false, enrichProgress: null });
@@ -262,7 +269,11 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
         const errCode = parsed.error ?? '';
         // A tidy setup (noFindings) or an unavailable device are benign — the
         // deterministic findings (or empty state) already convey everything.
-        if (errCode.includes('noFindings') || errCode.includes('unavailable') || errCode.includes('sidecar_missing')) {
+        if (
+          errCode.includes('noFindings') ||
+          errCode.includes('unavailable') ||
+          errCode.includes('sidecar_missing')
+        ) {
           set({ curateUnavailableReason: null });
         } else if (errCode.length > 0) {
           set({ curateUnavailableReason: `AI narrative unavailable: ${errCode}` });

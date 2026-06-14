@@ -45,7 +45,13 @@ export async function ghJson<T>(path: string, token?: string): Promise<GhResult<
   try {
     const response = await fetch(url, { headers });
     const remaining = response.headers.get('x-ratelimit-remaining');
-    console.debug('[ghJson]', response.status, path, remaining !== null ? `rl=${remaining}` : '', token ? 'auth' : 'anon');
+    console.debug(
+      '[ghJson]',
+      response.status,
+      path,
+      remaining !== null ? `rl=${remaining}` : '',
+      token ? 'auth' : 'anon',
+    );
 
     if (response.status === 304 && cached !== undefined) {
       return { data: cached.data as T, status: 304 };

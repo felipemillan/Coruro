@@ -46,8 +46,7 @@ export function Setup(): React.JSX.Element {
       //    in one store action reading its own consistent snapshot.
       await scanAndDistribute(selected);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Scan failed — check permissions.';
+      const message = err instanceof Error ? err.message : 'Scan failed — check permissions.';
       setError(message);
     } finally {
       setScanning(false);
@@ -64,13 +63,11 @@ export function Setup(): React.JSX.Element {
           <GitBranch size={28} className="text-navy" strokeWidth={1.5} />
         </div>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-navy">
-          Git Dashboard
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-navy">Git Dashboard</h1>
 
         <p className="max-w-xs text-sm leading-relaxed text-navy-light">
-          Pick a directory that contains your local git repositories. The
-          dashboard will scan one level deep and populate your board.
+          Pick a directory that contains your local git repositories. The dashboard will scan one
+          level deep and populate your board.
         </p>
       </div>
 
@@ -84,9 +81,7 @@ export function Setup(): React.JSX.Element {
         className={[
           'flex items-center gap-2 rounded-full bg-sage px-6 py-3',
           'text-sm font-medium text-cream transition-colors',
-          scanning
-            ? 'cursor-not-allowed opacity-50'
-            : 'hover:bg-sage-light',
+          scanning ? 'cursor-not-allowed opacity-50' : 'hover:bg-sage-light',
         ].join(' ')}
       >
         <FolderOpen size={16} strokeWidth={1.5} />
@@ -97,9 +92,7 @@ export function Setup(): React.JSX.Element {
       {/* Error state                                                          */}
       {/* ------------------------------------------------------------------ */}
       {error !== null && (
-        <p className="mt-4 max-w-xs text-center text-xs text-terracotta">
-          {error}
-        </p>
+        <p className="mt-4 max-w-xs text-center text-xs text-terracotta">{error}</p>
       )}
 
       {/* ------------------------------------------------------------------ */}

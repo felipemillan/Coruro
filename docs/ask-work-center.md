@@ -30,7 +30,7 @@ A fixed bar under the controls row, present on every Ask session.
 - **Favorites** — items you pin (★) in the drawer, persisted in `localStorage`
   (`coruro.topbar.favorites`).
 - **Built-in quick row** — curated slash commands: `/clear /compact /context
-  /model /review`.
+/model /review`.
 - **Category pills** with live counts, ordered to match the drawer flow:
   `Plugins · MCP │ Commands · Agents · Skills`. Click a pill → drawer opens
   scrolled to that group.
@@ -59,8 +59,8 @@ SOURCES              │  INVOCABLES
   **Skills**. Skills is widest and renders as a **2-column card grid** so the
   221-item list stays compact.
 - **Sticky group headers** — solid `bg-cream`, `sticky top-0 z-10`, bottom border
-  + shadow, so the `PLUGINS · MCP · COMMANDS · AGENTS · SKILLS` labels never
-  scroll out of view.
+  - shadow, so the `PLUGINS · MCP · COMMANDS · AGENTS · SKILLS` labels never
+    scroll out of view.
 - **Pin** — hover any card → ★ to add/remove it from the favorites quick row.
 
 ---
@@ -72,13 +72,13 @@ Enter** (`pty_write` with no trailing `\r`), so you can edit or append arguments
 before submitting. (The Cmd+K palette historically auto-ran with `\r`; the bar is
 insert-only by design.)
 
-| Type     | Inserted text                     | Why |
-|----------|-----------------------------------|-----|
-| Skill    | `/dirName ` or `/plugin:dirName ` | slash invocation + space for args |
-| Command  | `/name `                          | slash command |
-| Agent    | `Use the <name> subagent to `     | subagents are **not** slash/`@`-invocable — a prompt scaffold is the correct trigger |
-| MCP      | `Use the <name> MCP to `          | MCP tools are implicit; a mention nudges Claude to use them |
-| Plugin   | _(filters the drawer)_            | plugins aren't directly invocable |
+| Type    | Inserted text                     | Why                                                                                  |
+| ------- | --------------------------------- | ------------------------------------------------------------------------------------ |
+| Skill   | `/dirName ` or `/plugin:dirName ` | slash invocation + space for args                                                    |
+| Command | `/name `                          | slash command                                                                        |
+| Agent   | `Use the <name> subagent to `     | subagents are **not** slash/`@`-invocable — a prompt scaffold is the correct trigger |
+| MCP     | `Use the <name> MCP to `          | MCP tools are implicit; a mention nudges Claude to use them                          |
+| Plugin  | _(filters the drawer)_            | plugins aren't directly invocable                                                    |
 
 Insertion targets the currently displayed session (`displayedIdRef`). With no
 active session the action is a no-op and the drawer shows a hint to start one.
@@ -92,13 +92,13 @@ side (`detect_repo_type`) infers the project from filesystem markers and returns
 display label; clicking spawns the dev/build command in its **own** PTY session
 (separate from any chat session, so the main conversation is undisturbed).
 
-| Detected         | Marker                                   | Command            |
-|------------------|------------------------------------------|--------------------|
-| Tauri            | `src-tauri/` or `tauri.conf.json`        | `npm run tauri dev`|
-| Next.js          | `package.json` with a `next` dependency  | `npm run dev`      |
-| Node.js          | `package.json` (with/without dev script) | `npm run dev`      |
-| Cargo            | `Cargo.toml` (no `src-tauri/`)           | `cargo run`        |
-| Make             | `Makefile`                               | `make`             |
+| Detected | Marker                                   | Command             |
+| -------- | ---------------------------------------- | ------------------- |
+| Tauri    | `src-tauri/` or `tauri.conf.json`        | `npm run tauri dev` |
+| Next.js  | `package.json` with a `next` dependency  | `npm run dev`       |
+| Node.js  | `package.json` (with/without dev script) | `npm run dev`       |
+| Cargo    | `Cargo.toml` (no `src-tauri/`)           | `cargo run`         |
+| Make     | `Makefile`                               | `make`              |
 
 ### Shell-injection safety
 
@@ -112,15 +112,15 @@ duplicate-check → setup → insert (no TOCTOU window).
 
 ## 4. Files
 
-| File                              | Role |
-|-----------------------------------|------|
-| `src/components/TopActionBar.tsx` | The bar + drawer; insert builders; favorites |
-| `src/components/CommandPalette.tsx` | Cmd+K palette (cmdk) |
-| `src/components/AskTab.tsx`       | `handleInsert` (no-`\r` write), `handlePaletteSelect`, Run button, mounts the bar |
-| `src/store/useViewStore.ts`       | `paletteOpen` state |
-| `src/store/useClaudeStore.ts`     | Shared `~/.claude` inventory + AI enrichments |
-| `src-tauri/src/commands.rs`       | `detect_repo_type` |
-| `src-tauri/src/pty.rs`            | `pty_spawn_cmd` (run/build), `pty_write` (injection) |
+| File                                | Role                                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `src/components/TopActionBar.tsx`   | The bar + drawer; insert builders; favorites                                      |
+| `src/components/CommandPalette.tsx` | Cmd+K palette (cmdk)                                                              |
+| `src/components/AskTab.tsx`         | `handleInsert` (no-`\r` write), `handlePaletteSelect`, Run button, mounts the bar |
+| `src/store/useViewStore.ts`         | `paletteOpen` state                                                               |
+| `src/store/useClaudeStore.ts`       | Shared `~/.claude` inventory + AI enrichments                                     |
+| `src-tauri/src/commands.rs`         | `detect_repo_type`                                                                |
+| `src-tauri/src/pty.rs`              | `pty_spawn_cmd` (run/build), `pty_write` (injection)                              |
 
 ---
 

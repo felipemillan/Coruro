@@ -120,9 +120,7 @@ describe('generateDayNotes', () => {
 
     await useBoardStore.getState().generateDayNotes('manual');
 
-    expect(useBoardStore.getState().notesError).toBe(
-      'No activity found since the last note.'
-    );
+    expect(useBoardStore.getState().notesError).toBe('No activity found since the last note.');
   });
 
   it('stays silent (no error) when an auto run finds no activity', async () => {
@@ -144,11 +142,18 @@ describe('generateDayNotes', () => {
     useBoardStore.setState({
       repos: [makeRepo('fake-repo', '/fake/repo')],
       dayNotes: {
-        notes: [{
-          id: 'prev', generatedAt: lastGeneratedAt,
-          windowStart: '', windowEnd: '', body: 'x',
-          repoRefs: [], model: 'test', trigger: 'manual' as const,
-        }],
+        notes: [
+          {
+            id: 'prev',
+            generatedAt: lastGeneratedAt,
+            windowStart: '',
+            windowEnd: '',
+            body: 'x',
+            repoRefs: [],
+            model: 'test',
+            trigger: 'manual' as const,
+          },
+        ],
       },
     });
 
@@ -191,7 +196,8 @@ describe('generateDayNotes', () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'get_token') return Promise.resolve(null);
       if (cmd === 'git_dirty_stat') return Promise.resolve(''); // clean repo by default
-      if (cmd === 'git_commits_since_numstat') return Promise.resolve([makeCommit('aaa111', 'fix: something')]);
+      if (cmd === 'git_commits_since_numstat')
+        return Promise.resolve([makeCommit('aaa111', 'fix: something')]);
       if (cmd === 'ai_day_notes')
         return Promise.resolve(JSON.stringify({ ok: false, error: 'generation' }));
       return Promise.resolve('{}');
@@ -214,7 +220,8 @@ describe('generateDayNotes', () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'get_token') return Promise.resolve(null);
       if (cmd === 'git_dirty_stat') return Promise.resolve(''); // clean repo by default
-      if (cmd === 'git_commits_since_numstat') return Promise.resolve([makeCommit('bbb222', 'chore: bump deps')]);
+      if (cmd === 'git_commits_since_numstat')
+        return Promise.resolve([makeCommit('bbb222', 'chore: bump deps')]);
       if (cmd === 'ai_day_notes') return Promise.reject(new Error('spawn error'));
       return Promise.resolve('{}');
     });
@@ -290,10 +297,11 @@ describe('setupAutoNotesTimer', () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'get_token') return Promise.resolve(null);
       if (cmd === 'git_dirty_stat') return Promise.resolve(''); // clean repo by default
-      if (cmd === 'git_commits_since_numstat') return Promise.resolve([makeCommit('ccc333', 'feat: add feature')]);
+      if (cmd === 'git_commits_since_numstat')
+        return Promise.resolve([makeCommit('ccc333', 'feat: add feature')]);
       if (cmd === 'ai_day_notes')
         return Promise.resolve(
-          JSON.stringify({ ok: true, body: 'Worked on @fake-repo.', model: 'test' })
+          JSON.stringify({ ok: true, body: 'Worked on @fake-repo.', model: 'test' }),
         );
       return Promise.resolve('{}');
     });

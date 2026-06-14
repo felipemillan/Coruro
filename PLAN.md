@@ -25,7 +25,7 @@ Gates: scaffold must boot before P1. Contracts must exist before P2/P3 (shared t
 
 ---
 
-## P0 — Scaffold  ·  **Sonnet 4.6**
+## P0 — Scaffold · **Sonnet 4.6**
 
 Mechanical. CLI + config.
 
@@ -44,7 +44,7 @@ Mechanical. CLI + config.
 
 ---
 
-## P1 — Contracts  ·  **Opus 4.8**
+## P1 — Contracts · **Opus 4.8**
 
 Shared interface. Everything imports this. Get wrong → cascades.
 
@@ -56,15 +56,15 @@ Shared interface. Everything imports this. Get wrong → cascades.
 
 ---
 
-## P2 — Parallel libs  ·  fan-out (disjoint files, no worktrees)
+## P2 — Parallel libs · fan-out (disjoint files, no worktrees)
 
-| # | File | Model | Why |
-|---|------|-------|-----|
-| A | `src/store/useBoardStore.ts` | **Opus 4.8** | zustand + fs load/save + 500ms debounce + moveCard + race-safe load-before-save. Concurrent logic. |
-| B | `src-tauri/src/commands.rs` (impl) | **Opus 4.8** | keychain read/write. Security-sensitive Rust. |
-| C | `src/utils/scanner.ts` | **Sonnet 4.6** | readDir + `Command.create('git',[...])` branch/dirty/remote. Spec exact. Arg arrays only — no string concat. |
-| D | `src/utils/github.ts` | **Sonnet 4.6** | parse remote url → owner/repo, fetch `/pulls`, count. Self-contained. |
-| E | `tailwind.config` + `src/index.css` | **Sonnet 4.6** | indie-pastel tokens: cream `#FDFBF7`, sage, terracotta, navy. `rounded-none` base. |
+| #   | File                                | Model          | Why                                                                                                          |
+| --- | ----------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------ |
+| A   | `src/store/useBoardStore.ts`        | **Opus 4.8**   | zustand + fs load/save + 500ms debounce + moveCard + race-safe load-before-save. Concurrent logic.           |
+| B   | `src-tauri/src/commands.rs` (impl)  | **Opus 4.8**   | keychain read/write. Security-sensitive Rust.                                                                |
+| C   | `src/utils/scanner.ts`              | **Sonnet 4.6** | readDir + `Command.create('git',[...])` branch/dirty/remote. Spec exact. Arg arrays only — no string concat. |
+| D   | `src/utils/github.ts`               | **Sonnet 4.6** | parse remote url → owner/repo, fetch `/pulls`, count. Self-contained.                                        |
+| E   | `tailwind.config` + `src/index.css` | **Sonnet 4.6** | indie-pastel tokens: cream `#FDFBF7`, sage, terracotta, navy. `rounded-none` base.                           |
 
 Disjoint ownership → run concurrent, no merge conflict. All import P1.
 
@@ -72,21 +72,21 @@ Disjoint ownership → run concurrent, no merge conflict. All import P1.
 
 ---
 
-## P3 — UI  ·  pipeline (depends P2)
+## P3 — UI · pipeline (depends P2)
 
-| File | Model | Why |
-|------|-------|-----|
-| `src/components/Board.tsx` | **Opus 4.8** | `@hello-pangea/dnd` contexts, onDragEnd → moveCard, reorder edge cases. |
-| `src/components/RepoCard.tsx` | **Sonnet 4.6** | name/branch/dirty badge/PR count/VS Code+Finder btns/notes textarea. |
-| `src/components/Setup.tsx` | **Sonnet 4.6** | dialog picker → setRoot → trigger scan. |
-| `src/components/Settings.tsx` | **Sonnet 4.6** | gear modal: root dir + PAT input (→ store_token). |
-| `src/App.tsx` | **Sonnet 4.6** | rootDirectory null → Setup else Board. Mount load. |
+| File                          | Model          | Why                                                                     |
+| ----------------------------- | -------------- | ----------------------------------------------------------------------- |
+| `src/components/Board.tsx`    | **Opus 4.8**   | `@hello-pangea/dnd` contexts, onDragEnd → moveCard, reorder edge cases. |
+| `src/components/RepoCard.tsx` | **Sonnet 4.6** | name/branch/dirty badge/PR count/VS Code+Finder btns/notes textarea.    |
+| `src/components/Setup.tsx`    | **Sonnet 4.6** | dialog picker → setRoot → trigger scan.                                 |
+| `src/components/Settings.tsx` | **Sonnet 4.6** | gear modal: root dir + PAT input (→ store_token).                       |
+| `src/App.tsx`                 | **Sonnet 4.6** | rootDirectory null → Setup else Board. Mount load.                      |
 
 **Accept:** components render, props typed, aesthetic matches §5.
 
 ---
 
-## P4 — Integrate + Verify  ·  **Opus 4.8**
+## P4 — Integrate + Verify · **Opus 4.8**
 
 Wiring + debugging. Needs whole-picture reasoning.
 
@@ -98,13 +98,13 @@ Wiring + debugging. Needs whole-picture reasoning.
 
 ---
 
-## P5 — Adversarial review  ·  parallel lenses
+## P5 — Adversarial review · parallel lenses
 
-| Lens | Model | Focus |
-|------|-------|-------|
-| Security | **Opus 4.8** | shell injection (paths → git/code/open), keychain usage, fs scope, capabilities not over-broad |
-| Correctness | **Opus 4.8** | dnd reorder, debounce races, load-before-save ordering |
-| TS / React | **Sonnet 4.6** | strict types, effect deps, no `any`, modern patterns |
+| Lens        | Model          | Focus                                                                                          |
+| ----------- | -------------- | ---------------------------------------------------------------------------------------------- |
+| Security    | **Opus 4.8**   | shell injection (paths → git/code/open), keychain usage, fs scope, capabilities not over-broad |
+| Correctness | **Opus 4.8**   | dnd reorder, debounce races, load-before-save ordering                                         |
+| TS / React  | **Sonnet 4.6** | strict types, effect deps, no `any`, modern patterns                                           |
 
 Each returns findings; real ones fed back as fix tasks.
 

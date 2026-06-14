@@ -10,10 +10,14 @@ export async function fetchUserLogin(token: string): Promise<string | null> {
       signal: controller.signal,
     });
     if (!res.ok) return null;
-    const data = await res.json() as { login: string };
+    const data = (await res.json()) as { login: string };
     cachedLogin = data.login;
     return cachedLogin;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-export function clearUserLoginCache(): void { cachedLogin = null; }
+export function clearUserLoginCache(): void {
+  cachedLogin = null;
+}

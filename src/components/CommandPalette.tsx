@@ -22,12 +22,7 @@ import {
   CommandSeparator,
 } from 'cmdk';
 import { useClaudeStore } from '../store/useClaudeStore';
-import type {
-  ClaudeSkill,
-  ClaudeAgent,
-  ClaudeCommand,
-  ClaudeMcpServer,
-} from '../types';
+import type { ClaudeSkill, ClaudeAgent, ClaudeCommand, ClaudeMcpServer } from '../types';
 
 // ── Icons (lightweight inline SVGs — avoids importing all of lucide) ────────
 
@@ -82,12 +77,7 @@ function CommandIcon() {
       aria-hidden="true"
       style={{ flexShrink: 0, color: 'var(--color-tertiary)', marginTop: 2 }}
     >
-      <path
-        d="M4 3h8M4 8h8M4 13h8"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
+      <path d="M4 3h8M4 8h8M4 13h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -102,15 +92,7 @@ function McpIcon() {
       aria-hidden="true"
       style={{ flexShrink: 0, color: 'var(--color-outline)', marginTop: 2 }}
     >
-      <rect
-        x="2"
-        y="2"
-        width="12"
-        height="12"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
+      <rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.4" />
       <circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.6" />
     </svg>
   );
@@ -131,7 +113,8 @@ export interface CommandPaletteProps {
 function skillInvocation(skill: ClaudeSkill): string {
   // Skills are invoked as /skill-name or /plugin:skill-name.
   // `dirName` is the canonical directory identifier (e.g. "caveman", "pr-review").
-  const prefix = skill.source !== 'local' ? `/${skill.source}:${skill.dirName}` : `/${skill.dirName}`;
+  const prefix =
+    skill.source !== 'local' ? `/${skill.source}:${skill.dirName}` : `/${skill.dirName}`;
   return prefix;
 }
 
@@ -206,11 +189,7 @@ function ItemLabel({ name, blurb, loadingBlurb, invocation }: ItemLabelProps) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export function CommandPalette({
-  open,
-  onClose,
-  onSelect,
-}: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, onSelect }: CommandPaletteProps) {
   const inventory = useClaudeStore((s) => s.inventory);
   const enrichments = useClaudeStore((s) => s.enrichments);
   const enrichLoading = useClaudeStore((s) => s.enrichLoading);
@@ -233,13 +212,15 @@ export function CommandPalette({
     enrichments[`mcp:${server.name}`] ?? null;
 
   const hasAnyItems =
-    skills.length > 0 ||
-    agents.length > 0 ||
-    commands.length > 0 ||
-    mcpServers.length > 0;
+    skills.length > 0 || agents.length > 0 || commands.length > 0 || mcpServers.length > 0;
 
   return (
-    <CommandDialog open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) onClose(); }}>
+    <CommandDialog
+      open={open}
+      onOpenChange={(isOpen: boolean) => {
+        if (!isOpen) onClose();
+      }}
+    >
       <Command label="Command palette">
         <div data-cmdk-input-wrapper="">
           <svg
@@ -248,7 +229,9 @@ export function CommandPalette({
             viewBox="0 0 15 15"
             fill="none"
             aria-hidden="true"
-            style={{ color: 'var(--color-on-surface-variant)', flexShrink: 0 } as React.CSSProperties}
+            style={
+              { color: 'var(--color-on-surface-variant)', flexShrink: 0 } as React.CSSProperties
+            }
           >
             <path
               d="M10 6.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0ZM9.3 10l3.5 3.5"
@@ -264,9 +247,7 @@ export function CommandPalette({
           {!hasAnyItems && inventory !== null && (
             <CommandEmpty>No items found in your Claude setup.</CommandEmpty>
           )}
-          {inventory === null && (
-            <CommandEmpty>Scanning Claude setup…</CommandEmpty>
-          )}
+          {inventory === null && <CommandEmpty>Scanning Claude setup…</CommandEmpty>}
 
           {/* ── Skills ─────────────────────────────────────────────────────── */}
           {skills.length > 0 && (
@@ -451,8 +432,7 @@ export function CommandPalette({
                             style={{
                               fontSize: 11,
                               color: 'var(--color-on-surface-variant)',
-                              fontFamily:
-                                '"SFMono-Regular", ui-monospace, Menlo, monospace',
+                              fontFamily: '"SFMono-Regular", ui-monospace, Menlo, monospace',
                             }}
                           >
                             {transportLabel}
@@ -484,8 +464,7 @@ export function CommandPalette({
                           style={{
                             fontSize: 11,
                             color: 'var(--color-on-surface-variant)',
-                            fontFamily:
-                              '"SFMono-Regular", ui-monospace, Menlo, monospace',
+                            fontFamily: '"SFMono-Regular", ui-monospace, Menlo, monospace',
                           }}
                         >
                           {server.packageHint}

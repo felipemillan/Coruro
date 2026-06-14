@@ -1,859 +1,2187 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Coruro — App Demo</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --cream:#F9FAEF;--warm-gray:#EDEEE3;--navy:#1A1C16;--navy-light:#44483D;
-  --sage:#4C662B;--sage-light:#CDEDA3;--terracotta:#BA1A1A;--dusty-pink:#BCECE7;
-  --outline-variant:#C5C8BA;--surface-high:#E8E9DD;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.06),0 1px 3px 1px rgba(0,0,0,.10);
-  --shadow-md:0 1px 2px rgba(0,0,0,.06),0 2px 6px 2px rgba(0,0,0,.10);
-  --shadow-lg:0 4px 8px 3px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.12);
-}
-html,body{height:100%;overflow:hidden}
-body{
-  font-family:"Roboto","Inter","Helvetica Neue",sans-serif;
-  background:#1e1e1e;color:var(--navy);
-  font-size:14px;line-height:1.5;
-  -webkit-font-smoothing:antialiased;
-  display:flex;align-items:center;justify-content:center;
-  padding:20px;
-}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coruro — App Demo</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --cream: #f9faef;
+        --warm-gray: #edeee3;
+        --navy: #1a1c16;
+        --navy-light: #44483d;
+        --sage: #4c662b;
+        --sage-light: #cdeda3;
+        --terracotta: #ba1a1a;
+        --dusty-pink: #bcece7;
+        --outline-variant: #c5c8ba;
+        --surface-high: #e8e9dd;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px 1px rgba(0, 0, 0, 0.1);
+        --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 6px 2px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 4px 8px 3px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.12);
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        font-family: 'Roboto', 'Inter', 'Helvetica Neue', sans-serif;
+        background: #1e1e1e;
+        color: var(--navy);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
 
-/* ── Window chrome ── */
-.window{
-  width:100%;max-width:1280px;height:min(800px,calc(100vh - 40px));
-  background:var(--cream);border-radius:12px;overflow:hidden;
-  box-shadow:0 32px 80px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.08);
-  display:flex;flex-direction:column;
-}
-.titlebar{
-  height:38px;background:var(--warm-gray);
-  border-bottom:1px solid var(--outline-variant);
-  display:flex;align-items:center;padding:0 14px;gap:8px;
-  flex-shrink:0;
-  -webkit-app-region:drag;
-  position:relative;
-}
-.dots{display:flex;gap:7px;align-items:center}
-.dot{width:12px;height:12px;border-radius:50%;cursor:pointer}
-.dot-r{background:#FF5F57}.dot-y{background:#FEBC2E}.dot-g{background:#28C840}
-.win-title{
-  position:absolute;left:50%;transform:translateX(-50%);
-  font-size:12px;font-weight:500;color:var(--navy-light);letter-spacing:.01em;
-  pointer-events:none;
-}
+      /* ── Window chrome ── */
+      .window {
+        width: 100%;
+        max-width: 1280px;
+        height: min(800px, calc(100vh - 40px));
+        background: var(--cream);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow:
+          0 32px 80px rgba(0, 0, 0, 0.45),
+          0 0 0 1px rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+      }
+      .titlebar {
+        height: 38px;
+        background: var(--warm-gray);
+        border-bottom: 1px solid var(--outline-variant);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        gap: 8px;
+        flex-shrink: 0;
+        -webkit-app-region: drag;
+        position: relative;
+      }
+      .dots {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      .dot-r {
+        background: #ff5f57;
+      }
+      .dot-y {
+        background: #febc2e;
+      }
+      .dot-g {
+        background: #28c840;
+      }
+      .win-title {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--navy-light);
+        letter-spacing: 0.01em;
+        pointer-events: none;
+      }
 
-/* ── Toolbar ── */
-.toolbar{
-  height:44px;padding:0 16px;
-  background:rgba(249,250,239,.88);backdrop-filter:blur(8px);
-  border-bottom:1px solid var(--warm-gray);
-  display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:nowrap;
-}
-.brand{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--navy);flex-shrink:0}
-.search-wrap{position:relative;display:flex;align-items:center}
-.search-wrap svg{position:absolute;left:9px;color:rgba(68,72,61,.4);pointer-events:none}
-.search-input{
-  width:220px;padding:6px 10px 6px 28px;border-radius:999px;
-  background:var(--warm-gray);border:1px solid rgba(68,72,61,.12);
-  font-size:12px;font-family:inherit;color:var(--navy);
-  outline:none;transition:border-color .15s,background .15s;
-}
-.search-input::placeholder{color:rgba(68,72,61,.35)}
-.search-input:focus{border-color:rgba(68,72,61,.35);background:var(--cream)}
-.chips{display:flex;gap:6px;flex-wrap:nowrap}
-.chip{
-  font-size:11px;padding:4px 10px;border-radius:999px;
-  background:var(--warm-gray);border:none;color:var(--navy-light);
-  cursor:pointer;font-family:inherit;transition:all .15s;line-height:1;
-}
-.chip:hover{background:rgba(237,238,227,.7)}
-.chip.on{background:var(--sage);color:var(--cream)}
-.sort-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.sort-wrap svg{color:rgba(68,72,61,.45)}
-.sort-sel{
-  font-size:12px;font-family:inherit;color:var(--navy);
-  background:var(--warm-gray);border:1px solid rgba(68,72,61,.12);
-  border-radius:8px;padding:5px 8px;outline:none;cursor:pointer;
-}
-.clear-btn{
-  display:none;align-items:center;gap:4px;font-size:11px;
-  background:none;border:none;color:var(--navy-light);cursor:pointer;
-  font-family:inherit;padding:2px;
-}
-.clear-btn.show{display:flex}
-.clear-btn:hover{color:var(--navy)}
-.settings-btn{
-  margin-left:auto;width:32px;height:32px;border-radius:50%;
-  background:none;border:none;cursor:pointer;color:var(--navy-light);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  transition:all .15s;
-}
-.settings-btn:hover{background:var(--warm-gray);color:var(--navy)}
+      /* ── Toolbar ── */
+      .toolbar {
+        height: 44px;
+        padding: 0 16px;
+        background: rgba(249, 250, 239, 0.88);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--warm-gray);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+        flex-wrap: nowrap;
+      }
+      .brand {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--navy);
+        flex-shrink: 0;
+      }
+      .search-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .search-wrap svg {
+        position: absolute;
+        left: 9px;
+        color: rgba(68, 72, 61, 0.4);
+        pointer-events: none;
+      }
+      .search-input {
+        width: 220px;
+        padding: 6px 10px 6px 28px;
+        border-radius: 999px;
+        background: var(--warm-gray);
+        border: 1px solid rgba(68, 72, 61, 0.12);
+        font-size: 12px;
+        font-family: inherit;
+        color: var(--navy);
+        outline: none;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .search-input::placeholder {
+        color: rgba(68, 72, 61, 0.35);
+      }
+      .search-input:focus {
+        border-color: rgba(68, 72, 61, 0.35);
+        background: var(--cream);
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: nowrap;
+      }
+      .chip {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--warm-gray);
+        border: none;
+        color: var(--navy-light);
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.15s;
+        line-height: 1;
+      }
+      .chip:hover {
+        background: rgba(237, 238, 227, 0.7);
+      }
+      .chip.on {
+        background: var(--sage);
+        color: var(--cream);
+      }
+      .sort-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .sort-wrap svg {
+        color: rgba(68, 72, 61, 0.45);
+      }
+      .sort-sel {
+        font-size: 12px;
+        font-family: inherit;
+        color: var(--navy);
+        background: var(--warm-gray);
+        border: 1px solid rgba(68, 72, 61, 0.12);
+        border-radius: 8px;
+        padding: 5px 8px;
+        outline: none;
+        cursor: pointer;
+      }
+      .clear-btn {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        background: none;
+        border: none;
+        color: var(--navy-light);
+        cursor: pointer;
+        font-family: inherit;
+        padding: 2px;
+      }
+      .clear-btn.show {
+        display: flex;
+      }
+      .clear-btn:hover {
+        color: var(--navy);
+      }
+      .settings-btn {
+        margin-left: auto;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--navy-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.15s;
+      }
+      .settings-btn:hover {
+        background: var(--warm-gray);
+        color: var(--navy);
+      }
 
-/* ── AI Banner ── */
-.ai-banner{
-  background:var(--sage-light);border-bottom:1px solid rgba(76,102,43,.15);
-  padding:6px 16px;font-size:11.5px;color:var(--sage);
-  display:flex;align-items:center;gap:6px;flex-shrink:0;
-}
-.ai-banner svg{flex-shrink:0}
+      /* ── AI Banner ── */
+      .ai-banner {
+        background: var(--sage-light);
+        border-bottom: 1px solid rgba(76, 102, 43, 0.15);
+        padding: 6px 16px;
+        font-size: 11.5px;
+        color: var(--sage);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .ai-banner svg {
+        flex-shrink: 0;
+      }
 
-/* ── Board ── */
-.board{
-  display:grid;grid-template-columns:repeat(5,1fr);
-  gap:12px;padding:12px;flex:1;min-height:0;overflow:hidden;
-}
-.col{
-  display:flex;flex-direction:column;min-height:0;
-  background:rgba(249,250,239,.65);backdrop-filter:blur(4px);
-  border:1px solid rgba(26,28,22,.08);border-radius:10px;
-  box-shadow:var(--shadow-sm);
-}
-.col-header{
-  padding:8px 12px;border-bottom:1px solid rgba(26,28,22,.1);flex-shrink:0;
-}
-.col-header h2{
-  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--navy);display:flex;align-items:center;justify-content:space-between;
-}
-.col-count{
-  font-size:11px;font-weight:400;color:var(--navy-light);
-  background:rgba(26,28,22,.06);border-radius:999px;padding:1px 8px;
-  letter-spacing:0;
-}
-.col-body{
-  flex:1;min-height:0;overflow-y:auto;padding:8px;
-  display:flex;flex-direction:column;gap:8px;
-}
-.col-body::-webkit-scrollbar{width:4px}
-.col-body::-webkit-scrollbar-thumb{background:var(--outline-variant);border-radius:2px}
+      /* ── Board ── */
+      .board {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        padding: 12px;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: rgba(249, 250, 239, 0.65);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(26, 28, 22, 0.08);
+        border-radius: 10px;
+        box-shadow: var(--shadow-sm);
+      }
+      .col-header {
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(26, 28, 22, 0.1);
+        flex-shrink: 0;
+      }
+      .col-header h2 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--navy);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .col-count {
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--navy-light);
+        background: rgba(26, 28, 22, 0.06);
+        border-radius: 999px;
+        padding: 1px 8px;
+        letter-spacing: 0;
+      }
+      .col-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .col-body::-webkit-scrollbar {
+        width: 4px;
+      }
+      .col-body::-webkit-scrollbar-thumb {
+        background: var(--outline-variant);
+        border-radius: 2px;
+      }
 
-/* ── Repo Card ── */
-.card{
-  background:#fff;border:1px solid rgba(26,28,22,.09);
-  border-radius:10px;overflow:hidden;display:flex;flex-direction:column;
-  box-shadow:var(--shadow-sm);cursor:pointer;transition:box-shadow .15s,transform .12s;
-}
-.card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-.card.selected{border-color:var(--sage);box-shadow:0 0 0 2px rgba(76,102,43,.2)}
-.card.filtered-out{display:none}
+      /* ── Repo Card ── */
+      .card {
+        background: #fff;
+        border: 1px solid rgba(26, 28, 22, 0.09);
+        border-radius: 10px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        transition:
+          box-shadow 0.15s,
+          transform 0.12s;
+      }
+      .card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+      }
+      .card.selected {
+        border-color: var(--sage);
+        box-shadow: 0 0 0 2px rgba(76, 102, 43, 0.2);
+      }
+      .card.filtered-out {
+        display: none;
+      }
 
-/* card header */
-.card-header{
-  position:relative;overflow:hidden;border-radius:10px 10px 0 0;
-  padding:7px 12px;display:flex;align-items:center;justify-content:space-between;
-}
-.card-header-watermark{
-  pointer-events:none;position:absolute;right:-2px;bottom:-10px;
-  font-size:36px;font-weight:900;line-height:1;user-select:none;
-}
-.lang-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.lang-label{
-  display:flex;align-items:center;gap:6px;
-  font-size:11px;font-weight:500;color:var(--navy);position:relative;
-}
-.sync-badges{display:flex;gap:4px;align-items:center;position:relative}
-.badge{
-  font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;
-  line-height:1.4;letter-spacing:.01em;
-}
-.badge-dirty{background:rgba(254,188,46,.2);color:#A07000}
-.badge-ahead{background:rgba(40,200,64,.15);color:#1a7a2a}
-.badge-behind{background:rgba(186,26,26,.12);color:var(--terracotta)}
-.badge-ci-ok{background:rgba(40,200,64,.12);color:#1a7a2a}
-.badge-ci-fail{background:rgba(186,26,26,.12);color:var(--terracotta)}
+      /* card header */
+      .card-header {
+        position: relative;
+        overflow: hidden;
+        border-radius: 10px 10px 0 0;
+        padding: 7px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .card-header-watermark {
+        pointer-events: none;
+        position: absolute;
+        right: -2px;
+        bottom: -10px;
+        font-size: 36px;
+        font-weight: 900;
+        line-height: 1;
+        user-select: none;
+      }
+      .lang-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .lang-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--navy);
+        position: relative;
+      }
+      .sync-badges {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        position: relative;
+      }
+      .badge {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 999px;
+        line-height: 1.4;
+        letter-spacing: 0.01em;
+      }
+      .badge-dirty {
+        background: rgba(254, 188, 46, 0.2);
+        color: #a07000;
+      }
+      .badge-ahead {
+        background: rgba(40, 200, 64, 0.15);
+        color: #1a7a2a;
+      }
+      .badge-behind {
+        background: rgba(186, 26, 26, 0.12);
+        color: var(--terracotta);
+      }
+      .badge-ci-ok {
+        background: rgba(40, 200, 64, 0.12);
+        color: #1a7a2a;
+      }
+      .badge-ci-fail {
+        background: rgba(186, 26, 26, 0.12);
+        color: var(--terracotta);
+      }
 
-/* identity block */
-.card-identity{padding:8px 12px 6px;display:flex;flex-direction:column;gap:3px}
-.card-handle{font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--navy-light);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-name-row{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
-.card-name{font-size:14px;font-weight:700;color:var(--navy);line-height:1.2;letter-spacing:-.01em;word-break:break-word}
-.card-icons{display:flex;gap:3px;align-items:center;color:var(--navy-light);flex-shrink:0;margin-top:2px}
-.card-desc{
-  font-size:12px;color:var(--navy);line-height:1.45;
-  border-left:2px solid var(--terracotta);padding-left:7px;
-  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-}
-.card-analyzing{font-size:12px;color:var(--navy-light);display:flex;align-items:center;gap:5px}
-.card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
-.card-tag{
-  font-size:9px;font-weight:500;padding:2px 6px;border-radius:999px;
-  background:rgba(188,236,231,.35);color:var(--navy-light);
-}
+      /* identity block */
+      .card-identity {
+        padding: 8px 12px 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .card-handle {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--navy-light);
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card-name-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 6px;
+      }
+      .card-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--navy);
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+        word-break: break-word;
+      }
+      .card-icons {
+        display: flex;
+        gap: 3px;
+        align-items: center;
+        color: var(--navy-light);
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .card-desc {
+        font-size: 12px;
+        color: var(--navy);
+        line-height: 1.45;
+        border-left: 2px solid var(--terracotta);
+        padding-left: 7px;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .card-analyzing {
+        font-size: 12px;
+        color: var(--navy-light);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 3px;
+      }
+      .card-tag {
+        font-size: 9px;
+        font-weight: 500;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgba(188, 236, 231, 0.35);
+        color: var(--navy-light);
+      }
 
-/* stat grid */
-.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(26,28,22,.08)}
-.stat-cell{padding:6px 4px;text-align:center}
-.stat-cell:not(:last-child){border-right:1px solid rgba(26,28,22,.08)}
-.stat-val{display:block;font-size:13px;font-weight:600;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums}
-.stat-lbl{display:block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--navy-light);margin-top:2px}
+      /* stat grid */
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid rgba(26, 28, 22, 0.08);
+      }
+      .stat-cell {
+        padding: 6px 4px;
+        text-align: center;
+      }
+      .stat-cell:not(:last-child) {
+        border-right: 1px solid rgba(26, 28, 22, 0.08);
+      }
+      .stat-val {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--navy);
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat-lbl {
+        display: block;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--navy-light);
+        margin-top: 2px;
+      }
 
-/* action row */
-.card-actions{
-  display:flex;align-items:center;justify-content:flex-end;gap:3px;
-  border-top:1px solid rgba(26,28,22,.08);padding:4px 8px;
-}
-.act-btn{
-  padding:4px;border-radius:999px;background:none;border:none;
-  color:var(--navy-light);cursor:pointer;display:flex;align-items:center;
-  transition:color .12s,background .12s;
-}
-.act-btn:hover{color:var(--sage);background:rgba(76,102,43,.08)}
-.act-btn.pulse svg{animation:pulse 1.5s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+      /* action row */
+      .card-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 3px;
+        border-top: 1px solid rgba(26, 28, 22, 0.08);
+        padding: 4px 8px;
+      }
+      .act-btn {
+        padding: 4px;
+        border-radius: 999px;
+        background: none;
+        border: none;
+        color: var(--navy-light);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        transition:
+          color 0.12s,
+          background 0.12s;
+      }
+      .act-btn:hover {
+        color: var(--sage);
+        background: rgba(76, 102, 43, 0.08);
+      }
+      .act-btn.pulse svg {
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
 
-/* ── Detail modal ── */
-.overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.45);
-  backdrop-filter:blur(3px);z-index:100;
-  display:none;align-items:center;justify-content:center;
-}
-.overlay.open{display:flex}
-.detail{
-  width:85vw;height:85vh;background:var(--cream);
-  border-radius:12px;box-shadow:var(--shadow-lg);
-  display:flex;flex-direction:column;overflow:hidden;
-  border:1px solid var(--outline-variant);
-}
-.detail-topbar{
-  display:flex;align-items:center;gap:12px;padding:12px 16px;
-  border-bottom:1px solid var(--outline-variant);flex-shrink:0;background:var(--warm-gray);
-}
-.detail-icon{font-size:24px;flex-shrink:0}
-.detail-meta{flex:1;min-width:0}
-.detail-title{font-size:16px;font-weight:700;color:var(--navy);letter-spacing:-.02em}
-.detail-sub{font-size:12px;color:var(--navy-light);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.detail-stats-row{display:flex;gap:16px;margin-top:8px}
-.detail-stat{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--navy-light)}
-.detail-stat svg{flex-shrink:0}
-.detail-close{
-  width:28px;height:28px;border-radius:8px;border:1px solid var(--outline-variant);
-  background:var(--cream);cursor:pointer;display:flex;align-items:center;justify-content:center;
-  color:var(--navy-light);flex-shrink:0;transition:all .15s;
-}
-.detail-close:hover{background:var(--warm-gray);color:var(--navy)}
-.detail-body{display:flex;flex:1;min-height:0}
+      /* ── Detail modal ── */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .overlay.open {
+        display: flex;
+      }
+      .detail {
+        width: 85vw;
+        height: 85vh;
+        background: var(--cream);
+        border-radius: 12px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--outline-variant);
+      }
+      .detail-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--outline-variant);
+        flex-shrink: 0;
+        background: var(--warm-gray);
+      }
+      .detail-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+      }
+      .detail-meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .detail-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--navy);
+        letter-spacing: -0.02em;
+      }
+      .detail-sub {
+        font-size: 12px;
+        color: var(--navy-light);
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .detail-stats-row {
+        display: flex;
+        gap: 16px;
+        margin-top: 8px;
+      }
+      .detail-stat {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--navy-light);
+      }
+      .detail-stat svg {
+        flex-shrink: 0;
+      }
+      .detail-close {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 1px solid var(--outline-variant);
+        background: var(--cream);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--navy-light);
+        flex-shrink: 0;
+        transition: all 0.15s;
+      }
+      .detail-close:hover {
+        background: var(--warm-gray);
+        color: var(--navy);
+      }
+      .detail-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
 
-/* left pane */
-.detail-left{
-  width:220px;flex-shrink:0;border-right:1px solid var(--outline-variant);
-  display:flex;flex-direction:column;
-}
-.detail-tabs{display:flex;border-bottom:1px solid var(--outline-variant);flex-shrink:0}
-.detail-tab{
-  flex:1;padding:8px;font-size:11px;font-weight:500;text-align:center;
-  background:none;border:none;cursor:pointer;color:var(--navy-light);
-  border-bottom:2px solid transparent;transition:all .15s;
-}
-.detail-tab.active{color:var(--sage);border-bottom-color:var(--sage)}
-.file-tree{flex:1;overflow-y:auto;padding:6px}
-.file-tree::-webkit-scrollbar{width:3px}
-.file-tree::-webkit-scrollbar-thumb{background:var(--outline-variant);border-radius:2px}
-.tree-row{
-  display:flex;align-items:center;gap:5px;padding:3px 6px;
-  border-radius:6px;cursor:pointer;font-size:12px;font-family:monospace;
-  color:var(--navy-light);transition:background .12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.tree-row:hover{background:var(--warm-gray)}
-.tree-row.active{background:rgba(76,102,43,.12);color:var(--navy)}
-.tree-row.dir{color:var(--navy)}
-.tree-row svg{flex-shrink:0}
-.tree-indent{padding-left:14px}
-.tree-indent2{padding-left:28px}
+      /* left pane */
+      .detail-left {
+        width: 220px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--outline-variant);
+        display: flex;
+        flex-direction: column;
+      }
+      .detail-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--outline-variant);
+        flex-shrink: 0;
+      }
+      .detail-tab {
+        flex: 1;
+        padding: 8px;
+        font-size: 11px;
+        font-weight: 500;
+        text-align: center;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--navy-light);
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+      }
+      .detail-tab.active {
+        color: var(--sage);
+        border-bottom-color: var(--sage);
+      }
+      .file-tree {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px;
+      }
+      .file-tree::-webkit-scrollbar {
+        width: 3px;
+      }
+      .file-tree::-webkit-scrollbar-thumb {
+        background: var(--outline-variant);
+        border-radius: 2px;
+      }
+      .tree-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: monospace;
+        color: var(--navy-light);
+        transition: background 0.12s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tree-row:hover {
+        background: var(--warm-gray);
+      }
+      .tree-row.active {
+        background: rgba(76, 102, 43, 0.12);
+        color: var(--navy);
+      }
+      .tree-row.dir {
+        color: var(--navy);
+      }
+      .tree-row svg {
+        flex-shrink: 0;
+      }
+      .tree-indent {
+        padding-left: 14px;
+      }
+      .tree-indent2 {
+        padding-left: 28px;
+      }
 
-/* right pane */
-.detail-right{flex:1;display:flex;flex-direction:column;min-width:0}
-.preview-tabs{display:flex;border-bottom:1px solid var(--outline-variant);padding:0 16px;flex-shrink:0;gap:0}
-.preview-tab{
-  padding:8px 14px;font-size:11px;font-weight:500;background:none;border:none;
-  cursor:pointer;color:var(--navy-light);border-bottom:2px solid transparent;transition:all .15s;
-}
-.preview-tab.active{color:var(--sage);border-bottom-color:var(--sage)}
-.preview-pane{flex:1;overflow-y:auto;padding:20px 24px;display:none}
-.preview-pane.active{display:block}
-.preview-pane::-webkit-scrollbar{width:4px}
-.preview-pane::-webkit-scrollbar-thumb{background:var(--outline-variant);border-radius:2px}
+      /* right pane */
+      .detail-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .preview-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--outline-variant);
+        padding: 0 16px;
+        flex-shrink: 0;
+        gap: 0;
+      }
+      .preview-tab {
+        padding: 8px 14px;
+        font-size: 11px;
+        font-weight: 500;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--navy-light);
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+      }
+      .preview-tab.active {
+        color: var(--sage);
+        border-bottom-color: var(--sage);
+      }
+      .preview-pane {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 24px;
+        display: none;
+      }
+      .preview-pane.active {
+        display: block;
+      }
+      .preview-pane::-webkit-scrollbar {
+        width: 4px;
+      }
+      .preview-pane::-webkit-scrollbar-thumb {
+        background: var(--outline-variant);
+        border-radius: 2px;
+      }
 
-/* markdown */
-.md h1{font-size:22px;font-weight:700;margin:0 0 12px;color:var(--navy);padding-bottom:8px;border-bottom:1px solid var(--outline-variant)}
-.md h2{font-size:17px;font-weight:700;margin:20px 0 8px;color:var(--navy);padding-bottom:6px;border-bottom:1px solid var(--outline-variant)}
-.md h3{font-size:14px;font-weight:700;margin:14px 0 6px;color:var(--navy)}
-.md p{font-size:13.5px;line-height:1.7;color:var(--navy-light);margin-bottom:10px}
-.md ul,.md ol{padding-left:20px;margin-bottom:10px}
-.md li{font-size:13.5px;line-height:1.7;color:var(--navy-light);margin-bottom:3px}
-.md code{font-family:monospace;font-size:12px;background:var(--surface-high);padding:1px 5px;border-radius:4px;color:var(--navy)}
-.md pre{background:var(--surface-high);padding:12px 14px;border-radius:8px;overflow-x:auto;margin:10px 0}
-.md pre code{background:none;padding:0;font-size:12px}
-.md strong{font-weight:600;color:var(--navy)}
-.md a{color:var(--sage)}
+      /* markdown */
+      .md h1 {
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0 0 12px;
+        color: var(--navy);
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--outline-variant);
+      }
+      .md h2 {
+        font-size: 17px;
+        font-weight: 700;
+        margin: 20px 0 8px;
+        color: var(--navy);
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--outline-variant);
+      }
+      .md h3 {
+        font-size: 14px;
+        font-weight: 700;
+        margin: 14px 0 6px;
+        color: var(--navy);
+      }
+      .md p {
+        font-size: 13.5px;
+        line-height: 1.7;
+        color: var(--navy-light);
+        margin-bottom: 10px;
+      }
+      .md ul,
+      .md ol {
+        padding-left: 20px;
+        margin-bottom: 10px;
+      }
+      .md li {
+        font-size: 13.5px;
+        line-height: 1.7;
+        color: var(--navy-light);
+        margin-bottom: 3px;
+      }
+      .md code {
+        font-family: monospace;
+        font-size: 12px;
+        background: var(--surface-high);
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: var(--navy);
+      }
+      .md pre {
+        background: var(--surface-high);
+        padding: 12px 14px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 10px 0;
+      }
+      .md pre code {
+        background: none;
+        padding: 0;
+        font-size: 12px;
+      }
+      .md strong {
+        font-weight: 600;
+        color: var(--navy);
+      }
+      .md a {
+        color: var(--sage);
+      }
 
-/* AI summary pane */
-.ai-pane{padding:20px 24px}
-.ai-summary-text{font-size:15px;line-height:1.7;color:var(--navy);margin-bottom:16px}
-.ai-tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
-.ai-tag{font-size:11px;padding:4px 10px;background:rgba(76,102,43,.12);color:var(--sage);border-radius:999px;font-family:monospace}
-.ai-meta{font-size:11px;color:rgba(68,72,61,.45);display:flex;gap:12px;align-items:center}
+      /* AI summary pane */
+      .ai-pane {
+        padding: 20px 24px;
+      }
+      .ai-summary-text {
+        font-size: 15px;
+        line-height: 1.7;
+        color: var(--navy);
+        margin-bottom: 16px;
+      }
+      .ai-tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+      .ai-tag {
+        font-size: 11px;
+        padding: 4px 10px;
+        background: rgba(76, 102, 43, 0.12);
+        color: var(--sage);
+        border-radius: 999px;
+        font-family: monospace;
+      }
+      .ai-meta {
+        font-size: 11px;
+        color: rgba(68, 72, 61, 0.45);
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
 
-/* notes */
-.notes-pane{
-  height:200px;flex-shrink:0;border-top:1px solid var(--outline-variant);
-  display:flex;flex-direction:column;
-}
-.notes-header{padding:6px 16px;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--navy-light);border-bottom:1px solid var(--outline-variant)}
-.notes-list{flex:1;overflow-y:auto;padding:8px 16px;display:flex;flex-direction:column;gap:8px}
-.note{display:flex;gap:10px;align-items:flex-start}
-.note-dot{width:6px;height:6px;border-radius:50%;background:var(--outline-variant);flex-shrink:0;margin-top:5px}
-.note-body{flex:1;min-width:0}
-.note-type{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--navy-light)}
-.note-text{font-size:12px;color:var(--navy);line-height:1.5}
-.note-time{font-size:10px;color:rgba(68,72,61,.4)}
-.notes-composer{
-  display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--outline-variant);
-}
-.note-input{
-  flex:1;font-size:12px;font-family:inherit;padding:5px 10px;
-  background:var(--warm-gray);border:1px solid var(--outline-variant);border-radius:8px;
-  outline:none;color:var(--navy);
-}
-.note-input:focus{border-color:rgba(76,102,43,.4)}
-.note-submit{
-  padding:5px 10px;background:var(--sage);color:var(--cream);border:none;
-  border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;
-}
+      /* notes */
+      .notes-pane {
+        height: 200px;
+        flex-shrink: 0;
+        border-top: 1px solid var(--outline-variant);
+        display: flex;
+        flex-direction: column;
+      }
+      .notes-header {
+        padding: 6px 16px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--navy-light);
+        border-bottom: 1px solid var(--outline-variant);
+      }
+      .notes-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .note {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .note-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--outline-variant);
+        flex-shrink: 0;
+        margin-top: 5px;
+      }
+      .note-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .note-type {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--navy-light);
+      }
+      .note-text {
+        font-size: 12px;
+        color: var(--navy);
+        line-height: 1.5;
+      }
+      .note-time {
+        font-size: 10px;
+        color: rgba(68, 72, 61, 0.4);
+      }
+      .notes-composer {
+        display: flex;
+        gap: 6px;
+        padding: 8px 12px;
+        border-top: 1px solid var(--outline-variant);
+      }
+      .note-input {
+        flex: 1;
+        font-size: 12px;
+        font-family: inherit;
+        padding: 5px 10px;
+        background: var(--warm-gray);
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        outline: none;
+        color: var(--navy);
+      }
+      .note-input:focus {
+        border-color: rgba(76, 102, 43, 0.4);
+      }
+      .note-submit {
+        padding: 5px 10px;
+        background: var(--sage);
+        color: var(--cream);
+        border: none;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+      }
 
-/* activity tab */
-.activity-pane{padding:4px 0}
-.activity-section-head{
-  padding:4px 12px;font-size:10px;font-weight:700;letter-spacing:.07em;
-  text-transform:uppercase;color:rgba(68,72,61,.45);
-}
-.activity-row{
-  display:flex;align-items:flex-start;gap:6px;padding:6px 12px;
-  font-size:12px;color:var(--navy-light);cursor:pointer;transition:background .12s;
-}
-.activity-row:hover{background:var(--warm-gray)}
-.activity-row svg{flex-shrink:0;margin-top:2px}
+      /* activity tab */
+      .activity-pane {
+        padding: 4px 0;
+      }
+      .activity-section-head {
+        padding: 4px 12px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: rgba(68, 72, 61, 0.45);
+      }
+      .activity-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        color: var(--navy-light);
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .activity-row:hover {
+        background: var(--warm-gray);
+      }
+      .activity-row svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
 
-/* ── Settings modal ── */
-.settings{
-  width:540px;background:var(--cream);border-radius:12px;
-  box-shadow:var(--shadow-lg);border:1px solid var(--outline-variant);
-  overflow:hidden;
-}
-.settings-header{
-  padding:16px 20px;border-bottom:1px solid var(--outline-variant);background:var(--warm-gray);
-  display:flex;align-items:center;justify-content:space-between;
-}
-.settings-title{font-size:14px;font-weight:600;color:var(--navy)}
-.settings-body{padding:20px}
-.settings-row{margin-bottom:16px}
-.settings-label{font-size:12px;font-weight:600;color:var(--navy-light);margin-bottom:6px;display:block;text-transform:uppercase;letter-spacing:.05em}
-.settings-input{
-  width:100%;padding:8px 12px;background:var(--warm-gray);
-  border:1px solid var(--outline-variant);border-radius:8px;
-  font-size:13px;font-family:inherit;color:var(--navy);outline:none;
-}
-.settings-input:focus{border-color:rgba(76,102,43,.4)}
-.settings-note{font-size:11px;color:var(--navy-light);margin-top:4px}
-.settings-divider{border:none;border-top:1px solid var(--outline-variant);margin:16px 0}
-.settings-footer{
-  padding:12px 20px;border-top:1px solid var(--outline-variant);
-  display:flex;justify-content:flex-end;gap:8px;
-}
-.btn-ghost{padding:7px 16px;background:none;border:1px solid var(--outline-variant);border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--navy-light)}
-.btn-primary{padding:7px 16px;background:var(--sage);color:var(--cream);border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
-</style>
-</head>
-<body>
+      /* ── Settings modal ── */
+      .settings {
+        width: 540px;
+        background: var(--cream);
+        border-radius: 12px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--outline-variant);
+        overflow: hidden;
+      }
+      .settings-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--outline-variant);
+        background: var(--warm-gray);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .settings-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--navy);
+      }
+      .settings-body {
+        padding: 20px;
+      }
+      .settings-row {
+        margin-bottom: 16px;
+      }
+      .settings-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--navy-light);
+        margin-bottom: 6px;
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .settings-input {
+        width: 100%;
+        padding: 8px 12px;
+        background: var(--warm-gray);
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        color: var(--navy);
+        outline: none;
+      }
+      .settings-input:focus {
+        border-color: rgba(76, 102, 43, 0.4);
+      }
+      .settings-note {
+        font-size: 11px;
+        color: var(--navy-light);
+        margin-top: 4px;
+      }
+      .settings-divider {
+        border: none;
+        border-top: 1px solid var(--outline-variant);
+        margin: 16px 0;
+      }
+      .settings-footer {
+        padding: 12px 20px;
+        border-top: 1px solid var(--outline-variant);
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .btn-ghost {
+        padding: 7px 16px;
+        background: none;
+        border: 1px solid var(--outline-variant);
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        font-family: inherit;
+        color: var(--navy-light);
+      }
+      .btn-primary {
+        padding: 7px 16px;
+        background: var(--sage);
+        color: var(--cream);
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SVG icon defs -->
+    <svg style="display: none">
+      <defs>
+        <symbol
+          id="ic-search"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </symbol>
+        <symbol
+          id="ic-settings"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol
+          id="ic-x"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
+          <path d="M18 6 6 18M6 6l12 12" />
+        </symbol>
+        <symbol
+          id="ic-sort"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m21 16-4 4-4-4M17 20V4m-14 4 4-4 4 4M7 4v16" />
+        </symbol>
+        <symbol
+          id="ic-sparkles"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"
+          />
+          <path d="M5 3v4M19 17v4M3 5h4M17 19h4" />
+        </symbol>
+        <symbol
+          id="ic-refresh"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M8 16H3v5" />
+        </symbol>
+        <symbol
+          id="ic-ext"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        </symbol>
+        <symbol
+          id="ic-file"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+          <path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8" />
+        </symbol>
+        <symbol
+          id="ic-code"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16" />
+        </symbol>
+        <symbol
+          id="ic-term"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m7 11 2-2-2-2M11 13h4" />
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+        </symbol>
+        <symbol
+          id="ic-folder-open"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"
+          />
+        </symbol>
+        <symbol
+          id="ic-folder"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+          />
+        </symbol>
+        <symbol
+          id="ic-chev-r"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </symbol>
+        <symbol
+          id="ic-chev-d"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </symbol>
+        <symbol
+          id="ic-file-sm"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+          <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+        </symbol>
+        <symbol
+          id="ic-star"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polygon
+            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+          />
+        </symbol>
+        <symbol
+          id="ic-circle-dot"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+        </symbol>
+        <symbol
+          id="ic-git-pr"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="18" cy="18" r="3" />
+          <circle cx="6" cy="6" r="3" />
+          <path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12" />
+        </symbol>
+        <symbol
+          id="ic-git-commit"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <line x1="3" x2="9" y1="12" y2="12" />
+          <line x1="15" x2="21" y1="12" y2="12" />
+        </symbol>
+        <symbol
+          id="ic-plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        >
+          <path d="M5 12h14M12 5v14" />
+        </symbol>
+        <symbol
+          id="ic-trash"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+          />
+        </symbol>
+        <symbol
+          id="ic-lock"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect width="18" height="11" x="3" y="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </symbol>
+      </defs>
+    </svg>
 
-<!-- SVG icon defs -->
-<svg style="display:none">
-<defs>
-<symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></symbol>
-<symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
-<symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
-<symbol id="ic-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21 16-4 4-4-4M17 20V4m-14 4 4-4 4 4M7 4v16"/></symbol>
-<symbol id="ic-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></symbol>
-<symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
-<symbol id="ic-ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
-<symbol id="ic-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></symbol>
-<symbol id="ic-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></symbol>
-<symbol id="ic-term" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 11 2-2-2-2M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></symbol>
-<symbol id="ic-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
-<symbol id="ic-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
-<symbol id="ic-chev-r" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></symbol>
-<symbol id="ic-chev-d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></symbol>
-<symbol id="ic-file-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
-<symbol id="ic-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
-<symbol id="ic-circle-dot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
-<symbol id="ic-git-pr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"/></symbol>
-<symbol id="ic-git-commit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/></symbol>
-<symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></symbol>
-<symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
-<symbol id="ic-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
-</defs>
-</svg>
-
-<div class="window">
-  <!-- Title bar -->
-  <div class="titlebar">
-    <div class="dots">
-      <div class="dot dot-r" onclick="window.close()"></div>
-      <div class="dot dot-y"></div>
-      <div class="dot dot-g"></div>
-    </div>
-    <span class="win-title">Coruro</span>
-  </div>
-
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <span class="brand">Coruro</span>
-    <div class="search-wrap">
-      <svg width="13" height="13"><use href="#ic-search"/></svg>
-      <input class="search-input" id="search-input" placeholder="Search name, language, branch…" oninput="handleSearch(this.value)">
-    </div>
-    <div class="chips">
-      <button class="chip" data-f="github" onclick="toggleFilter(this)">GitHub</button>
-      <button class="chip" data-f="local"  onclick="toggleFilter(this)">Local</button>
-      <button class="chip" data-f="dirty"  onclick="toggleFilter(this)">Dirty</button>
-      <button class="chip" data-f="ahead"  onclick="toggleFilter(this)">Ahead</button>
-      <button class="chip" data-f="ci"     onclick="toggleFilter(this)">CI failing</button>
-    </div>
-    <div class="sort-wrap">
-      <svg width="13" height="13"><use href="#ic-sort"/></svg>
-      <select class="sort-sel"><option>Manual</option><option>Stars ↓</option><option>Name A→Z</option><option>Last commit</option></select>
-    </div>
-    <button class="clear-btn" id="clear-btn" onclick="clearView()">
-      <svg width="12" height="12"><use href="#ic-x"/></svg>Clear
-    </button>
-    <button class="settings-btn" onclick="openSettings()" title="Settings (⌘,)">
-      <svg width="18" height="18"><use href="#ic-settings"/></svg>
-    </button>
-  </div>
-
-  <!-- AI banner -->
-  <div class="ai-banner">
-    <svg width="13" height="13"><use href="#ic-sparkles"/></svg>
-    On-device AI summaries active — Apple Intelligence running on this Mac. Your code never leaves the machine.
-  </div>
-
-  <!-- Board -->
-  <div class="board" id="board">
-
-    <!-- INBOX -->
-    <div class="col">
-      <div class="col-header"><h2>Inbox <span class="col-count" id="cnt-inbox">2</span></h2></div>
-      <div class="col-body" id="col-inbox">
-
-        <!-- coruro -->
-        <article class="card" data-name="coruro" data-flags="github" onclick="openDetail('coruro')">
-          <div class="card-header" style="background:#3178c61a">
-            <span class="card-header-watermark" style="color:#3178c626">CO</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#3178c6"></span>TypeScript</span>
-            <span class="sync-badges"><span class="badge badge-ci-ok">✓ CI</span></span>
-          </div>
-          <div class="card-identity">
-            <div class="card-handle">felipemillan</div>
-            <div class="card-name-row">
-              <h3 class="card-name">coruro</h3>
-              <div class="card-icons"></div>
-            </div>
-            <p class="card-desc">A Kanban board of local repos with on-device AI summaries powered by Apple Intelligence.</p>
-            <div class="card-tags">
-              <span class="card-tag">kanban</span><span class="card-tag">git</span><span class="card-tag">apple-ai</span><span class="card-tag">tauri</span>
-            </div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">42</span><span class="stat-lbl">Stars</span></div>
-            <div class="stat-cell"><span class="stat-val">3</span><span class="stat-lbl">Issues</span></div>
-            <div class="stat-cell"><span class="stat-val">2</span><span class="stat-lbl">Forks</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn" title="Analyze with Apple Intelligence"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn" title="Refresh GitHub"><svg width="14" height="14"><use href="#ic-refresh"/></svg></button>
-            <button class="act-btn" title="Open on GitHub" onclick="event.stopPropagation()"><svg width="14" height="14"><use href="#ic-ext"/></svg></button>
-            <button class="act-btn" title="View README" onclick="event.stopPropagation();openDetail('coruro')"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn" title="Open in IDE"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn" title="Open in Terminal"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn" title="Reveal in Finder"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
-
-        <!-- app-final-2 -->
-        <article class="card" data-name="app-final-2" data-flags="local dirty">
-          <div class="card-header" style="background:#3178c61a">
-            <span class="card-header-watermark" style="color:#3178c626">AP</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#3178c6"></span>TypeScript</span>
-            <span class="sync-badges"><span class="badge badge-dirty">M</span></span>
-          </div>
-          <div class="card-identity">
-            <div class="card-name-row"><h3 class="card-name">app-final-2</h3></div>
-            <p class="card-analyzing"><svg width="11" height="11" class="pulse"><use href="#ic-sparkles"/></svg> analyzing…</p>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">89</span><span class="stat-lbl">Commits</span></div>
-            <div class="stat-cell"><span class="stat-val">3</span><span class="stat-lbl">Branches</span></div>
-            <div class="stat-cell"><span class="stat-val">3d</span><span class="stat-lbl">Last commit</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn pulse" title="Analyzing…"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn" title="View README"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn" title="Open in IDE"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn" title="Open in Terminal"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn" title="Reveal in Finder"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
-
+    <div class="window">
+      <!-- Title bar -->
+      <div class="titlebar">
+        <div class="dots">
+          <div class="dot dot-r" onclick="window.close()"></div>
+          <div class="dot dot-y"></div>
+          <div class="dot dot-g"></div>
+        </div>
+        <span class="win-title">Coruro</span>
       </div>
-    </div>
 
-    <!-- BACKLOG -->
-    <div class="col">
-      <div class="col-header"><h2>Backlog <span class="col-count" id="cnt-backlog">2</span></h2></div>
-      <div class="col-body" id="col-backlog">
-
-        <article class="card" data-name="boostllms-web" data-flags="github dirty">
-          <div class="card-header" style="background:#3178c61a">
-            <span class="card-header-watermark" style="color:#3178c626">BO</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#3178c6"></span>TypeScript</span>
-            <span class="sync-badges"><span class="badge badge-dirty">M</span></span>
-          </div>
-          <div class="card-identity">
-            <div class="card-handle">boostllms</div>
-            <div class="card-name-row"><h3 class="card-name">boostllms-web</h3></div>
-            <p class="card-desc">AI readiness intelligence platform — audit engine for LLM search visibility signals.</p>
-            <div class="card-tags">
-              <span class="card-tag">ai-seo</span><span class="card-tag">llm</span><span class="card-tag">saas</span>
-            </div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">12</span><span class="stat-lbl">Stars</span></div>
-            <div class="stat-cell"><span class="stat-val">5</span><span class="stat-lbl">Issues</span></div>
-            <div class="stat-cell"><span class="stat-val">1</span><span class="stat-lbl">Forks</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-refresh"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-ext"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
-
-        <article class="card" data-name="portfolio-2019" data-flags="local">
-          <div class="card-header" style="background:#e34c261a">
-            <span class="card-header-watermark" style="color:#e34c2626">PO</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#e34c26"></span>HTML</span>
-            <span class="sync-badges"></span>
-          </div>
-          <div class="card-identity">
-            <div class="card-name-row"><h3 class="card-name">site-2025</h3></div>
-            <p class="card-desc">Old personal site. Static HTML, needs full rewrite. Keeping for design reference.</p>
-            <div class="card-tags"><span class="card-tag">web</span><span class="card-tag">static</span></div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">23</span><span class="stat-lbl">Commits</span></div>
-            <div class="stat-cell"><span class="stat-val">1</span><span class="stat-lbl">Branches</span></div>
-            <div class="stat-cell"><span class="stat-val">2y</span><span class="stat-lbl">Last commit</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
-
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <span class="brand">Coruro</span>
+        <div class="search-wrap">
+          <svg width="13" height="13"><use href="#ic-search" /></svg>
+          <input
+            class="search-input"
+            id="search-input"
+            placeholder="Search name, language, branch…"
+            oninput="handleSearch(this.value)"
+          />
+        </div>
+        <div class="chips">
+          <button class="chip" data-f="github" onclick="toggleFilter(this)">GitHub</button>
+          <button class="chip" data-f="local" onclick="toggleFilter(this)">Local</button>
+          <button class="chip" data-f="dirty" onclick="toggleFilter(this)">Dirty</button>
+          <button class="chip" data-f="ahead" onclick="toggleFilter(this)">Ahead</button>
+          <button class="chip" data-f="ci" onclick="toggleFilter(this)">CI failing</button>
+        </div>
+        <div class="sort-wrap">
+          <svg width="13" height="13"><use href="#ic-sort" /></svg>
+          <select class="sort-sel">
+            <option>Manual</option>
+            <option>Stars ↓</option>
+            <option>Name A→Z</option>
+            <option>Last commit</option>
+          </select>
+        </div>
+        <button class="clear-btn" id="clear-btn" onclick="clearView()">
+          <svg width="12" height="12"><use href="#ic-x" /></svg>Clear
+        </button>
+        <button class="settings-btn" onclick="openSettings()" title="Settings (⌘,)">
+          <svg width="18" height="18"><use href="#ic-settings" /></svg>
+        </button>
       </div>
-    </div>
 
-    <!-- ACTIVE -->
-    <div class="col">
-      <div class="col-header"><h2>Active <span class="col-count" id="cnt-active">2</span></h2></div>
-      <div class="col-body" id="col-active">
-
-        <article class="card" data-name="checkllms" data-flags="github ahead">
-          <div class="card-header" style="background:#3178c61a">
-            <span class="card-header-watermark" style="color:#3178c626">CH</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#3178c6"></span>TypeScript</span>
-            <span class="sync-badges"><span class="badge badge-ahead">↑ 3</span></span>
-          </div>
-          <div class="card-identity">
-            <div class="card-handle">felipemillan</div>
-            <div class="card-name-row"><h3 class="card-name">checkllms</h3></div>
-            <p class="card-desc">Single-URL LLM visibility audit tool — paste a URL, get a full AI search readiness report.</p>
-            <div class="card-tags">
-              <span class="card-tag">llm</span><span class="card-tag">audit</span><span class="card-tag">web-tool</span>
-            </div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">8</span><span class="stat-lbl">Stars</span></div>
-            <div class="stat-cell"><span class="stat-val">2</span><span class="stat-lbl">Issues</span></div>
-            <div class="stat-cell"><span class="stat-val">0</span><span class="stat-lbl">Forks</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-refresh"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-ext"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
-
-        <article class="card" data-name="coruro-ai" data-flags="local">
-          <div class="card-header" style="background:#F051381a">
-            <span class="card-header-watermark" style="color:#F0513826">CO</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#F05138"></span>Swift</span>
-            <span class="sync-badges"></span>
-          </div>
-          <div class="card-identity">
-            <div class="card-name-row"><h3 class="card-name">coruro-ai</h3></div>
-            <p class="card-desc">Swift sidecar — on-device repo summarizer using Apple FoundationModels with @Generable output.</p>
-            <div class="card-tags">
-              <span class="card-tag">swift</span><span class="card-tag">llm</span><span class="card-tag">sidecar</span>
-            </div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">34</span><span class="stat-lbl">Commits</span></div>
-            <div class="stat-cell"><span class="stat-val">1</span><span class="stat-lbl">Branches</span></div>
-            <div class="stat-cell"><span class="stat-val">1h</span><span class="stat-lbl">Last commit</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
-
+      <!-- AI banner -->
+      <div class="ai-banner">
+        <svg width="13" height="13"><use href="#ic-sparkles" /></svg>
+        On-device AI summaries active — Apple Intelligence running on this Mac. Your code never
+        leaves the machine.
       </div>
-    </div>
 
-    <!-- REVIEW -->
-    <div class="col">
-      <div class="col-header"><h2>Review <span class="col-count" id="cnt-review">2</span></h2></div>
-      <div class="col-body" id="col-review">
+      <!-- Board -->
+      <div class="board" id="board">
+        <!-- INBOX -->
+        <div class="col">
+          <div class="col-header">
+            <h2>Inbox <span class="col-count" id="cnt-inbox">2</span></h2>
+          </div>
+          <div class="col-body" id="col-inbox">
+            <!-- coruro -->
+            <article
+              class="card"
+              data-name="coruro"
+              data-flags="github"
+              onclick="openDetail('coruro')"
+            >
+              <div class="card-header" style="background: #3178c61a">
+                <span class="card-header-watermark" style="color: #3178c626">CO</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #3178c6"></span>TypeScript</span
+                >
+                <span class="sync-badges"><span class="badge badge-ci-ok">✓ CI</span></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-handle">felipemillan</div>
+                <div class="card-name-row">
+                  <h3 class="card-name">coruro</h3>
+                  <div class="card-icons"></div>
+                </div>
+                <p class="card-desc">
+                  A Kanban board of local repos with on-device AI summaries powered by Apple
+                  Intelligence.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">kanban</span><span class="card-tag">git</span
+                  ><span class="card-tag">apple-ai</span><span class="card-tag">tauri</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">42</span><span class="stat-lbl">Stars</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">3</span><span class="stat-lbl">Issues</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">2</span><span class="stat-lbl">Forks</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn" title="Analyze with Apple Intelligence">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn" title="Refresh GitHub">
+                  <svg width="14" height="14"><use href="#ic-refresh" /></svg>
+                </button>
+                <button class="act-btn" title="Open on GitHub" onclick="event.stopPropagation()">
+                  <svg width="14" height="14"><use href="#ic-ext" /></svg>
+                </button>
+                <button
+                  class="act-btn"
+                  title="View README"
+                  onclick="
+                    event.stopPropagation();
+                    openDetail('coruro');
+                  "
+                >
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn" title="Open in IDE">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn" title="Open in Terminal">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn" title="Reveal in Finder">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
 
-        <article class="card" data-name="awesome-ai-seo" data-flags="github">
-          <div class="card-header" style="background:#083fa11a">
-            <span class="card-header-watermark" style="color:#083fa126">AW</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#083fa1"></span>Markdown</span>
-            <span class="sync-badges"><span class="badge badge-ci-ok">✓ CI</span></span>
+            <!-- app-final-2 -->
+            <article class="card" data-name="app-final-2" data-flags="local dirty">
+              <div class="card-header" style="background: #3178c61a">
+                <span class="card-header-watermark" style="color: #3178c626">AP</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #3178c6"></span>TypeScript</span
+                >
+                <span class="sync-badges"><span class="badge badge-dirty">M</span></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-name-row"><h3 class="card-name">app-final-2</h3></div>
+                <p class="card-analyzing">
+                  <svg width="11" height="11" class="pulse"><use href="#ic-sparkles" /></svg>
+                  analyzing…
+                </p>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">89</span><span class="stat-lbl">Commits</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">3</span><span class="stat-lbl">Branches</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">3d</span><span class="stat-lbl">Last commit</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn pulse" title="Analyzing…">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn" title="View README">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn" title="Open in IDE">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn" title="Open in Terminal">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn" title="Reveal in Finder">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
           </div>
-          <div class="card-identity">
-            <div class="card-handle">felipemillan</div>
-            <div class="card-name-row"><h3 class="card-name">awesome-ai-seo</h3></div>
-            <p class="card-desc">Curated list of AI SEO and LLM visibility tools, resources, and techniques.</p>
-            <div class="card-tags">
-              <span class="card-tag">ai-seo</span><span class="card-tag">llm</span><span class="card-tag">curated</span>
-            </div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">234</span><span class="stat-lbl">Stars</span></div>
-            <div class="stat-cell"><span class="stat-val">12</span><span class="stat-lbl">Issues</span></div>
-            <div class="stat-cell"><span class="stat-val">18</span><span class="stat-lbl">Forks</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-refresh"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-ext"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
+        </div>
 
-        <article class="card" data-name="fmillan.com" data-flags="github ci">
-          <div class="card-header" style="background:#e34c261a">
-            <span class="card-header-watermark" style="color:#e34c2626">FM</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#e34c26"></span>Astro</span>
-            <span class="sync-badges"><span class="badge badge-ci-fail">✗ CI</span><span class="badge badge-ahead">↑ 1</span></span>
+        <!-- BACKLOG -->
+        <div class="col">
+          <div class="col-header">
+            <h2>Backlog <span class="col-count" id="cnt-backlog">2</span></h2>
           </div>
-          <div class="card-identity">
-            <div class="card-handle">felipemillan</div>
-            <div class="card-name-row"><h3 class="card-name">fmillan.com</h3></div>
-            <p class="card-desc">Personal landing page. Static, fast, no framework bloat. CI failing on deploy step.</p>
-            <div class="card-tags">
-              <span class="card-tag">personal</span><span class="card-tag">astro</span>
-            </div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">6</span><span class="stat-lbl">Stars</span></div>
-            <div class="stat-cell"><span class="stat-val">1</span><span class="stat-lbl">Issues</span></div>
-            <div class="stat-cell"><span class="stat-val">0</span><span class="stat-lbl">Forks</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-refresh"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-ext"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
+          <div class="col-body" id="col-backlog">
+            <article class="card" data-name="boostllms-web" data-flags="github dirty">
+              <div class="card-header" style="background: #3178c61a">
+                <span class="card-header-watermark" style="color: #3178c626">BO</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #3178c6"></span>TypeScript</span
+                >
+                <span class="sync-badges"><span class="badge badge-dirty">M</span></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-handle">boostllms</div>
+                <div class="card-name-row"><h3 class="card-name">boostllms-web</h3></div>
+                <p class="card-desc">
+                  AI readiness intelligence platform — audit engine for LLM search visibility
+                  signals.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">ai-seo</span><span class="card-tag">llm</span
+                  ><span class="card-tag">saas</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">12</span><span class="stat-lbl">Stars</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">5</span><span class="stat-lbl">Issues</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1</span><span class="stat-lbl">Forks</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-refresh" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-ext" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
 
-      </div>
-    </div>
+            <article class="card" data-name="portfolio-2019" data-flags="local">
+              <div class="card-header" style="background: #e34c261a">
+                <span class="card-header-watermark" style="color: #e34c2626">PO</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #e34c26"></span>HTML</span
+                >
+                <span class="sync-badges"></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-name-row"><h3 class="card-name">site-2025</h3></div>
+                <p class="card-desc">
+                  Old personal site. Static HTML, needs full rewrite. Keeping for design reference.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">web</span><span class="card-tag">static</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">23</span><span class="stat-lbl">Commits</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1</span><span class="stat-lbl">Branches</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">2y</span><span class="stat-lbl">Last commit</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
 
-    <!-- DONE -->
-    <div class="col">
-      <div class="col-header"><h2>Done <span class="col-count" id="cnt-done">2</span></h2></div>
-      <div class="col-body" id="col-done">
+        <!-- ACTIVE -->
+        <div class="col">
+          <div class="col-header">
+            <h2>Active <span class="col-count" id="cnt-active">2</span></h2>
+          </div>
+          <div class="col-body" id="col-active">
+            <article class="card" data-name="checkllms" data-flags="github ahead">
+              <div class="card-header" style="background: #3178c61a">
+                <span class="card-header-watermark" style="color: #3178c626">CH</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #3178c6"></span>TypeScript</span
+                >
+                <span class="sync-badges"><span class="badge badge-ahead">↑ 3</span></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-handle">felipemillan</div>
+                <div class="card-name-row"><h3 class="card-name">checkllms</h3></div>
+                <p class="card-desc">
+                  Single-URL LLM visibility audit tool — paste a URL, get a full AI search readiness
+                  report.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">llm</span><span class="card-tag">audit</span
+                  ><span class="card-tag">web-tool</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">8</span><span class="stat-lbl">Stars</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">2</span><span class="stat-lbl">Issues</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">0</span><span class="stat-lbl">Forks</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-refresh" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-ext" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
 
-        <article class="card" data-name="landing-v3" data-flags="local">
-          <div class="card-header" style="background:#e34c261a">
-            <span class="card-header-watermark" style="color:#e34c2626">LA</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#e34c26"></span>HTML</span>
-            <span class="sync-badges"></span>
+            <article class="card" data-name="coruro-ai" data-flags="local">
+              <div class="card-header" style="background: #f051381a">
+                <span class="card-header-watermark" style="color: #f0513826">CO</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #f05138"></span>Swift</span
+                >
+                <span class="sync-badges"></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-name-row"><h3 class="card-name">coruro-ai</h3></div>
+                <p class="card-desc">
+                  Swift sidecar — on-device repo summarizer using Apple FoundationModels with
+                  @Generable output.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">swift</span><span class="card-tag">llm</span
+                  ><span class="card-tag">sidecar</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">34</span><span class="stat-lbl">Commits</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1</span><span class="stat-lbl">Branches</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1h</span><span class="stat-lbl">Last commit</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
           </div>
-          <div class="card-identity">
-            <div class="card-name-row"><h3 class="card-name">landing-v3</h3></div>
-            <p class="card-desc">Third iteration of the personal landing page. Shipped. Now lives in fmillan.com repo.</p>
-            <div class="card-tags"><span class="card-tag">web</span><span class="card-tag">shipped</span></div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">34</span><span class="stat-lbl">Commits</span></div>
-            <div class="stat-cell"><span class="stat-val">1</span><span class="stat-lbl">Branches</span></div>
-            <div class="stat-cell"><span class="stat-val">2w</span><span class="stat-lbl">Last commit</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
+        </div>
 
-        <article class="card" data-name="notion-export" data-flags="local">
-          <div class="card-header" style="background:#3572A51a">
-            <span class="card-header-watermark" style="color:#3572A526">NO</span>
-            <span class="lang-label"><span class="lang-dot" style="background:#3572A5"></span>Python</span>
-            <span class="sync-badges"></span>
+        <!-- REVIEW -->
+        <div class="col">
+          <div class="col-header">
+            <h2>Review <span class="col-count" id="cnt-review">2</span></h2>
           </div>
-          <div class="card-identity">
-            <div class="card-name-row"><h3 class="card-name">notion-export</h3></div>
-            <p class="card-desc">One-off scripts to export and transform Notion databases into markdown archives.</p>
-            <div class="card-tags"><span class="card-tag">scripts</span><span class="card-tag">python</span></div>
-          </div>
-          <div class="stat-grid">
-            <div class="stat-cell"><span class="stat-val">23</span><span class="stat-lbl">Commits</span></div>
-            <div class="stat-cell"><span class="stat-val">1</span><span class="stat-lbl">Branches</span></div>
-            <div class="stat-cell"><span class="stat-val">5mo</span><span class="stat-lbl">Last commit</span></div>
-          </div>
-          <div class="card-actions">
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-sparkles"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-file"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-code"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-term"/></svg></button>
-            <button class="act-btn"><svg width="14" height="14"><use href="#ic-folder-open"/></svg></button>
-          </div>
-        </article>
+          <div class="col-body" id="col-review">
+            <article class="card" data-name="awesome-ai-seo" data-flags="github">
+              <div class="card-header" style="background: #083fa11a">
+                <span class="card-header-watermark" style="color: #083fa126">AW</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #083fa1"></span>Markdown</span
+                >
+                <span class="sync-badges"><span class="badge badge-ci-ok">✓ CI</span></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-handle">felipemillan</div>
+                <div class="card-name-row"><h3 class="card-name">awesome-ai-seo</h3></div>
+                <p class="card-desc">
+                  Curated list of AI SEO and LLM visibility tools, resources, and techniques.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">ai-seo</span><span class="card-tag">llm</span
+                  ><span class="card-tag">curated</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">234</span><span class="stat-lbl">Stars</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">12</span><span class="stat-lbl">Issues</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">18</span><span class="stat-lbl">Forks</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-refresh" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-ext" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
 
-      </div>
-    </div>
+            <article class="card" data-name="fmillan.com" data-flags="github ci">
+              <div class="card-header" style="background: #e34c261a">
+                <span class="card-header-watermark" style="color: #e34c2626">FM</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #e34c26"></span>Astro</span
+                >
+                <span class="sync-badges"
+                  ><span class="badge badge-ci-fail">✗ CI</span
+                  ><span class="badge badge-ahead">↑ 1</span></span
+                >
+              </div>
+              <div class="card-identity">
+                <div class="card-handle">felipemillan</div>
+                <div class="card-name-row"><h3 class="card-name">fmillan.com</h3></div>
+                <p class="card-desc">
+                  Personal landing page. Static, fast, no framework bloat. CI failing on deploy
+                  step.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">personal</span><span class="card-tag">astro</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">6</span><span class="stat-lbl">Stars</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1</span><span class="stat-lbl">Issues</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">0</span><span class="stat-lbl">Forks</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-refresh" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-ext" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
 
-  </div><!-- /board -->
-</div><!-- /window -->
+        <!-- DONE -->
+        <div class="col">
+          <div class="col-header">
+            <h2>Done <span class="col-count" id="cnt-done">2</span></h2>
+          </div>
+          <div class="col-body" id="col-done">
+            <article class="card" data-name="landing-v3" data-flags="local">
+              <div class="card-header" style="background: #e34c261a">
+                <span class="card-header-watermark" style="color: #e34c2626">LA</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #e34c26"></span>HTML</span
+                >
+                <span class="sync-badges"></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-name-row"><h3 class="card-name">landing-v3</h3></div>
+                <p class="card-desc">
+                  Third iteration of the personal landing page. Shipped. Now lives in fmillan.com
+                  repo.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">web</span><span class="card-tag">shipped</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">34</span><span class="stat-lbl">Commits</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1</span><span class="stat-lbl">Branches</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">2w</span><span class="stat-lbl">Last commit</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
 
-<!-- ── Detail modal ── -->
-<div class="overlay" id="overlay-detail" onclick="if(event.target===this)closeDetail()">
-  <div class="detail">
-    <div class="detail-topbar">
-      <div class="detail-icon">🗂️</div>
-      <div class="detail-meta">
-        <div class="detail-title">coruro</div>
-        <div class="detail-sub">/Users/admin/Github/Coruro · TypeScript · Rust · Swift</div>
-        <div class="detail-stats-row">
-          <span class="detail-stat"><svg width="12" height="12"><use href="#ic-star"/></svg> 42 stars</span>
-          <span class="detail-stat"><svg width="12" height="12"><use href="#ic-circle-dot"/></svg> 3 open issues</span>
-          <span class="detail-stat"><svg width="12" height="12"><use href="#ic-git-commit"/></svg> main · clean</span>
-          <span class="detail-stat">MIT · 1.8 MB</span>
+            <article class="card" data-name="notion-export" data-flags="local">
+              <div class="card-header" style="background: #3572a51a">
+                <span class="card-header-watermark" style="color: #3572a526">NO</span>
+                <span class="lang-label"
+                  ><span class="lang-dot" style="background: #3572a5"></span>Python</span
+                >
+                <span class="sync-badges"></span>
+              </div>
+              <div class="card-identity">
+                <div class="card-name-row"><h3 class="card-name">notion-export</h3></div>
+                <p class="card-desc">
+                  One-off scripts to export and transform Notion databases into markdown archives.
+                </p>
+                <div class="card-tags">
+                  <span class="card-tag">scripts</span><span class="card-tag">python</span>
+                </div>
+              </div>
+              <div class="stat-grid">
+                <div class="stat-cell">
+                  <span class="stat-val">23</span><span class="stat-lbl">Commits</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">1</span><span class="stat-lbl">Branches</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-val">5mo</span><span class="stat-lbl">Last commit</span>
+                </div>
+              </div>
+              <div class="card-actions">
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-sparkles" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-file" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-code" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-term" /></svg>
+                </button>
+                <button class="act-btn">
+                  <svg width="14" height="14"><use href="#ic-folder-open" /></svg>
+                </button>
+              </div>
+            </article>
+          </div>
         </div>
       </div>
-      <button class="detail-close" onclick="closeDetail()"><svg width="14" height="14"><use href="#ic-x"/></svg></button>
+      <!-- /board -->
     </div>
+    <!-- /window -->
 
-    <div class="detail-body">
-      <!-- Left pane -->
-      <div class="detail-left">
-        <div class="detail-tabs">
-          <button class="detail-tab active" onclick="switchLeftTab(this,'files')">Files</button>
-          <button class="detail-tab" onclick="switchLeftTab(this,'activity')">Activity</button>
-        </div>
-        <div class="file-tree" id="file-pane">
-          <div class="tree-row active"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> README.md</div>
-          <div class="tree-row dir" onclick="toggleDir(this)"><svg width="12" height="12"><use href="#ic-chev-d"/></svg><svg width="12" height="12" style="color:#4C662B"><use href="#ic-folder-open"/></svg> src</div>
-          <div class="tree-indent">
-            <div class="tree-row dir" onclick="toggleDir(this)"><svg width="12" height="12"><use href="#ic-chev-d"/></svg><svg width="12" height="12" style="color:#4C662B"><use href="#ic-folder-open"/></svg> components</div>
-            <div class="tree-indent2">
-              <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> Board.tsx</div>
-              <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> RepoCard.tsx</div>
-              <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> Toolbar.tsx</div>
-              <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> RepoDetail.tsx</div>
+    <!-- ── Detail modal ── -->
+    <div class="overlay" id="overlay-detail" onclick="if (event.target === this) closeDetail();">
+      <div class="detail">
+        <div class="detail-topbar">
+          <div class="detail-icon">🗂️</div>
+          <div class="detail-meta">
+            <div class="detail-title">coruro</div>
+            <div class="detail-sub">/Users/admin/Github/Coruro · TypeScript · Rust · Swift</div>
+            <div class="detail-stats-row">
+              <span class="detail-stat"
+                ><svg width="12" height="12"><use href="#ic-star" /></svg> 42 stars</span
+              >
+              <span class="detail-stat"
+                ><svg width="12" height="12"><use href="#ic-circle-dot" /></svg> 3 open issues</span
+              >
+              <span class="detail-stat"
+                ><svg width="12" height="12"><use href="#ic-git-commit" /></svg> main · clean</span
+              >
+              <span class="detail-stat">MIT · 1.8 MB</span>
             </div>
-            <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> App.tsx</div>
-            <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> index.css</div>
           </div>
-          <div class="tree-row dir" onclick="toggleDir(this)"><svg width="12" height="12"><use href="#ic-chev-r"/></svg><svg width="12" height="12" style="color:#4C662B"><use href="#ic-folder"/></svg> ai-sidecar</div>
-          <div class="tree-row dir" onclick="toggleDir(this)"><svg width="12" height="12"><use href="#ic-chev-r"/></svg><svg width="12" height="12" style="color:#4C662B"><use href="#ic-folder"/></svg> src-tauri</div>
-          <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> package.json</div>
-          <div class="tree-row"><svg width="12" height="12"><use href="#ic-file-sm"/></svg> CLAUDE.md</div>
-        </div>
-        <div class="file-tree" id="activity-pane" style="display:none">
-          <div class="activity-pane">
-            <div class="activity-section-head"><svg width="10" height="10" style="display:inline;vertical-align:middle"><use href="#ic-git-pr"/></svg> Open PRs</div>
-            <div class="activity-row"><svg width="10" height="10"><use href="#ic-ext"/></svg> #7 feat: semantic search with NLContextualEmbedding</div>
-            <div class="activity-section-head" style="margin-top:8px"><svg width="10" height="10" style="display:inline;vertical-align:middle"><use href="#ic-git-commit"/></svg> Recent commits</div>
-            <div class="activity-row"><svg width="10" height="10"><use href="#ic-ext"/></svg> chore: finalize icon assets + session context · felipemillan</div>
-            <div class="activity-row"><svg width="10" height="10"><use href="#ic-ext"/></svg> feat: new app icon + consolidate top bar into Toolbar row · felipemillan</div>
-            <div class="activity-row"><svg width="10" height="10"><use href="#ic-ext"/></svg> chore: rename project to Coruro + nav bar, release AI fix · felipemillan</div>
-            <div class="activity-section-head" style="margin-top:8px"><svg width="10" height="10" style="display:inline;vertical-align:middle"><use href="#ic-circle-dot"/></svg> Recent issues</div>
-            <div class="activity-row"><svg width="10" height="10"><use href="#ic-ext"/></svg> #6 Signed .dmg distribution — needs Apple Developer account</div>
-            <div class="activity-row"><svg width="10" height="10"><use href="#ic-ext"/></svg> #5 Code-split large JS bundle (>500 kB warning on build)</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Right pane -->
-      <div class="detail-right">
-        <div class="preview-tabs">
-          <button class="preview-tab active" onclick="switchPreview(this,'readme')">README</button>
-          <button class="preview-tab" onclick="switchPreview(this,'ai')">AI Summary</button>
+          <button class="detail-close" onclick="closeDetail()">
+            <svg width="14" height="14"><use href="#ic-x" /></svg>
+          </button>
         </div>
 
-        <div class="preview-pane active md" id="pane-readme">
-          <h1>Coruro</h1>
-          <p>A local-first desktop dashboard for your Git repositories — a Kanban board of your local repos, enriched with GitHub data and <strong>on-device AI summaries</strong> powered by Apple Intelligence. Everything runs on your machine; nothing about your code leaves it.</p>
-          <h2>What it is</h2>
-          <p>Coruro scans a folder of Git repositories and lays them out as cards on a five-column Kanban board (Inbox · Backlog · Active · Review · Done). Each card is an information-dashboard: language, sync state, stats, and an AI-generated summary + tags — so you can read a project at a glance without opening it.</p>
-          <h2>Features</h2>
-          <ul>
-            <li><strong>Editorial repo cards</strong> — language-tinted header, branch sync glance (dirty / ahead / behind / CI), and an adaptive stat grid.</li>
-            <li><strong>On-device AI analysis</strong> — Apple's FoundationModels LLM generates a one-line summary and topic tags per repo, on your machine, with no network calls and no API keys.</li>
-            <li><strong>GitHub enrichment</strong> — stars, forks, open issues, PRs, CI status, latest release, topics, license, cached locally and auto-refreshed.</li>
-            <li><strong>Local Git status</strong> — current branch, dirty/clean, ahead/behind upstream, read-only.</li>
-            <li><strong>Kanban workflow</strong> — drag repos between columns; per-repo notes timeline stored alongside the repo.</li>
-            <li><strong>Quick actions</strong> — open in editor, terminal, Finder, or on GitHub.</li>
-          </ul>
-          <h2>Tech stack</h2>
-          <p>Tauri 2 (Rust) · React 19 + TypeScript · Zustand · Tailwind CSS 4 · Apple FoundationModels (Swift) · vitest.</p>
-          <h2>Build from source</h2>
-          <pre><code># 1. Install JS dependencies
+        <div class="detail-body">
+          <!-- Left pane -->
+          <div class="detail-left">
+            <div class="detail-tabs">
+              <button class="detail-tab active" onclick="switchLeftTab(this, 'files')">
+                Files
+              </button>
+              <button class="detail-tab" onclick="switchLeftTab(this, 'activity')">Activity</button>
+            </div>
+            <div class="file-tree" id="file-pane">
+              <div class="tree-row active">
+                <svg width="12" height="12"><use href="#ic-file-sm" /></svg> README.md
+              </div>
+              <div class="tree-row dir" onclick="toggleDir(this)">
+                <svg width="12" height="12"><use href="#ic-chev-d" /></svg
+                ><svg width="12" height="12" style="color: #4c662b">
+                  <use href="#ic-folder-open" />
+                </svg>
+                src
+              </div>
+              <div class="tree-indent">
+                <div class="tree-row dir" onclick="toggleDir(this)">
+                  <svg width="12" height="12"><use href="#ic-chev-d" /></svg
+                  ><svg width="12" height="12" style="color: #4c662b">
+                    <use href="#ic-folder-open" />
+                  </svg>
+                  components
+                </div>
+                <div class="tree-indent2">
+                  <div class="tree-row">
+                    <svg width="12" height="12"><use href="#ic-file-sm" /></svg> Board.tsx
+                  </div>
+                  <div class="tree-row">
+                    <svg width="12" height="12"><use href="#ic-file-sm" /></svg> RepoCard.tsx
+                  </div>
+                  <div class="tree-row">
+                    <svg width="12" height="12"><use href="#ic-file-sm" /></svg> Toolbar.tsx
+                  </div>
+                  <div class="tree-row">
+                    <svg width="12" height="12"><use href="#ic-file-sm" /></svg> RepoDetail.tsx
+                  </div>
+                </div>
+                <div class="tree-row">
+                  <svg width="12" height="12"><use href="#ic-file-sm" /></svg> App.tsx
+                </div>
+                <div class="tree-row">
+                  <svg width="12" height="12"><use href="#ic-file-sm" /></svg> index.css
+                </div>
+              </div>
+              <div class="tree-row dir" onclick="toggleDir(this)">
+                <svg width="12" height="12"><use href="#ic-chev-r" /></svg
+                ><svg width="12" height="12" style="color: #4c662b"><use href="#ic-folder" /></svg>
+                ai-sidecar
+              </div>
+              <div class="tree-row dir" onclick="toggleDir(this)">
+                <svg width="12" height="12"><use href="#ic-chev-r" /></svg
+                ><svg width="12" height="12" style="color: #4c662b"><use href="#ic-folder" /></svg>
+                src-tauri
+              </div>
+              <div class="tree-row">
+                <svg width="12" height="12"><use href="#ic-file-sm" /></svg> package.json
+              </div>
+              <div class="tree-row">
+                <svg width="12" height="12"><use href="#ic-file-sm" /></svg> CLAUDE.md
+              </div>
+            </div>
+            <div class="file-tree" id="activity-pane" style="display: none">
+              <div class="activity-pane">
+                <div class="activity-section-head">
+                  <svg width="10" height="10" style="display: inline; vertical-align: middle">
+                    <use href="#ic-git-pr" />
+                  </svg>
+                  Open PRs
+                </div>
+                <div class="activity-row">
+                  <svg width="10" height="10"><use href="#ic-ext" /></svg> #7 feat: semantic search
+                  with NLContextualEmbedding
+                </div>
+                <div class="activity-section-head" style="margin-top: 8px">
+                  <svg width="10" height="10" style="display: inline; vertical-align: middle">
+                    <use href="#ic-git-commit" />
+                  </svg>
+                  Recent commits
+                </div>
+                <div class="activity-row">
+                  <svg width="10" height="10"><use href="#ic-ext" /></svg> chore: finalize icon
+                  assets + session context · felipemillan
+                </div>
+                <div class="activity-row">
+                  <svg width="10" height="10"><use href="#ic-ext" /></svg> feat: new app icon +
+                  consolidate top bar into Toolbar row · felipemillan
+                </div>
+                <div class="activity-row">
+                  <svg width="10" height="10"><use href="#ic-ext" /></svg> chore: rename project to
+                  Coruro + nav bar, release AI fix · felipemillan
+                </div>
+                <div class="activity-section-head" style="margin-top: 8px">
+                  <svg width="10" height="10" style="display: inline; vertical-align: middle">
+                    <use href="#ic-circle-dot" />
+                  </svg>
+                  Recent issues
+                </div>
+                <div class="activity-row">
+                  <svg width="10" height="10"><use href="#ic-ext" /></svg> #6 Signed .dmg
+                  distribution — needs Apple Developer account
+                </div>
+                <div class="activity-row">
+                  <svg width="10" height="10"><use href="#ic-ext" /></svg> #5 Code-split large JS
+                  bundle (>500 kB warning on build)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right pane -->
+          <div class="detail-right">
+            <div class="preview-tabs">
+              <button class="preview-tab active" onclick="switchPreview(this, 'readme')">
+                README
+              </button>
+              <button class="preview-tab" onclick="switchPreview(this, 'ai')">AI Summary</button>
+            </div>
+
+            <div class="preview-pane active md" id="pane-readme">
+              <h1>Coruro</h1>
+              <p>
+                A local-first desktop dashboard for your Git repositories — a Kanban board of your
+                local repos, enriched with GitHub data and
+                <strong>on-device AI summaries</strong> powered by Apple Intelligence. Everything
+                runs on your machine; nothing about your code leaves it.
+              </p>
+              <h2>What it is</h2>
+              <p>
+                Coruro scans a folder of Git repositories and lays them out as cards on a
+                five-column Kanban board (Inbox · Backlog · Active · Review · Done). Each card is an
+                information-dashboard: language, sync state, stats, and an AI-generated summary +
+                tags — so you can read a project at a glance without opening it.
+              </p>
+              <h2>Features</h2>
+              <ul>
+                <li>
+                  <strong>Editorial repo cards</strong> — language-tinted header, branch sync glance
+                  (dirty / ahead / behind / CI), and an adaptive stat grid.
+                </li>
+                <li>
+                  <strong>On-device AI analysis</strong> — Apple's FoundationModels LLM generates a
+                  one-line summary and topic tags per repo, on your machine, with no network calls
+                  and no API keys.
+                </li>
+                <li>
+                  <strong>GitHub enrichment</strong> — stars, forks, open issues, PRs, CI status,
+                  latest release, topics, license, cached locally and auto-refreshed.
+                </li>
+                <li>
+                  <strong>Local Git status</strong> — current branch, dirty/clean, ahead/behind
+                  upstream, read-only.
+                </li>
+                <li>
+                  <strong>Kanban workflow</strong> — drag repos between columns; per-repo notes
+                  timeline stored alongside the repo.
+                </li>
+                <li>
+                  <strong>Quick actions</strong> — open in editor, terminal, Finder, or on GitHub.
+                </li>
+              </ul>
+              <h2>Tech stack</h2>
+              <p>
+                Tauri 2 (Rust) · React 19 + TypeScript · Zustand · Tailwind CSS 4 · Apple
+                FoundationModels (Swift) · vitest.
+              </p>
+              <h2>Build from source</h2>
+              <pre><code># 1. Install JS dependencies
 npm install
 
 # 2. Build the Swift AI sidecar
@@ -864,212 +2192,289 @@ npm run tauri dev
 
 # …or build a release bundle
 npm run tauri build</code></pre>
-          <h2>License</h2>
-          <p>MIT © 2026 Felipe Millán Assler</p>
-        </div>
-
-        <div class="preview-pane" id="pane-ai">
-          <div class="ai-pane">
-            <p class="ai-summary-text">A local-first macOS Kanban board that scans a folder of Git repositories and surfaces each as an information-dashboard card — language, sync state, stats, and an on-device AI summary generated by Apple's FoundationModels, with no network calls or API keys required.</p>
-            <div class="ai-tag-list">
-              <span class="ai-tag">kanban</span>
-              <span class="ai-tag">git-dashboard</span>
-              <span class="ai-tag">apple-intelligence</span>
-              <span class="ai-tag">tauri</span>
-              <span class="ai-tag">on-device-ai</span>
-              <span class="ai-tag">local-first</span>
+              <h2>License</h2>
+              <p>MIT © 2026 Felipe Millán Assler</p>
             </div>
-            <div class="ai-meta">
-              <span style="font-family:monospace">FoundationModels · com.apple.language-model</span>
-              <span>analyzed 2h ago</span>
-              <button style="background:none;border:none;color:#44483D;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:4px;">
-                <svg width="11" height="11"><use href="#ic-refresh"/></svg> Re-analyze
-              </button>
+
+            <div class="preview-pane" id="pane-ai">
+              <div class="ai-pane">
+                <p class="ai-summary-text">
+                  A local-first macOS Kanban board that scans a folder of Git repositories and
+                  surfaces each as an information-dashboard card — language, sync state, stats, and
+                  an on-device AI summary generated by Apple's FoundationModels, with no network
+                  calls or API keys required.
+                </p>
+                <div class="ai-tag-list">
+                  <span class="ai-tag">kanban</span>
+                  <span class="ai-tag">git-dashboard</span>
+                  <span class="ai-tag">apple-intelligence</span>
+                  <span class="ai-tag">tauri</span>
+                  <span class="ai-tag">on-device-ai</span>
+                  <span class="ai-tag">local-first</span>
+                </div>
+                <div class="ai-meta">
+                  <span style="font-family: monospace"
+                    >FoundationModels · com.apple.language-model</span
+                  >
+                  <span>analyzed 2h ago</span>
+                  <button
+                    style="
+                      background: none;
+                      border: none;
+                      color: #44483d;
+                      cursor: pointer;
+                      font-size: 11px;
+                      display: flex;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    <svg width="11" height="11"><use href="#ic-refresh" /></svg> Re-analyze
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes timeline -->
+            <div class="notes-pane">
+              <div class="notes-header">Notes</div>
+              <div class="notes-list">
+                <div class="note">
+                  <div class="note-dot"></div>
+                  <div class="note-body">
+                    <div class="note-type">thought</div>
+                    <div class="note-text">
+                      Sidecar spawn had 4 stacked bugs — binary name, arg scope, dev path, stdin
+                      EOF. All found by running the real app, not reading diffs.
+                    </div>
+                    <div class="note-time">3 days ago</div>
+                  </div>
+                </div>
+                <div class="note">
+                  <div class="note-dot"></div>
+                  <div class="note-body">
+                    <div class="note-type">decision</div>
+                    <div class="note-text">
+                      No signed installer by design — open source tool you compile yourself doesn't
+                      need one. Distribution model is clone + build.
+                    </div>
+                    <div class="note-time">1 week ago</div>
+                  </div>
+                </div>
+                <div class="note">
+                  <div class="note-dot"></div>
+                  <div class="note-body">
+                    <div class="note-type">next</div>
+                    <div class="note-text">
+                      Semantic search with NLContextualEmbedding — spec first, then agent cycle.
+                    </div>
+                    <div class="note-time">2 days ago</div>
+                  </div>
+                </div>
+              </div>
+              <div class="notes-composer">
+                <select
+                  style="
+                    font-size: 11px;
+                    background: var(--warm-gray);
+                    border: 1px solid var(--outline-variant);
+                    border-radius: 6px;
+                    padding: 4px 6px;
+                    color: var(--navy-light);
+                    font-family: inherit;
+                    outline: none;
+                  "
+                >
+                  <option>thought</option>
+                  <option>decision</option>
+                  <option>next</option>
+                  <option>blocker</option>
+                </select>
+                <input class="note-input" placeholder="Add a note…" />
+                <button class="note-submit">
+                  <svg width="13" height="13" style="display: inline; vertical-align: middle">
+                    <use href="#ic-plus" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Notes timeline -->
-        <div class="notes-pane">
-          <div class="notes-header">Notes</div>
-          <div class="notes-list">
-            <div class="note">
-              <div class="note-dot"></div>
-              <div class="note-body">
-                <div class="note-type">thought</div>
-                <div class="note-text">Sidecar spawn had 4 stacked bugs — binary name, arg scope, dev path, stdin EOF. All found by running the real app, not reading diffs.</div>
-                <div class="note-time">3 days ago</div>
-              </div>
-            </div>
-            <div class="note">
-              <div class="note-dot"></div>
-              <div class="note-body">
-                <div class="note-type">decision</div>
-                <div class="note-text">No signed installer by design — open source tool you compile yourself doesn't need one. Distribution model is clone + build.</div>
-                <div class="note-time">1 week ago</div>
-              </div>
-            </div>
-            <div class="note">
-              <div class="note-dot"></div>
-              <div class="note-body">
-                <div class="note-type">next</div>
-                <div class="note-text">Semantic search with NLContextualEmbedding — spec first, then agent cycle.</div>
-                <div class="note-time">2 days ago</div>
-              </div>
-            </div>
+    <!-- ── Settings modal ── -->
+    <div
+      class="overlay"
+      id="overlay-settings"
+      onclick="if (event.target === this) closeSettings();"
+    >
+      <div class="settings">
+        <div class="settings-header">
+          <span class="settings-title">Settings</span>
+          <button class="detail-close" onclick="closeSettings()">
+            <svg width="14" height="14"><use href="#ic-x" /></svg>
+          </button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-row">
+            <label class="settings-label">Root folder</label>
+            <input class="settings-input" value="/Users/admin/Github" readonly />
+            <div class="settings-note">Coruro scans this folder for Git repositories.</div>
           </div>
-          <div class="notes-composer">
-            <select style="font-size:11px;background:var(--warm-gray);border:1px solid var(--outline-variant);border-radius:6px;padding:4px 6px;color:var(--navy-light);font-family:inherit;outline:none;">
-              <option>thought</option><option>decision</option><option>next</option><option>blocker</option>
-            </select>
-            <input class="note-input" placeholder="Add a note…">
-            <button class="note-submit"><svg width="13" height="13" style="display:inline;vertical-align:middle"><use href="#ic-plus"/></svg></button>
+          <hr class="settings-divider" />
+          <div class="settings-row">
+            <label class="settings-label">GitHub token</label>
+            <input
+              class="settings-input"
+              type="password"
+              value="ghp_••••••••••••••••••••••"
+              readonly
+            />
+            <div class="settings-note">Stored in the macOS Keychain. Never written to disk.</div>
           </div>
+          <hr class="settings-divider" />
+          <div class="settings-row">
+            <label class="settings-label">Editor</label>
+            <input class="settings-input" value="cursor" />
+            <div class="settings-note">Command or app name to open a repo in your IDE.</div>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">Terminal</label>
+            <input class="settings-input" value="Ghostty" />
+          </div>
+        </div>
+        <div class="settings-footer">
+          <button class="btn-ghost" onclick="closeSettings()">Cancel</button>
+          <button class="btn-primary">Save</button>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ── Settings modal ── -->
-<div class="overlay" id="overlay-settings" onclick="if(event.target===this)closeSettings()">
-  <div class="settings">
-    <div class="settings-header">
-      <span class="settings-title">Settings</span>
-      <button class="detail-close" onclick="closeSettings()"><svg width="14" height="14"><use href="#ic-x"/></svg></button>
-    </div>
-    <div class="settings-body">
-      <div class="settings-row">
-        <label class="settings-label">Root folder</label>
-        <input class="settings-input" value="/Users/admin/Github" readonly>
-        <div class="settings-note">Coruro scans this folder for Git repositories.</div>
-      </div>
-      <hr class="settings-divider">
-      <div class="settings-row">
-        <label class="settings-label">GitHub token</label>
-        <input class="settings-input" type="password" value="ghp_••••••••••••••••••••••" readonly>
-        <div class="settings-note">Stored in the macOS Keychain. Never written to disk.</div>
-      </div>
-      <hr class="settings-divider">
-      <div class="settings-row">
-        <label class="settings-label">Editor</label>
-        <input class="settings-input" value="cursor">
-        <div class="settings-note">Command or app name to open a repo in your IDE.</div>
-      </div>
-      <div class="settings-row">
-        <label class="settings-label">Terminal</label>
-        <input class="settings-input" value="Ghostty">
-      </div>
-    </div>
-    <div class="settings-footer">
-      <button class="btn-ghost" onclick="closeSettings()">Cancel</button>
-      <button class="btn-primary">Save</button>
-    </div>
-  </div>
-</div>
+    <script>
+      // ── Filter + search ──
+      const activeFilters = new Set();
 
-<script>
-// ── Filter + search ──
-const activeFilters = new Set();
-
-function toggleFilter(btn) {
-  const f = btn.dataset.f;
-  if (activeFilters.has(f)) { activeFilters.delete(f); btn.classList.remove('on'); }
-  else { activeFilters.add(f); btn.classList.add('on'); }
-  applyView();
-}
-
-function handleSearch(val) {
-  document.getElementById('clear-btn').classList.toggle('show', val.length > 0 || activeFilters.size > 0);
-  applyView();
-}
-
-function clearView() {
-  document.getElementById('search-input').value = '';
-  activeFilters.clear();
-  document.querySelectorAll('.chip.on').forEach(c => c.classList.remove('on'));
-  document.getElementById('clear-btn').classList.remove('show');
-  applyView();
-}
-
-function applyView() {
-  const q = document.getElementById('search-input').value.toLowerCase();
-  const cols = {inbox:0,backlog:0,active:0,review:0,done:0};
-  document.querySelectorAll('.card').forEach(card => {
-    const name = card.dataset.name || '';
-    const flags = (card.dataset.flags || '').split(' ');
-    const matchSearch = !q || name.includes(q);
-    const matchFilter = activeFilters.size === 0 || [...activeFilters].every(f => flags.includes(f));
-    const show = matchSearch && matchFilter;
-    card.classList.toggle('filtered-out', !show);
-    if (show) {
-      const col = card.closest('.col-body');
-      if (col) {
-        const key = col.id.replace('col-','');
-        if (cols[key] !== undefined) cols[key]++;
+      function toggleFilter(btn) {
+        const f = btn.dataset.f;
+        if (activeFilters.has(f)) {
+          activeFilters.delete(f);
+          btn.classList.remove('on');
+        } else {
+          activeFilters.add(f);
+          btn.classList.add('on');
+        }
+        applyView();
       }
-    }
-  });
-  Object.entries(cols).forEach(([k,v]) => {
-    const el = document.getElementById('cnt-' + k);
-    if (el) el.textContent = v;
-  });
-  const hasView = q.length > 0 || activeFilters.size > 0;
-  document.getElementById('clear-btn').classList.toggle('show', hasView);
-}
 
-// ── Detail modal ──
-function openDetail(id) {
-  document.getElementById('overlay-detail').classList.add('open');
-}
+      function handleSearch(val) {
+        document
+          .getElementById('clear-btn')
+          .classList.toggle('show', val.length > 0 || activeFilters.size > 0);
+        applyView();
+      }
 
-function closeDetail() {
-  document.getElementById('overlay-detail').classList.remove('open');
-}
+      function clearView() {
+        document.getElementById('search-input').value = '';
+        activeFilters.clear();
+        document.querySelectorAll('.chip.on').forEach((c) => c.classList.remove('on'));
+        document.getElementById('clear-btn').classList.remove('show');
+        applyView();
+      }
 
-function switchLeftTab(btn, tab) {
-  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('file-pane').style.display = tab === 'files' ? '' : 'none';
-  document.getElementById('activity-pane').style.display = tab === 'activity' ? '' : 'none';
-}
+      function applyView() {
+        const q = document.getElementById('search-input').value.toLowerCase();
+        const cols = { inbox: 0, backlog: 0, active: 0, review: 0, done: 0 };
+        document.querySelectorAll('.card').forEach((card) => {
+          const name = card.dataset.name || '';
+          const flags = (card.dataset.flags || '').split(' ');
+          const matchSearch = !q || name.includes(q);
+          const matchFilter =
+            activeFilters.size === 0 || [...activeFilters].every((f) => flags.includes(f));
+          const show = matchSearch && matchFilter;
+          card.classList.toggle('filtered-out', !show);
+          if (show) {
+            const col = card.closest('.col-body');
+            if (col) {
+              const key = col.id.replace('col-', '');
+              if (cols[key] !== undefined) cols[key]++;
+            }
+          }
+        });
+        Object.entries(cols).forEach(([k, v]) => {
+          const el = document.getElementById('cnt-' + k);
+          if (el) el.textContent = v;
+        });
+        const hasView = q.length > 0 || activeFilters.size > 0;
+        document.getElementById('clear-btn').classList.toggle('show', hasView);
+      }
 
-function switchPreview(btn, pane) {
-  document.querySelectorAll('.preview-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('.preview-pane').forEach(p => p.classList.remove('active'));
-  document.getElementById('pane-' + pane).classList.add('active');
-}
+      // ── Detail modal ──
+      function openDetail(id) {
+        document.getElementById('overlay-detail').classList.add('open');
+      }
 
-function toggleDir(row) {
-  const chevR = row.querySelector('use[href="#ic-chev-r"]');
-  const chevD = row.querySelector('use[href="#ic-chev-d"]');
-  const folderO = row.querySelector('use[href="#ic-folder-open"]');
-  const folderC = row.querySelector('use[href="#ic-folder"]');
-  // Find next sibling indent block
-  const indent = row.nextElementSibling;
-  if (!indent || (!indent.classList.contains('tree-indent') && !indent.classList.contains('tree-indent2'))) return;
-  const hidden = indent.style.display === 'none';
-  indent.style.display = hidden ? '' : 'none';
-  if (chevR) chevR.setAttribute('href', hidden ? '#ic-chev-d' : '#ic-chev-r');
-  if (chevD) chevD.setAttribute('href', hidden ? '#ic-chev-d' : '#ic-chev-r');
-  if (folderO) folderO.setAttribute('href', hidden ? '#ic-folder-open' : '#ic-folder');
-  if (folderC) folderC.setAttribute('href', hidden ? '#ic-folder-open' : '#ic-folder');
-}
+      function closeDetail() {
+        document.getElementById('overlay-detail').classList.remove('open');
+      }
 
-// ── Settings ──
-function openSettings() { document.getElementById('overlay-settings').classList.add('open'); }
-function closeSettings() { document.getElementById('overlay-settings').classList.remove('open'); }
+      function switchLeftTab(btn, tab) {
+        document.querySelectorAll('.detail-tab').forEach((t) => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('file-pane').style.display = tab === 'files' ? '' : 'none';
+        document.getElementById('activity-pane').style.display = tab === 'activity' ? '' : 'none';
+      }
 
-// ── Keyboard ──
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeDetail(); closeSettings(); }
-  if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-    e.preventDefault();
-    document.getElementById('search-input').focus();
-  }
-});
-</script>
-</body>
+      function switchPreview(btn, pane) {
+        document.querySelectorAll('.preview-tab').forEach((t) => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.preview-pane').forEach((p) => p.classList.remove('active'));
+        document.getElementById('pane-' + pane).classList.add('active');
+      }
+
+      function toggleDir(row) {
+        const chevR = row.querySelector('use[href="#ic-chev-r"]');
+        const chevD = row.querySelector('use[href="#ic-chev-d"]');
+        const folderO = row.querySelector('use[href="#ic-folder-open"]');
+        const folderC = row.querySelector('use[href="#ic-folder"]');
+        // Find next sibling indent block
+        const indent = row.nextElementSibling;
+        if (
+          !indent ||
+          (!indent.classList.contains('tree-indent') && !indent.classList.contains('tree-indent2'))
+        )
+          return;
+        const hidden = indent.style.display === 'none';
+        indent.style.display = hidden ? '' : 'none';
+        if (chevR) chevR.setAttribute('href', hidden ? '#ic-chev-d' : '#ic-chev-r');
+        if (chevD) chevD.setAttribute('href', hidden ? '#ic-chev-d' : '#ic-chev-r');
+        if (folderO) folderO.setAttribute('href', hidden ? '#ic-folder-open' : '#ic-folder');
+        if (folderC) folderC.setAttribute('href', hidden ? '#ic-folder-open' : '#ic-folder');
+      }
+
+      // ── Settings ──
+      function openSettings() {
+        document.getElementById('overlay-settings').classList.add('open');
+      }
+      function closeSettings() {
+        document.getElementById('overlay-settings').classList.remove('open');
+      }
+
+      // ── Keyboard ──
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeDetail();
+          closeSettings();
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+          e.preventDefault();
+          openSettings();
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+          e.preventDefault();
+          document.getElementById('search-input').focus();
+        }
+      });
+    </script>
+  </body>
 </html>

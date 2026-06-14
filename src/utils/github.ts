@@ -80,12 +80,16 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
   const o = (typeof json === 'object' && json !== null ? json : {}) as Record<string, unknown>;
   const licObj = o.license;
   const spdx =
-    typeof licObj === 'object' && licObj !== null && typeof (licObj as Record<string, unknown>).spdx_id === 'string'
+    typeof licObj === 'object' &&
+    licObj !== null &&
+    typeof (licObj as Record<string, unknown>).spdx_id === 'string'
       ? ((licObj as Record<string, unknown>).spdx_id as string)
       : null;
   const parentObj = o.parent;
   const parent =
-    typeof parentObj === 'object' && parentObj !== null && typeof (parentObj as Record<string, unknown>).full_name === 'string'
+    typeof parentObj === 'object' &&
+    parentObj !== null &&
+    typeof (parentObj as Record<string, unknown>).full_name === 'string'
       ? {
           fullName: (parentObj as Record<string, unknown>).full_name as string,
           url:
@@ -102,7 +106,9 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
     isPrivate: o.private === true,
     archived: o.archived === true,
     description: typeof o.description === 'string' ? o.description : null,
-    topics: Array.isArray(o.topics) ? o.topics.filter((t): t is string => typeof t === 'string') : [],
+    topics: Array.isArray(o.topics)
+      ? o.topics.filter((t): t is string => typeof t === 'string')
+      : [],
     language: typeof o.language === 'string' ? o.language : null,
     license: spdx === 'NOASSERTION' ? null : spdx,
     defaultBranch: typeof o.default_branch === 'string' ? o.default_branch : '',
@@ -127,7 +133,10 @@ export function mapCiStatus(json: unknown): CiStatus {
   const o = (typeof json === 'object' && json !== null ? json : {}) as Record<string, unknown>;
   const runs = o.workflow_runs;
   if (!Array.isArray(runs) || runs.length === 0) return 'none';
-  const run = (typeof runs[0] === 'object' && runs[0] !== null ? runs[0] : {}) as Record<string, unknown>;
+  const run = (typeof runs[0] === 'object' && runs[0] !== null ? runs[0] : {}) as Record<
+    string,
+    unknown
+  >;
   const conclusion = run.conclusion;
   const status = run.status;
   if (conclusion === 'success') return 'success';
@@ -141,7 +150,10 @@ export function mapCiStatus(json: unknown): CiStatus {
   }
   if (
     conclusion === null &&
-    (status === 'in_progress' || status === 'queued' || status === 'waiting' || status === 'pending')
+    (status === 'in_progress' ||
+      status === 'queued' ||
+      status === 'waiting' ||
+      status === 'pending')
   ) {
     return 'pending';
   }

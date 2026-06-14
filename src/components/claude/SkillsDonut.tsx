@@ -111,14 +111,7 @@ export function SkillsDonut({ groups }: SkillsDonutProps) {
         >
           <title>{`Skills by source: ${total} total`}</title>
           {/* Track behind the segments for a soft, continuous ring base. */}
-          <circle
-            cx={100}
-            cy={100}
-            r={RADIUS}
-            fill="none"
-            stroke="#E7E3DA"
-            strokeWidth={STROKE}
-          />
+          <circle cx={100} cy={100} r={RADIUS} fill="none" stroke="#E7E3DA" strokeWidth={STROKE} />
           {/* Rotate -90° so the ring starts at the top (12 o'clock). */}
           <g transform="rotate(-90 100 100)">
             {segments.map((seg, i) => (

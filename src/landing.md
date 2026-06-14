@@ -22,7 +22,7 @@ Coruro scans a folder of repositories and lays them out as cards. Each card tell
 
 It's open source. You clone the repo and run your own build — no signed installer, no store, no account. The whole thing is yours to read, run, and change.
 
-`[ Clone the repo ]`   `[ How I built it ]`
+`[ Clone the repo ]` `[ How I built it ]`
 
 **Trust line:** Open source. No account. No cloud. No API keys. Your code never leaves the machine.
 
@@ -155,6 +155,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 ### LinkedIn (long-form)
 
 **1 — The build story (flagship)**
+
 > I built a desktop dashboard that reads my whole folder of Git repos at a glance — and the AI that summarizes each one never leaves my Mac.
 >
 > The problem was dumb and familiar: dozens of local repos with names like `app-final-2`, and the only way to remember what each was meant opening it. I wanted a wall of cards where every repo tells me what it is, how healthy it is, and whether it's in sync — without clicking in.
@@ -172,6 +173,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Built on macOS with Apple Intelligence. Link in the comments.
 
 **2 — On-device AI angle**
+
 > "AI feature" usually means: your data goes to someone's server, you manage an API key, and you pay per token.
 >
 > I wanted to see what the other version looks like. So the AI in my repo dashboard runs entirely on-device — Apple's FoundationModels, on the Mac, summarizing each Git repo with no network call at all.
@@ -185,11 +187,13 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > How I built it, in the comments.
 
 **3 — The four-bug debugging story**
+
 > My on-device AI feature worked perfectly in every unit test and produced absolutely nothing when I ran the real app.
 >
 > Zero summaries. Empty cache. No error.
 >
 > I found it by doing the unglamorous thing: running the actual app, adding trace logs, and watching. Four separate problems, stacked:
+>
 > 1. The sidecar was spawned under the wrong name.
 > 2. An argument permission was scoped wrong.
 > 3. The dev binary wasn't where the spawn path looked for it.
@@ -200,6 +204,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > This is the part of "AI builds the app now" nobody screenshots. The agents wrote clean, tested code. Making it actually run on a real machine was mine — and it's still where the real work lives.
 
 **4 — Multi-agent orchestration**
+
 > People ask how I run multiple AI agents on one codebase without them stepping on each other. Here's the actual setup from my last build.
 >
 > The trick isn't more agents. It's frozen contracts.
@@ -214,6 +219,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > It's how I shipped an on-device-AI repo dashboard, cycle by cycle. Repo in the comments.
 
 **5 — Plain product pitch**
+
 > If you keep more Git repos than you can remember, this might land.
 >
 > I built Coruro: it scans a folder of repos and lays them out as cards on a Kanban board. Each card tells you what the project is (a one-line AI summary), what it's built in, whether it's in sync, and how alive it is — stars and issues for GitHub repos, commit count and last-commit age for local ones.
@@ -225,6 +231,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Details in the comments.
 
 **6 — Reflection on the workflow**
+
 > Three projects in, here's what directing AI agents actually feels like — and it's not "the AI writes my code."
 >
 > It feels like managing a fast, literal, tireless team that has zero context for your taste. The leverage isn't in their speed. It's in how well you scope the work before they touch it.
@@ -238,11 +245,13 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 ### X / Twitter (short + threads)
 
 **7**
+
 > Folder full of repos named like `app-final-2`?
 >
 > I built a dashboard that reads each one at a glance — what it is, what it's built in, whether it's in sync — summarized by AI running entirely on my Mac. No upload, no API key.
 
 **8**
+
 > The AI in my repo dashboard never makes a network call.
 >
 > Apple's on-device model summarizes each repo locally. Your source code never leaves the machine.
@@ -250,14 +259,17 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > That's the only kind of AI I want reading my private code.
 
 **9 (thread)**
+
 > I directed AI agents to build a macOS repo dashboard with on-device AI summaries. The agents wrote most of the code. Here's what made them actually useful 🧵
 
 **10**
+
 > What I learned: "build me the app" gives you mush.
 >
 > What worked: spec first, freeze the interfaces, decompose into tiny tasks, then fan out agents in parallel — each owning separate files, none able to collide.
 
 **11**
+
 > I match the model to the task.
 >
 > Cheap fast model → mechanical edits, renames, boilerplate.
@@ -266,6 +278,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Same as staffing a team. Don't put your principal engineer on find-and-replace.
 
 **12**
+
 > The agents never commit.
 >
 > They write and test against frozen contracts. I run the full suite + the build myself, then commit in clean chunks.
@@ -273,6 +286,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Their speed is the cheap part. My verification is the trust.
 
 **13**
+
 > The bug that taught me the most: on-device AI passed every unit test, produced nothing in the real app.
 >
 > Four stacked problems in the sidecar spawn path. Found by running it and watching, not reading diffs.
@@ -280,11 +294,13 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Use the thing until it breaks. /end
 
 **14**
+
 > Adaptive cards: a GitHub repo shows stars / issues / forks. A local-only repo shows commits / branches / last-commit age.
 >
 > The card decides which, based on what the repo actually is. Small thing, reads completely differently.
 
 **15**
+
 > No account. No cloud. No API key. No telemetry.
 >
 > Your repos, your GitHub token in the Keychain, your AI running on your Mac.
@@ -292,6 +308,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Local-first isn't a feature. It's the whole posture.
 
 **16**
+
 > Stack for the curious:
 > • Tauri v2 (Rust)
 > • React 19 + TS + Zustand + Tailwind 4
@@ -300,11 +317,13 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > • MIT, fully tested
 
 **17**
+
 > "On-device AI" sounds like a checkbox until you wire it up.
 >
 > It means a Swift sidecar, a context capped to the model's window, a content-hash cache, and graceful fallback on Macs that can't run it. No endpoint to lean on. Worth it.
 
 **18**
+
 > Honest limits, up front:
 > • macOS + Apple Silicon only for the AI
 > • open source → you build it from source (no signed binary, by design)
@@ -316,19 +335,21 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 
 > Persona for all three: a growth marketer who vibe-codes. I'm not selling an
 > app — there's nothing to buy, it's open source and you build it yourself. I'm
-> publishing the *workflow*: how I'm testing ways to ship real software faster by
+> publishing the _workflow_: how I'm testing ways to ship real software faster by
 > directing agents. Each story leads with that, fits a different sub, and points
 > at the repo (clone-and-run), never a download.
 
 **19 — r/SideProject · the maker story (how it got built)**
+
 > **Title:** I'm a growth marketer, not an engineer — I directed AI agents to build a real macOS app, and I'm open-sourcing the whole thing
 >
 > **Body:**
 > I do marketing for a living. I also keep way too many Git repos with names like `app-final-2` that tell me nothing. So I built the tool I wanted: Coruro, a Kanban board of your local repos where each card summarizes the project at a glance — on-device AI, nothing uploaded.
 >
-> The honest part: I didn't hand-write most of the code. I directed agents to. And I'm publishing it not as a product — it's open source, you clone it and build your own, there's nothing to sell — but as a worked example of *how* a non-engineer ships real software now.
+> The honest part: I didn't hand-write most of the code. I directed agents to. And I'm publishing it not as a product — it's open source, you clone it and build your own, there's nothing to sell — but as a worked example of _how_ a non-engineer ships real software now.
 >
 > What made it actually work (vs. "build me an app" mush):
+>
 > - I specced each cycle first — data shape, acceptance criteria, no code yet.
 > - I froze the interfaces, then fanned out several agents in parallel on separate files so they couldn't collide.
 > - I matched the model to the task — cheap fast model for mechanical edits, strongest for integration.
@@ -338,6 +359,7 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > Stack: Tauri/Rust + React, Apple's on-device model via a Swift sidecar, MIT. It's macOS + Apple Silicon and you build it from source — that's the model, on purpose. Happy to walk through how I briefed the agents.
 
 **20 — r/Entrepreneur (or r/growthhacking) · the growth-marketer story (why I'm doing this)**
+
 > **Title:** I'm a growth marketer learning to ship my own tools by directing AI agents — here's the open-source app I used as the test
 >
 > **Body:**
@@ -346,13 +368,15 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 > The latest test is Coruro: a desktop dashboard that reads my whole folder of Git repos at a glance, with summaries generated by Apple's on-device model. It's open source — there's nothing to buy, you clone the repo and run your own build. The point isn't the app. The point is proving the workflow.
 >
 > What I'm taking back to the day job:
-> - The skill that moved the needle wasn't coding — it was *scoping*. A tight spec with acceptance criteria is the difference between leverage and mush. Same instinct as a good campaign brief.
+>
+> - The skill that moved the needle wasn't coding — it was _scoping_. A tight spec with acceptance criteria is the difference between leverage and mush. Same instinct as a good campaign brief.
 > - Speed is real, but it's not the agents being fast. It's me removing ambiguity before they start. Frozen contracts > more prompts.
 > - Verification stays human. Agents wrote the volume; I ran the tests and used it until it broke (it broke — four bugs the tests never caught).
 >
 > If you're on the non-technical side of building and wondering whether this is real yet: it is, with discipline. The repo, the design docs, and the agent briefs are all open — that's the part worth copying, more than the app.
 
 **21 — r/macapps · the product story (for people who'd actually run it)**
+
 > **Title:** Coruro — an open-source Kanban board of your local Git repos, with AI summaries that run entirely on your Mac
 >
 > **Body:**
@@ -367,28 +391,37 @@ Built by **Felipe Millán** — [fmillan.com](https://fmillan.com) · [LinkedIn]
 ### Short-form / Threads / Mastodon
 
 **22**
+
 > Stop opening folders to remember what's in them. A wall of repo cards, each summarized on-device. Your code never leaves the Mac.
 
 **23**
+
 > The best AI feature is the one that doesn't phone home. On-device summaries for every Git repo, zero network calls.
 
 **24**
+
 > A GitHub repo and a local scratch repo shouldn't show the same stats. So they don't — the card adapts to what the repo actually is.
 
 **25**
+
 > Built with: a Rust backend, a Swift sidecar, Apple's on-device model, and a lot of frozen contracts so the agents couldn't collide.
 
 **26**
+
 > "It passed all the tests" and "it works on a real machine" are two different claims. The gap between them is where I spend my time.
 
 **27**
+
 > No account. No cloud. No API key. The whole app is one local JSON file and a model running on your own Mac.
 
 **28**
+
 > I don't put my best AI model on find-and-replace. Match the model to the task — same as staffing a team.
 
 **29**
+
 > The card tells you what the repo is, what it's built in, and whether it's in sync — before you click in. That's the entire point.
 
 **30**
+
 > Read your repos like a dashboard, not a directory listing. On-device AI does the summarizing; your code stays home. Coruro, macOS, MIT.

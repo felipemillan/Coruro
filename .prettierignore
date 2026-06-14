@@ -1,0 +1,7 @@
+dist
+node_modules
+src-tauri/target
+src-tauri/gen
+ai-sidecar/.build
+package-lock.json
+eslint-suppressions.json

@@ -11,9 +11,7 @@ import { STALE_DAYS } from '../view';
 export function matchesSearch(repo: Repo, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === '') return true;
-  const haystack = [repo.name, repo.gh?.language ?? '', repo.branch]
-    .join('\0')
-    .toLowerCase();
+  const haystack = [repo.name, repo.gh?.language ?? '', repo.branch].join('\0').toLowerCase();
   return haystack.includes(q);
 }
 

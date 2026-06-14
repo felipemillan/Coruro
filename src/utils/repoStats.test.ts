@@ -40,14 +40,34 @@ describe('deriveCardData', () => {
   it('uses GitHub metadata (description/tags/language) when enriched, with git-activity stats', () => {
     const repo = baseRepo({
       remoteUrl: 'git@github.com:felipemillan/Coruro.git',
-      commitCount: 200, branchCount: 5,
+      commitCount: 200,
+      branchCount: 5,
       gh: {
-        stars: 128, forks: 4, isPrivate: false, archived: false, openIssues: 12,
-        prCount: 0, ciStatus: 'success', latestRelease: null, description: 'Git dashboard',
-        topics: ['rust', 'tauri'], language: 'Rust', license: 'MIT', defaultBranch: 'main',
-        pushedAt: '2026-06-07T00:00:00Z', htmlUrl: 'https://github.com/felipemillan/Coruro',
-        watchers: 3, updatedAt: '2026-06-07T00:00:00Z', disabled: false, fork: false,
-        parent: null, homepage: null, hasIssues: true, hasWiki: false, hasPages: false, size: 100,
+        stars: 128,
+        forks: 4,
+        isPrivate: false,
+        archived: false,
+        openIssues: 12,
+        prCount: 0,
+        ciStatus: 'success',
+        latestRelease: null,
+        description: 'Git dashboard',
+        topics: ['rust', 'tauri'],
+        language: 'Rust',
+        license: 'MIT',
+        defaultBranch: 'main',
+        pushedAt: '2026-06-07T00:00:00Z',
+        htmlUrl: 'https://github.com/felipemillan/Coruro',
+        watchers: 3,
+        updatedAt: '2026-06-07T00:00:00Z',
+        disabled: false,
+        fork: false,
+        parent: null,
+        homepage: null,
+        hasIssues: true,
+        hasWiki: false,
+        hasPages: false,
+        size: 100,
       },
     });
     const d = deriveCardData(repo, FIXED_NOW);
@@ -66,7 +86,9 @@ describe('deriveCardData', () => {
 
   it('falls back to local stats when not enriched', () => {
     const repo = baseRepo({
-      commitCount: 340, branchCount: 6, lastCommitAt: '2026-06-05T00:00:00Z',
+      commitCount: 340,
+      branchCount: 6,
+      lastCommitAt: '2026-06-05T00:00:00Z',
     });
     const d = deriveCardData(repo, FIXED_NOW);
     expect(d.isLocalOnly).toBe(true);

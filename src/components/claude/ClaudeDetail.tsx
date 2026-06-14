@@ -47,13 +47,33 @@ function hostOf(url: string | null | undefined): string | null {
 
 const md: Components = {
   p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed text-navy/90">{children}</p>,
-  h1: ({ children }) => <h1 className="text-base font-bold text-navy mt-4 mb-2 pb-1 border-b border-warm-gray/50 first:mt-0">{children}</h1>,
-  h2: ({ children }) => <h2 className="text-sm font-semibold text-navy mt-4 mb-1.5 first:mt-0">{children}</h2>,
-  h3: ({ children }) => <h3 className="text-xs font-semibold text-navy/70 mt-3 mb-1 first:mt-0">{children}</h3>,
-  ul: ({ children }) => <ul className="list-disc list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">{children}</ol>,
+  h1: ({ children }) => (
+    <h1 className="text-base font-bold text-navy mt-4 mb-2 pb-1 border-b border-warm-gray/50 first:mt-0">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-sm font-semibold text-navy mt-4 mb-1.5 first:mt-0">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-xs font-semibold text-navy/70 mt-3 mb-1 first:mt-0">{children}</h3>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">
+      {children}
+    </ol>
+  ),
   li: ({ children }) => <li className="mb-0.5 leading-snug">{children}</li>,
-  code: ({ children }) => <code className="font-mono text-xs bg-navy/6 border border-navy/10 px-1 py-0.5 rounded">{children}</code>,
+  code: ({ children }) => (
+    <code className="font-mono text-xs bg-navy/6 border border-navy/10 px-1 py-0.5 rounded">
+      {children}
+    </code>
+  ),
   strong: ({ children }) => <strong className="font-semibold text-navy">{children}</strong>,
   a: ({ children }) => <span className="text-sage underline">{children}</span>,
   hr: () => <hr className="border-warm-gray/30 my-3" />,
@@ -89,9 +109,16 @@ function TreeRow({
           {open ? <FolderOpen size={12} /> : <Folder size={12} />}
           <span className="truncate">{node.name}</span>
         </button>
-        {open && node.children?.map((c) => (
-          <TreeRow key={c.path} node={c} depth={depth + 1} selected={selected} onSelect={onSelect} />
-        ))}
+        {open &&
+          node.children?.map((c) => (
+            <TreeRow
+              key={c.path}
+              node={c}
+              depth={depth + 1}
+              selected={selected}
+              onSelect={onSelect}
+            />
+          ))}
       </div>
     );
   }
@@ -115,7 +142,13 @@ function TreeRow({
 // Modal
 // ---------------------------------------------------------------------------
 
-export function ClaudeDetail({ entity, onClose }: { entity: ClaudeDetailEntity; onClose: () => void }) {
+export function ClaudeDetail({
+  entity,
+  onClose,
+}: {
+  entity: ClaudeDetailEntity;
+  onClose: () => void;
+}) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [selected, setSelected] = useState<string>(entity.kind === 'mcp' ? '' : entity.path);
   const [content, setContent] = useState<string>('');
@@ -180,7 +213,9 @@ export function ClaudeDetail({ entity, onClose }: { entity: ClaudeDetailEntity; 
           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-sage/20 text-sage">
             {entity.kind}
           </span>
-          <h2 className="text-sm font-semibold text-navy font-mono truncate flex-1">{entity.name}</h2>
+          <h2 className="text-sm font-semibold text-navy font-mono truncate flex-1">
+            {entity.name}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -196,23 +231,29 @@ export function ClaudeDetail({ entity, onClose }: { entity: ClaudeDetailEntity; 
           // ── MCP config panel (no backing files) ───────────────────────────
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
             <div className="max-w-xl mx-auto rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
-              {([
-                ['Name', entity.server.name],
-                ['Scope', entity.server.scope],
-                ['Transport', entity.server.transport],
-                ['Source', entity.server.source],
-                ['Package', entity.server.packageHint ?? '—'],
-                ['Host', hostOf(entity.server.url) ?? '—'],
-              ] as [string, string][]).map(([k, v]) => (
+              {(
+                [
+                  ['Name', entity.server.name],
+                  ['Scope', entity.server.scope],
+                  ['Transport', entity.server.transport],
+                  ['Source', entity.server.source],
+                  ['Package', entity.server.packageHint ?? '—'],
+                  ['Host', hostOf(entity.server.url) ?? '—'],
+                ] as [string, string][]
+              ).map(([k, v]) => (
                 <div key={k} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light w-24 shrink-0">{k}</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light w-24 shrink-0">
+                    {k}
+                  </span>
                   <span className="text-sm font-mono text-navy break-all">{v}</span>
                 </div>
               ))}
             </div>
             {entity.blurb && (
               <div className="max-w-xl mx-auto mt-4 rounded-xl border border-warm-gray bg-cream/60 p-4">
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-tertiary/20 text-tertiary mr-2">AI</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-tertiary/20 text-tertiary mr-2">
+                  AI
+                </span>
                 <span className="text-sm text-navy-light">{entity.blurb}</span>
               </div>
             )}
@@ -226,14 +267,22 @@ export function ClaudeDetail({ entity, onClose }: { entity: ClaudeDetailEntity; 
                 <p className="px-3 py-2 text-xs text-navy-light">No files.</p>
               ) : (
                 tree.map((n) => (
-                  <TreeRow key={n.path} node={n} depth={0} selected={selected} onSelect={setSelected} />
+                  <TreeRow
+                    key={n.path}
+                    node={n}
+                    depth={0}
+                    selected={selected}
+                    onSelect={setSelected}
+                  />
                 ))
               )}
             </div>
             {/* Right: content */}
             <div className="flex-1 min-w-0 overflow-y-auto p-6">
               {entity.description && (
-                <p className="text-xs text-navy-light mb-4 pb-3 border-b border-warm-gray/50">{entity.description}</p>
+                <p className="text-xs text-navy-light mb-4 pb-3 border-b border-warm-gray/50">
+                  {entity.description}
+                </p>
               )}
               {loading ? (
                 <p className="text-sm text-navy-light animate-pulse">Loading…</p>
@@ -244,7 +293,9 @@ export function ClaudeDetail({ entity, onClose }: { entity: ClaudeDetailEntity; 
                   </ReactMarkdown>
                 </div>
               ) : (
-                <pre className="text-xs font-mono text-navy/90 whitespace-pre-wrap break-words">{content}</pre>
+                <pre className="text-xs font-mono text-navy/90 whitespace-pre-wrap break-words">
+                  {content}
+                </pre>
               )}
             </div>
           </div>

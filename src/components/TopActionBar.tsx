@@ -28,10 +28,7 @@ import type {
 // ── Invocation builders (text inserted into the prompt, trailing space) ──────
 
 function skillInsert(skill: ClaudeSkill): string {
-  const inv =
-    skill.source !== 'local'
-      ? `/${skill.source}:${skill.dirName}`
-      : `/${skill.dirName}`;
+  const inv = skill.source !== 'local' ? `/${skill.source}:${skill.dirName}` : `/${skill.dirName}`;
   return `${inv} `;
 }
 
@@ -133,7 +130,10 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
     q === '' || (s ?? '').toLowerCase().includes(q);
 
   const fSkills = useMemo(
-    () => skills.filter((s) => match(s.name) || match(s.dirName) || match(s.description) || match(s.source)),
+    () =>
+      skills.filter(
+        (s) => match(s.name) || match(s.dirName) || match(s.description) || match(s.source),
+      ),
     [skills, q],
   );
   const fAgents = useMemo(
@@ -174,7 +174,9 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
     setOpen(true);
     // Defer to next frame so the drawer exists before we scroll to the group.
     requestAnimationFrame(() => {
-      document.getElementById(`tab-group-${group}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document
+        .getElementById(`tab-group-${group}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   };
 
@@ -244,9 +246,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
         </span>
         <span className="text-[10px] text-navy-light/40 tabular-nums">{count}</span>
       </div>
-      <div className={twoCol ? 'grid grid-cols-2 gap-1' : 'flex flex-col gap-1'}>
-        {children}
-      </div>
+      <div className={twoCol ? 'grid grid-cols-2 gap-1' : 'flex flex-col gap-1'}>{children}</div>
     </div>
   );
 
@@ -367,8 +367,12 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                         title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
                         className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
                       >
-                        <span className="text-[12px] font-semibold text-navy truncate block">{f.label}</span>
-                        <div className="text-[10px] font-mono text-navy-light/45 truncate">{f.text.trim()}</div>
+                        <span className="text-[12px] font-semibold text-navy truncate block">
+                          {f.label}
+                        </span>
+                        <div className="text-[10px] font-mono text-navy-light/45 truncate">
+                          {f.text.trim()}
+                        </div>
                       </button>
                       <button
                         type="button"
@@ -376,11 +380,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                         aria-label={`Unpin ${f.label}`}
                         className="shrink-0 p-1 mt-1 mr-0.5 transition-opacity cursor-pointer focus-visible:outline-none"
                       >
-                        <Star
-                          size={12}
-                          strokeWidth={2}
-                          className="fill-sage text-sage"
-                        />
+                        <Star size={12} strokeWidth={2} className="fill-sage text-sage" />
                       </button>
                     </div>
                   ))
@@ -413,10 +413,10 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                         }`}
                       >
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-[12px] font-semibold text-navy truncate">{p.name}</span>
-                          {!p.enabled && (
-                            <span className="text-[9px] text-navy-light/40">off</span>
-                          )}
+                          <span className="text-[12px] font-semibold text-navy truncate">
+                            {p.name}
+                          </span>
+                          {!p.enabled && <span className="text-[9px] text-navy-light/40">off</span>}
                         </div>
                         <div className="text-[10px] text-navy-light/45 truncate">
                           {p.description ?? p.marketplace ?? 'plugin'}

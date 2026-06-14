@@ -12,20 +12,20 @@
 
 ## File Structure
 
-| File | Responsibility | Action |
-|---|---|---|
-| `src-tauri/src/commands.rs` | `git_local_stats` command | Modify |
-| `src-tauri/src/lib.rs` | register command in handler | Modify |
-| `src/types.ts` | `Repo` runtime + AI optional fields | Modify |
-| `src/store/useBoardStore.ts` | merge local stats in `enrichGit`/`enrichGitOne` | Modify |
-| `src/utils/languageColor.ts` | language → hex map | Create |
-| `src/utils/languageColor.test.ts` | tests | Create |
-| `src/utils/repoStats.ts` | pure card-data derivation | Create |
-| `src/utils/repoStats.test.ts` | tests | Create |
-| `src/components/card/SyncBadges.tsx` | ahead/behind/dirty/CI badges | Create |
-| `src/components/card/StatGrid.tsx` | adaptive 3-stat grid | Create |
-| `src/components/card/CardHeader.tsx` | lang dot/tint, watermark, handle, name | Create |
-| `src/components/RepoCard.tsx` | composition + actions + AI slots | Rewrite |
+| File                                 | Responsibility                                  | Action  |
+| ------------------------------------ | ----------------------------------------------- | ------- |
+| `src-tauri/src/commands.rs`          | `git_local_stats` command                       | Modify  |
+| `src-tauri/src/lib.rs`               | register command in handler                     | Modify  |
+| `src/types.ts`                       | `Repo` runtime + AI optional fields             | Modify  |
+| `src/store/useBoardStore.ts`         | merge local stats in `enrichGit`/`enrichGitOne` | Modify  |
+| `src/utils/languageColor.ts`         | language → hex map                              | Create  |
+| `src/utils/languageColor.test.ts`    | tests                                           | Create  |
+| `src/utils/repoStats.ts`             | pure card-data derivation                       | Create  |
+| `src/utils/repoStats.test.ts`        | tests                                           | Create  |
+| `src/components/card/SyncBadges.tsx` | ahead/behind/dirty/CI badges                    | Create  |
+| `src/components/card/StatGrid.tsx`   | adaptive 3-stat grid                            | Create  |
+| `src/components/card/CardHeader.tsx` | lang dot/tint, watermark, handle, name          | Create  |
+| `src/components/RepoCard.tsx`        | composition + actions + AI slots                | Rewrite |
 
 **Theme tokens (reuse, do not invent):** `navy`, `navy-light`, `sage`, `terracotta`, `amber-500`, `warm-gray`, `dusty-pink`. Card background changes from `bg-warm-gray` to `bg-white`. Radius stays `rounded-xl`.
 
@@ -34,6 +34,7 @@
 ## Task 1: Rust `git_local_stats` command
 
 **Files:**
+
 - Modify: `src-tauri/src/commands.rs` (append command + test)
 - Modify: `src-tauri/src/lib.rs` (register in `generate_handler!`)
 
@@ -140,6 +141,7 @@ git commit -m "feat(git): add git_local_stats command (commits, last commit, bra
 ## Task 2: Extend the `Repo` type
 
 **Files:**
+
 - Modify: `src/types.ts` (the `Repo` interface, after the `behind` field)
 
 - [ ] **Step 1: Add the new optional fields to `Repo`**
@@ -176,6 +178,7 @@ git commit -m "feat(types): add local-stat and AI-slot fields to Repo"
 ## Task 3: Merge local stats in the store
 
 **Files:**
+
 - Modify: `src/store/useBoardStore.ts` (`enrichGit` worker and `enrichGitOne`)
 
 - [ ] **Step 1: Extend the `enrichGit` worker to fetch local stats**
@@ -183,61 +186,71 @@ git commit -m "feat(types): add local-stat and AI-slot fields to Repo"
 In `src/store/useBoardStore.ts`, find `enrichGit`. Replace the `byPath` map type and worker body so each repo also gets local stats. Change:
 
 ```ts
-    const byPath = new Map<string, { ahead: number; behind: number } | null>();
+const byPath = new Map<string, { ahead: number; behind: number } | null>();
 ```
 
 to:
 
 ```ts
-    const byPath = new Map<
-      string,
-      { ahead: number | null; behind: number | null; commitCount: number; lastCommitAt: string | null; branchCount: number }
-    >();
+const byPath = new Map<
+  string,
+  {
+    ahead: number | null;
+    behind: number | null;
+    commitCount: number;
+    lastCommitAt: string | null;
+    branchCount: number;
+  }
+>();
 ```
 
 Replace the worker's `try` block body with:
 
 ```ts
-        try {
-          // git_ahead_behind returns [ahead, behind] or null (no upstream).
-          const ab = await invoke<[number, number] | null>('git_ahead_behind', {
-            path: repo.path,
-          });
-          // git_local_stats returns [commitCount, lastCommitAt, branchCount].
-          const ls = await invoke<[number, string | null, number]>('git_local_stats', {
-            path: repo.path,
-          });
-          byPath.set(repo.path, {
-            ahead: ab === null ? null : ab[0],
-            behind: ab === null ? null : ab[1],
-            commitCount: ls[0],
-            lastCommitAt: ls[1],
-            branchCount: ls[2],
-          });
-        } catch {
-          byPath.set(repo.path, {
-            ahead: null, behind: null, commitCount: 0, lastCommitAt: null, branchCount: 0,
-          });
-        }
+try {
+  // git_ahead_behind returns [ahead, behind] or null (no upstream).
+  const ab = await invoke<[number, number] | null>('git_ahead_behind', {
+    path: repo.path,
+  });
+  // git_local_stats returns [commitCount, lastCommitAt, branchCount].
+  const ls = await invoke<[number, string | null, number]>('git_local_stats', {
+    path: repo.path,
+  });
+  byPath.set(repo.path, {
+    ahead: ab === null ? null : ab[0],
+    behind: ab === null ? null : ab[1],
+    commitCount: ls[0],
+    lastCommitAt: ls[1],
+    branchCount: ls[2],
+  });
+} catch {
+  byPath.set(repo.path, {
+    ahead: null,
+    behind: null,
+    commitCount: 0,
+    lastCommitAt: null,
+    branchCount: 0,
+  });
+}
 ```
 
 Replace the merge `set(...)` at the end of `enrichGit` with:
 
 ```ts
-    set((s) => ({
-      repos: s.repos.map((r) => {
-        const v = byPath.get(r.path);
-        if (!v) return r;
-        return {
-          ...r,
-          ahead: v.ahead,
-          behind: v.behind,
-          commitCount: v.commitCount,
-          lastCommitAt: v.lastCommitAt,
-          branchCount: v.branchCount,
-        };
-      }),
-    }));
+set((s) => ({
+  repos: s.repos.map((r) => {
+    const v = byPath.get(r.path);
+    if (!v) return r;
+    return {
+      ...r,
+      ahead: v.ahead,
+      behind: v.behind,
+      commitCount: v.commitCount,
+      lastCommitAt: v.lastCommitAt,
+      branchCount: v.branchCount,
+    };
+  }),
+}));
 ```
 
 - [ ] **Step 2: Extend `enrichGitOne`**
@@ -288,6 +301,7 @@ git commit -m "feat(store): merge git_local_stats into repo enrichment"
 ## Task 4: `languageColor` util
 
 **Files:**
+
 - Create: `src/utils/languageColor.ts`
 - Test: `src/utils/languageColor.test.ts`
 
@@ -378,6 +392,7 @@ git commit -m "feat(utils): add languageColor map"
 ## Task 5: `repoStats` pure derivation util
 
 **Files:**
+
 - Create: `src/utils/repoStats.ts`
 - Test: `src/utils/repoStats.test.ts`
 
@@ -429,12 +444,31 @@ describe('deriveCardData', () => {
     const repo = baseRepo({
       remoteUrl: 'git@github.com:felipemillan/Coruro.git',
       gh: {
-        stars: 128, forks: 4, isPrivate: false, archived: false, openIssues: 12,
-        prCount: 0, ciStatus: 'success', latestRelease: null, description: 'Git dashboard',
-        topics: ['rust', 'tauri'], language: 'Rust', license: 'MIT', defaultBranch: 'main',
-        pushedAt: '2026-06-07T00:00:00Z', htmlUrl: 'https://github.com/felipemillan/Coruro',
-        watchers: 3, updatedAt: '2026-06-07T00:00:00Z', disabled: false, fork: false,
-        parent: null, homepage: null, hasIssues: true, hasWiki: false, hasPages: false, size: 100,
+        stars: 128,
+        forks: 4,
+        isPrivate: false,
+        archived: false,
+        openIssues: 12,
+        prCount: 0,
+        ciStatus: 'success',
+        latestRelease: null,
+        description: 'Git dashboard',
+        topics: ['rust', 'tauri'],
+        language: 'Rust',
+        license: 'MIT',
+        defaultBranch: 'main',
+        pushedAt: '2026-06-07T00:00:00Z',
+        htmlUrl: 'https://github.com/felipemillan/Coruro',
+        watchers: 3,
+        updatedAt: '2026-06-07T00:00:00Z',
+        disabled: false,
+        fork: false,
+        parent: null,
+        homepage: null,
+        hasIssues: true,
+        hasWiki: false,
+        hasPages: false,
+        size: 100,
       },
     });
     const d = deriveCardData(repo, FIXED_NOW);
@@ -449,7 +483,9 @@ describe('deriveCardData', () => {
 
   it('falls back to local stats when not enriched', () => {
     const repo = baseRepo({
-      commitCount: 340, branchCount: 6, lastCommitAt: '2026-06-05T00:00:00Z',
+      commitCount: 340,
+      branchCount: 6,
+      lastCommitAt: '2026-06-05T00:00:00Z',
     });
     const d = deriveCardData(repo, FIXED_NOW);
     expect(d.isLocalOnly).toBe(true);
@@ -599,6 +635,7 @@ git commit -m "feat(utils): add pure repoStats card-data derivation"
 ## Task 6: `SyncBadges` component
 
 **Files:**
+
 - Create: `src/components/card/SyncBadges.tsx`
 - Test: `src/components/card/SyncBadges.test.tsx`
 
@@ -650,10 +687,14 @@ interface SyncBadgesProps {
 
 function ciColor(status: string): string | null {
   switch (status) {
-    case 'success': return 'text-sage';
-    case 'failure': return 'text-terracotta';
-    case 'pending': return 'text-amber-500';
-    default: return null;
+    case 'success':
+      return 'text-sage';
+    case 'failure':
+      return 'text-terracotta';
+    case 'pending':
+      return 'text-amber-500';
+    default:
+      return null;
   }
 }
 
@@ -673,12 +714,14 @@ export function SyncBadges({ sync }: SyncBadgesProps) {
 
       {sync.ahead > 0 && (
         <span className="flex items-center gap-0.5 text-sage" title="Commits ahead">
-          <ArrowUp size={11} strokeWidth={2} />{sync.ahead}
+          <ArrowUp size={11} strokeWidth={2} />
+          {sync.ahead}
         </span>
       )}
       {sync.behind > 0 && (
         <span className="flex items-center gap-0.5 text-amber-500" title="Commits behind">
-          <ArrowDown size={11} strokeWidth={2} />{sync.behind}
+          <ArrowDown size={11} strokeWidth={2} />
+          {sync.behind}
         </span>
       )}
 
@@ -709,6 +752,7 @@ git commit -m "feat(card): add SyncBadges component"
 ## Task 7: `StatGrid` component
 
 **Files:**
+
 - Create: `src/components/card/StatGrid.tsx`
 - Test: `src/components/card/StatGrid.test.tsx`
 
@@ -724,11 +768,13 @@ import { StatGrid } from './StatGrid';
 describe('StatGrid', () => {
   it('renders all three stats with values and labels', () => {
     const html = renderToStaticMarkup(
-      <StatGrid stats={[
-        { value: '128', label: 'STARS' },
-        { value: '12', label: 'ISSUES' },
-        { value: '4', label: 'FORKS' },
-      ]} />,
+      <StatGrid
+        stats={[
+          { value: '128', label: 'STARS' },
+          { value: '12', label: 'ISSUES' },
+          { value: '4', label: 'FORKS' },
+        ]}
+      />,
     );
     expect(html).toContain('128');
     expect(html).toContain('STARS');
@@ -795,6 +841,7 @@ git commit -m "feat(card): add StatGrid component"
 ## Task 8: `CardHeader` component
 
 **Files:**
+
 - Create: `src/components/card/CardHeader.tsx`
 - Test: `src/components/card/CardHeader.test.tsx`
 
@@ -911,6 +958,7 @@ git commit -m "feat(card): add CardHeader band component"
 ## Task 9: Rewrite `RepoCard` to compose the editorial card
 
 **Files:**
+
 - Rewrite: `src/components/RepoCard.tsx`
 - Test: `src/components/RepoCard.test.tsx` (create)
 
@@ -929,15 +977,24 @@ import type { Repo } from '../types';
 // Stub stores so the component renders without a live Zustand provider.
 vi.mock('../store/useBoardStore', () => ({
   useBoardStore: (sel: (s: unknown) => unknown) =>
-    sel({ settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' }, enrichOne: () => {} }),
+    sel({
+      settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' },
+      enrichOne: () => {},
+    }),
 }));
 vi.mock('../store/useViewStore', () => ({
   useViewStore: (sel: (s: unknown) => unknown) => sel({ setDetail: () => {} }),
 }));
 
 const localRepo: Repo = {
-  name: 'Coruro', path: '/x/Coruro', branch: 'main', dirty: true,
-  prCount: 0, commitCount: 340, branchCount: 6, lastCommitAt: '2026-06-05T00:00:00Z',
+  name: 'Coruro',
+  path: '/x/Coruro',
+  branch: 'main',
+  dirty: true,
+  prCount: 0,
+  commitCount: 340,
+  branchCount: 6,
+  lastCommitAt: '2026-06-05T00:00:00Z',
 };
 
 describe('RepoCard', () => {
@@ -970,7 +1027,17 @@ Expected: FAIL — the current card renders `bg-warm-gray` flat layout and has n
 // Both are produced by deriveCardData — later AI cycles just populate fields.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, ExternalLink, TerminalSquare, RefreshCw, Lock, GitFork, Archive } from 'lucide-react';
+import {
+  Code2,
+  FolderOpen,
+  FileText,
+  ExternalLink,
+  TerminalSquare,
+  RefreshCw,
+  Lock,
+  GitFork,
+  Archive,
+} from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { safeOpenUrl } from '../utils/openUrl';
@@ -1098,31 +1165,71 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
 
       {/* Action row */}
       <div className="flex items-center justify-end gap-1 border-t border-navy/10 px-2 py-1">
-        <button type="button" onClick={() => { void refreshGitHub(); }} disabled={refreshing}
+        <button
+          type="button"
+          onClick={() => {
+            void refreshGitHub();
+          }}
+          disabled={refreshing}
           className={`${iconBtn} disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Refresh GitHub data" aria-label="Refresh GitHub data">
+          title="Refresh GitHub data"
+          aria-label="Refresh GitHub data"
+        >
           <RefreshCw size={14} strokeWidth={1.75} className={refreshing ? 'animate-spin' : ''} />
         </button>
         {htmlUrl && (
-          <button type="button" onClick={() => { void safeOpenUrl(htmlUrl); }}
-            className={iconBtn} title="Open on GitHub" aria-label="Open repository on GitHub">
+          <button
+            type="button"
+            onClick={() => {
+              void safeOpenUrl(htmlUrl);
+            }}
+            className={iconBtn}
+            title="Open on GitHub"
+            aria-label="Open repository on GitHub"
+          >
             <ExternalLink size={14} strokeWidth={1.75} />
           </button>
         )}
-        <button type="button" onClick={() => setDetail(repo.path)}
-          className={iconBtn} title="View README & files" aria-label="View README and files">
+        <button
+          type="button"
+          onClick={() => setDetail(repo.path)}
+          className={iconBtn}
+          title="View README & files"
+          aria-label="View README and files"
+        >
           <FileText size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => { void openInEditor(); }}
-          className={iconBtn} title={`Open in IDE (${editorCommand || editorApp})`} aria-label="Open in IDE">
+        <button
+          type="button"
+          onClick={() => {
+            void openInEditor();
+          }}
+          className={iconBtn}
+          title={`Open in IDE (${editorCommand || editorApp})`}
+          aria-label="Open in IDE"
+        >
           <Code2 size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => { void openInTerminal(); }}
-          className={iconBtn} title={`Open in terminal (${terminalApp})`} aria-label="Open in terminal">
+        <button
+          type="button"
+          onClick={() => {
+            void openInTerminal();
+          }}
+          className={iconBtn}
+          title={`Open in terminal (${terminalApp})`}
+          aria-label="Open in terminal"
+        >
           <TerminalSquare size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => { void revealInFinder(); }}
-          className={iconBtn} title="Reveal in Finder" aria-label="Reveal in Finder">
+        <button
+          type="button"
+          onClick={() => {
+            void revealInFinder();
+          }}
+          className={iconBtn}
+          title="Reveal in Finder"
+          aria-label="Reveal in Finder"
+        >
           <FolderOpen size={14} strokeWidth={1.75} />
         </button>
       </div>

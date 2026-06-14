@@ -18,10 +18,7 @@
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [
-        { "path": "$HOME/.repo_dashboard_state.json" },
-        { "path": "$HOME/**" }
-      ]
+      "allow": [{ "path": "$HOME/.repo_dashboard_state.json" }, { "path": "$HOME/**" }]
     },
     {
       "identifier": "fs:allow-exists",
@@ -38,17 +35,11 @@
     },
     {
       "identifier": "fs:allow-read-dir",
-      "allow": [
-        { "path": "$HOME/**" },
-        { "path": "$HOME/.claude" },
-        { "path": "$HOME/.claude/**" }
-      ]
+      "allow": [{ "path": "$HOME/**" }, { "path": "$HOME/.claude" }, { "path": "$HOME/.claude/**" }]
     },
     {
       "identifier": "fs:allow-stat",
-      "allow": [
-        { "path": "$HOME/.claude/**" }
-      ]
+      "allow": [{ "path": "$HOME/.claude/**" }]
     },
     {
       "identifier": "shell:allow-execute",

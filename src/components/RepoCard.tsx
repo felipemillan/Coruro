@@ -9,7 +9,16 @@
 // Both are produced by deriveCardData — later AI cycles just populate fields.
 
 import { useState } from 'react';
-import { Code2, FolderOpen, FileText, ExternalLink, SquareTerminal, Lock, GitFork, Archive } from 'lucide-react';
+import {
+  Code2,
+  FolderOpen,
+  FileText,
+  ExternalLink,
+  SquareTerminal,
+  Lock,
+  GitFork,
+  Archive,
+} from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { safeOpenUrl } from '../utils/openUrl';
@@ -117,25 +126,56 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
       {/* Action row */}
       <div className="flex items-center justify-end gap-1 border-t border-navy/10 px-2 py-1">
         {htmlUrl && (
-          <button type="button" onClick={() => { void safeOpenUrl(htmlUrl); }}
-            className={iconBtn} title="Open on GitHub" aria-label="Open repository on GitHub">
+          <button
+            type="button"
+            onClick={() => {
+              void safeOpenUrl(htmlUrl);
+            }}
+            className={iconBtn}
+            title="Open on GitHub"
+            aria-label="Open repository on GitHub"
+          >
             <ExternalLink size={14} strokeWidth={1.75} />
           </button>
         )}
-        <button type="button" onClick={() => setDetail(repo.path)}
-          className={iconBtn} title="View README & files" aria-label="View README and files">
+        <button
+          type="button"
+          onClick={() => setDetail(repo.path)}
+          className={iconBtn}
+          title="View README & files"
+          aria-label="View README and files"
+        >
           <FileText size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => { void openInEditor(); }}
-          className={iconBtn} title={`Open in IDE (${editorCommand || editorApp})`} aria-label="Open in IDE">
+        <button
+          type="button"
+          onClick={() => {
+            void openInEditor();
+          }}
+          className={iconBtn}
+          title={`Open in IDE (${editorCommand || editorApp})`}
+          aria-label="Open in IDE"
+        >
           <Code2 size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => requestAsk(repo.path)}
-          className={iconBtn} title="Ask Claude Code about this repo" aria-label="Ask Claude Code">
+        <button
+          type="button"
+          onClick={() => requestAsk(repo.path)}
+          className={iconBtn}
+          title="Ask Claude Code about this repo"
+          aria-label="Ask Claude Code"
+        >
           <SquareTerminal size={14} strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={() => { void revealInFinder(); }}
-          className={iconBtn} title="Reveal in Finder" aria-label="Reveal in Finder">
+        <button
+          type="button"
+          onClick={() => {
+            void revealInFinder();
+          }}
+          className={iconBtn}
+          title="Reveal in Finder"
+          aria-label="Reveal in Finder"
+        >
           <FolderOpen size={14} strokeWidth={1.75} />
         </button>
       </div>

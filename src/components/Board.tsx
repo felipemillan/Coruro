@@ -21,12 +21,7 @@
 // indie-pastel palette tokens from index.css.
 
 import { useCallback, useMemo } from 'react';
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  type DropResult,
-} from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { COLUMN_IDS, type ColumnId, type Repo } from '../types';
 import { useBoardStore } from '../store/useBoardStore';
 import { useViewStore } from '../store/useViewStore';
@@ -81,33 +76,25 @@ export function Board({ onOpenSettings }: BoardProps) {
   const dragEnabled = !isViewActive({ search, filters, sort });
 
   // The repo whose detail modal is open (if it still exists in the scan).
-  const detailRepo = detailPath !== null ? repoByPath.get(detailPath) ?? null : null;
+  const detailRepo = detailPath !== null ? (repoByPath.get(detailPath) ?? null) : null;
 
-  const onDragEnd = useCallback((result: DropResult) => {
-    const { source, destination, draggableId } = result;
-    // Dropped outside any droppable — nothing to do.
-    if (!destination) return;
-    // Defensive: ignore unexpected droppable ids.
-    if (
-      !isColumnId(source.droppableId) ||
-      !isColumnId(destination.droppableId)
-    ) {
-      return;
-    }
-    // No-op drop in the exact same spot.
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    ) {
-      return;
-    }
-    moveCard(
-      draggableId,
-      source.droppableId,
-      destination.droppableId,
-      destination.index,
-    );
-  }, [moveCard]);
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      const { source, destination, draggableId } = result;
+      // Dropped outside any droppable — nothing to do.
+      if (!destination) return;
+      // Defensive: ignore unexpected droppable ids.
+      if (!isColumnId(source.droppableId) || !isColumnId(destination.droppableId)) {
+        return;
+      }
+      // No-op drop in the exact same spot.
+      if (source.droppableId === destination.droppableId && source.index === destination.index) {
+        return;
+      }
+      moveCard(draggableId, source.droppableId, destination.droppableId, destination.index);
+    },
+    [moveCard],
+  );
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -180,9 +167,7 @@ export function Board({ onOpenSettings }: BoardProps) {
 
       {/* Single detail modal, lifted out of RepoCard so the keyboard ⏎
           shortcut can open the selected repo. */}
-      {detailRepo !== null && (
-        <RepoDetail repo={detailRepo} onClose={() => setDetail(null)} />
-      )}
+      {detailRepo !== null && <RepoDetail repo={detailRepo} onClose={() => setDetail(null)} />}
     </div>
   );
 }

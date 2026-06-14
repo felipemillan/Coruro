@@ -28,20 +28,21 @@ export interface RepoGitHub {
   forks: number;
   isPrivate: boolean;
   archived: boolean;
-  openIssues: number;            // true issues = open_issues_count − prCount
+  openIssues: number; // true issues = open_issues_count − prCount
   prCount: number;
   ciStatus: CiStatus;
   latestRelease: { tag: string; publishedAt: string } | null;
   description: string | null;
   topics: string[];
   language: string | null;
-  license: string | null;        // SPDX id, e.g. "MIT"
+  license: string | null; // SPDX id, e.g. "MIT"
   defaultBranch: string;
-  pushedAt: string;              // ISO 8601
+  pushedAt: string; // ISO 8601
 }
 ```
 
 `Repo` gains two optional runtime fields:
+
 ```ts
   remoteUrl?: string | null;   // origin URL captured at scan time
   gh?: RepoGitHub | null;      // null = no github.com remote OR fetch failed
@@ -50,11 +51,33 @@ export interface RepoGitHub {
 Existing top-level `prCount` is superseded by `gh.prCount`; leave the field on `Repo` for back-compat this pass (it stays 0 from the scanner), and have `RepoCard` read `gh.prCount`.
 
 Modal-lazy activity types (live in `githubActivity.ts`, re-exported as needed):
+
 ```ts
-export interface GhPull { number: number; title: string; draft: boolean; author: string; url: string; }
-export interface GhCommit { sha: string; message: string; author: string; date: string; url: string; }
-export interface GhIssue { number: number; title: string; labels: string[]; url: string; }
-export interface GhActivity { prs: GhPull[]; commits: GhCommit[]; issues: GhIssue[]; }
+export interface GhPull {
+  number: number;
+  title: string;
+  draft: boolean;
+  author: string;
+  url: string;
+}
+export interface GhCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  url: string;
+}
+export interface GhIssue {
+  number: number;
+  title: string;
+  labels: string[];
+  url: string;
+}
+export interface GhActivity {
+  prs: GhPull[];
+  commits: GhCommit[];
+  issues: GhIssue[];
+}
 ```
 
 ## Fetch layer
@@ -86,6 +109,7 @@ A single DRY core for authenticated GitHub REST calls with conditional caching.
 ### `src/utils/githubActivity.ts` (new)
 
 Modal-lazy fetchers + pure mappers (unit-tested):
+
 - `mapPulls(json): GhPull[]`, `mapCommits(json): GhCommit[]`, `mapIssues(json): GhIssue[]` (filter out entries with a `pull_request` field — the issues endpoint returns PRs too).
 - `export async function fetchActivity(coords, token?): Promise<GhActivity>` — `Promise.all` of `/pulls?state=open&per_page=20`, `/commits?per_page=10`, `/issues?state=open&per_page=20`. Each failure → empty array.
 
@@ -98,6 +122,7 @@ In `scanRepos`, also capture the origin URL: call `getRemoteUrl(subdirPath)` alo
 ### `src/store/useBoardStore.ts`
 
 Add a GitHub enrichment pass to `scanAndDistribute`, after notes hydration and board distribution:
+
 1. `const token = await invoke<string|null>('get_token').catch(() => null)`.
 2. For each repo whose `remoteUrl` yields `parseRemote() !== null`, call `fetchRepoCard(coords, token ?? undefined)`. Run with a **concurrency cap** (e.g. 6 at a time) so a large root doesn't fire hundreds of requests at once.
 3. Merge results: `setRepos(repos.map(r => ({ ...r, gh: result.get(r.path) ?? null })))`. Repos with no github remote get `gh: null`.
@@ -111,12 +136,13 @@ Expose this as part of `scanAndDistribute` (no separate public action needed). T
 ### `src/components/RepoCard.tsx`
 
 Render badges from `repo.gh` (all hidden when `gh` is null):
+
 - CI dot: 🟢 success / 🔴 failure / 🟡 pending / (hidden) none — small colored dot + `aria-label`.
 - `{openIssues} issues` when > 0.
 - `★{stars}` when > 0.
 - Latest release: `{tag} · {relativeAge}` when present.
 - Private/archived: a small `private` / `archived` tag.
-Keep the existing branch + dirty badge. Badges sit in the meta row; wrap gracefully. Match existing token palette (sage/terracotta/navy/dusty-pink).
+  Keep the existing branch + dirty badge. Badges sit in the meta row; wrap gracefully. Match existing token palette (sage/terracotta/navy/dusty-pink).
 
 ### `src/components/RepoDetail.tsx`
 

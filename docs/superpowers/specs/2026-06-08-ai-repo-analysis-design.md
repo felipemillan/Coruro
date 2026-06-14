@@ -82,6 +82,7 @@ A standalone SPM executable (`Package.swift`, `platforms: [.macOS("26.0")]`).
 Reads one JSON request from stdin, writes one JSON response to stdout, exits.
 
 **Request (stdin):**
+
 ```json
 {
   "repoName": "Coruro",
@@ -94,18 +95,27 @@ Reads one JSON request from stdin, writes one JSON response to stdout, exits.
 ```
 
 **Response (stdout) — success:**
+
 ```json
-{ "ok": true, "summary": "…≤ 30 words…", "tags": ["rust","tauri","desktop"], "model": "apple-on-device" }
+{
+  "ok": true,
+  "summary": "…≤ 30 words…",
+  "tags": ["rust", "tauri", "desktop"],
+  "model": "apple-on-device"
+}
 ```
 
 **Response — unavailable / error:**
+
 ```json
 { "ok": false, "error": "unavailable", "reason": "appleIntelligenceNotEnabled" }
 ```
+
 `error` ∈ `unavailable | contextOverflow | generation | badInput`. For
 `unavailable`, `reason` ∈ `deviceNotEligible | appleIntelligenceNotEnabled | modelNotReady`.
 
 **Generated output type:**
+
 ```swift
 @Generable
 struct RepoAnalysis {
@@ -117,6 +127,7 @@ struct RepoAnalysis {
 ```
 
 **Core flow:**
+
 ```swift
 import FoundationModels
 import Foundation
@@ -156,6 +167,7 @@ Apple-Silicon-only anyway).
 ## 5. Rust commands
 
 **`ai_analyze`** (new, `src-tauri/src/commands.rs`, needs `AppHandle` + shell):
+
 - Input: the context struct (serde). Spawn `coruro-ai` sidecar, write JSON to
   stdin, collect stdout, parse, return a typed result enum to JS.
 - 30s timeout → `{ ok:false, error:"timeout" }`-equivalent. Sidecar-missing →
@@ -187,15 +199,16 @@ instructions + schema + output). Conservative char budget (~3.5 chars/token):
 ## 7. Store: cache, queue, hydration
 
 **Persistence** — extend `AppState`:
+
 ```ts
 export interface AiCacheEntry {
   summary: string;
   tags: string[];
   model: string;
-  analyzedAt: string;     // ISO
+  analyzedAt: string; // ISO
   inputHash: string;
 }
-export type AiCache = Record<string, AiCacheEntry>;        // keyed by repo path
+export type AiCache = Record<string, AiCacheEntry>; // keyed by repo path
 // + AppState.aiCache: AiCache
 // + AppState.aiUnavailableReason?: string | null  (one-time banner state)
 ```
@@ -204,6 +217,7 @@ export type AiCache = Record<string, AiCacheEntry>;        // keyed by repo path
 (mirrors `ghCache` → `Repo.gh`).
 
 **Queue actions:**
+
 - `enrichAi()`: serial worker over repos whose `aiCache` is missing or whose
   freshly built `inputHash` differs. Low priority (runs after `enrichGit` /
   GitHub enrichment). Cancels on a new scan.
@@ -257,26 +271,31 @@ store, not persisted). On completion the real summary replaces it. Optional smal
 Model tier per task complexity.
 
 **Phase 1 — Swift sidecar** (novel, highest risk):
+
 - `Package.swift`, `Sources/coruro-ai/main.swift` (availability, session,
   `@Generable`, `--selftest`), `scripts/build-ai-sidecar.sh`, build the binary —
   agent: backend-developer — model: **opus** (novel API, no codebase precedent).
 
 **Phase 2 — Rust + context** (parallel, after P1 contract is fixed):
+
 - `ai_analyze` + `git_recent_commits` commands + handler registration +
   `tauri.conf.json` externalBin + capability — backend-developer — **sonnet**.
 - `src/utils/aiContext.ts` + tests (pure) — typescript-pro — **sonnet**.
 - `src/types.ts` AiCache types — general — **haiku**.
 
 **Phase 3 — Store wiring** (barrier — needs types + command + context):
+
 - `aiCache` persistence, hydration, serial `enrichAi`/`enrichAiOne`, queue
   cancel, unavailable→banner — typescript-pro — **opus** (stateful, async,
   cancellation).
 
 **Phase 4 — UI** (after store):
+
 - `analyzing…` indicator + optional ✨ force button + unavailable banner —
   ui-designer — **sonnet**.
 
 **Phase 5 — Verify** (adversarial):
+
 - `npm test` + `npm run build` + `cargo build` + `coruro-ai --selftest`
   contract — general — **sonnet**.
 - Code review (queue cancellation correctness, token-budget caps, error paths) —

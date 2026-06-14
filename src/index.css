@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /*
  * Tailwind v4 theme — Material 3 (Material You), sage-green seed (#8FAF8A).
@@ -26,55 +26,55 @@
 
 @theme {
   /* ── M3 roles — primary (sage-seed) ── */
-  --color-primary: #4C662B;
-  --color-on-primary: #FFFFFF;
-  --color-primary-container: #CDEDA3;
-  --color-on-primary-container: #354E16;
+  --color-primary: #4c662b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #cdeda3;
+  --color-on-primary-container: #354e16;
 
   /* ── secondary ── */
   --color-secondary: #586249;
-  --color-on-secondary: #FFFFFF;
-  --color-secondary-container: #DCE7C8;
-  --color-on-secondary-container: #404A33;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #dce7c8;
+  --color-on-secondary-container: #404a33;
 
   /* ── tertiary (teal accent) ── */
   --color-tertiary: #386663;
-  --color-on-tertiary: #FFFFFF;
-  --color-tertiary-container: #BCECE7;
-  --color-on-tertiary-container: #1F4E4B;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #bcece7;
+  --color-on-tertiary-container: #1f4e4b;
 
   /* ── error ── */
-  --color-error: #BA1A1A;
-  --color-on-error: #FFFFFF;
-  --color-error-container: #FFDAD6;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
   --color-on-error-container: #410002;
 
   /* ── surfaces / background / outline ── */
-  --color-background: #F9FAEF;
-  --color-on-background: #1A1C16;
-  --color-surface: #F9FAEF;
-  --color-on-surface: #1A1C16;
-  --color-surface-variant: #E1E4D5;
-  --color-on-surface-variant: #44483D;
-  --color-outline: #75796C;
-  --color-outline-variant: #C5C8BA;
+  --color-background: #f9faef;
+  --color-on-background: #1a1c16;
+  --color-surface: #f9faef;
+  --color-on-surface: #1a1c16;
+  --color-surface-variant: #e1e4d5;
+  --color-on-surface-variant: #44483d;
+  --color-outline: #75796c;
+  --color-outline-variant: #c5c8ba;
 
   /* ── M3 tonal surface containers (elevation surfaces) ── */
-  --color-surface-container-lowest: #FFFFFF;
-  --color-surface-container-low: #F3F4E9;
-  --color-surface-container: #EDEEE3;
-  --color-surface-container-high: #E8E9DD;
-  --color-surface-container-highest: #E2E3D8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f4e9;
+  --color-surface-container: #edeee3;
+  --color-surface-container-high: #e8e9dd;
+  --color-surface-container-highest: #e2e3d8;
 
   /* ── Legacy aliases (remapped onto M3 roles) ── */
-  --color-cream: #F9FAEF;
-  --color-warm-gray: #EDEEE3;
-  --color-navy: #1A1C16;
-  --color-navy-light: #44483D;
-  --color-sage: #4C662B;
-  --color-sage-light: #CDEDA3;
-  --color-terracotta: #BA1A1A;
-  --color-dusty-pink: #BCECE7;
+  --color-cream: #f9faef;
+  --color-warm-gray: #edeee3;
+  --color-navy: #1a1c16;
+  --color-navy-light: #44483d;
+  --color-sage: #4c662b;
+  --color-sage-light: #cdeda3;
+  --color-terracotta: #ba1a1a;
+  --color-dusty-pink: #bcece7;
 
   /* ── Shape: M3 corner scale ── */
   --radius: 8px;
@@ -86,17 +86,17 @@
   --radius-full: 9999px;
 
   /* ── Elevation: M3 levels 1–3 ── */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.10);
-  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.10);
-  --shadow-md: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 2px 6px 2px rgb(0 0 0 / 0.10);
-  --shadow-lg: 0 4px 8px 3px rgb(0 0 0 / 0.10), 0 1px 3px 0 rgb(0 0 0 / 0.12);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.1);
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 2px 6px 2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 4px 8px 3px rgb(0 0 0 / 0.1), 0 1px 3px 0 rgb(0 0 0 / 0.12);
 }
 
 /* Base: M3 surface background + on-surface type. Roboto if present, else Inter. */
 body {
   background-color: var(--color-surface);
   color: var(--color-on-surface);
-  font-family: "Roboto", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: 'Roboto', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -127,19 +127,45 @@ html {
   line-height: 1.25;
   margin: 1.4em 0 0.6em;
 }
-.markdown-body h1 { font-size: 1.7em; border-bottom: 1px solid var(--color-outline-variant); padding-bottom: 0.3em; }
-.markdown-body h2 { font-size: 1.35em; border-bottom: 1px solid var(--color-outline-variant); padding-bottom: 0.25em; }
-.markdown-body h3 { font-size: 1.15em; }
-.markdown-body h4 { font-size: 1em; }
-.markdown-body p { margin: 0.7em 0; }
-.markdown-body a { color: var(--color-primary); text-decoration: underline; }
+.markdown-body h1 {
+  font-size: 1.7em;
+  border-bottom: 1px solid var(--color-outline-variant);
+  padding-bottom: 0.3em;
+}
+.markdown-body h2 {
+  font-size: 1.35em;
+  border-bottom: 1px solid var(--color-outline-variant);
+  padding-bottom: 0.25em;
+}
+.markdown-body h3 {
+  font-size: 1.15em;
+}
+.markdown-body h4 {
+  font-size: 1em;
+}
+.markdown-body p {
+  margin: 0.7em 0;
+}
+.markdown-body a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
 .markdown-body ul,
-.markdown-body ol { margin: 0.7em 0; padding-left: 1.6em; }
-.markdown-body ul { list-style: disc; }
-.markdown-body ol { list-style: decimal; }
-.markdown-body li { margin: 0.25em 0; }
+.markdown-body ol {
+  margin: 0.7em 0;
+  padding-left: 1.6em;
+}
+.markdown-body ul {
+  list-style: disc;
+}
+.markdown-body ol {
+  list-style: decimal;
+}
+.markdown-body li {
+  margin: 0.25em 0;
+}
 .markdown-body code {
-  font-family: "SFMono-Regular", ui-monospace, Menlo, monospace;
+  font-family: 'SFMono-Regular', ui-monospace, Menlo, monospace;
   font-size: 0.86em;
   background: var(--color-surface-container-high);
   padding: 0.12em 0.4em;
@@ -152,19 +178,40 @@ html {
   margin: 0.8em 0;
   border-radius: var(--radius-md);
 }
-.markdown-body pre code { background: none; padding: 0; font-size: 0.85em; }
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+}
 .markdown-body blockquote {
   border-left: 3px solid var(--color-primary);
   padding-left: 1em;
   margin: 0.8em 0;
   color: var(--color-on-surface-variant);
 }
-.markdown-body table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
+.markdown-body table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  width: 100%;
+}
 .markdown-body th,
-.markdown-body td { border: 1px solid var(--color-outline-variant); padding: 0.4em 0.7em; text-align: left; }
-.markdown-body th { background: var(--color-surface-container-high); font-weight: 600; }
-.markdown-body img { max-width: 100%; }
-.markdown-body hr { border: none; border-top: 1px solid var(--color-outline-variant); margin: 1.2em 0; }
+.markdown-body td {
+  border: 1px solid var(--color-outline-variant);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.markdown-body th {
+  background: var(--color-surface-container-high);
+  font-weight: 600;
+}
+.markdown-body img {
+  max-width: 100%;
+}
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--color-outline-variant);
+  margin: 1.2em 0;
+}
 
 /* ── Command Palette (cmdk) ─────────────────────────────────────────────── */
 
@@ -186,7 +233,9 @@ html {
   background: var(--color-surface-container-lowest);
   border: 1px solid var(--color-outline-variant);
   border-radius: 16px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.22),
+    0 4px 12px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   animation: cmdk-scale-in 140ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -258,8 +307,8 @@ html {
   outline: none;
 }
 
-[cmdk-item][aria-selected="true"],
-[cmdk-item][data-selected="true"] {
+[cmdk-item][aria-selected='true'],
+[cmdk-item][data-selected='true'] {
   background: var(--color-primary-container);
 }
 
@@ -267,8 +316,8 @@ html {
   background: var(--color-surface-container-high);
 }
 
-[cmdk-item][aria-selected="true"]:hover,
-[cmdk-item][data-selected="true"]:hover {
+[cmdk-item][aria-selected='true']:hover,
+[cmdk-item][data-selected='true']:hover {
   background: var(--color-primary-container);
 }
 
@@ -286,11 +335,21 @@ html {
 }
 
 @keyframes cmdk-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes cmdk-scale-in {
-  from { opacity: 0; transform: translateX(-50%) scale(0.95); }
-  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }

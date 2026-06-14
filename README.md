@@ -12,7 +12,8 @@ leaves it.
 Coruro scans a folder of Git repositories and lays them out as cards on a
 five-column Kanban board (Inbox · Backlog · Active · Review · Done). Each card is
 an information-dashboard: language, sync state, stats, and an AI-generated summary
-+ tags — so you can read a project at a glance without opening it.
+
+- tags — so you can read a project at a glance without opening it.
 
 ## Features
 
@@ -53,7 +54,7 @@ an information-dashboard: language, sync state, stats, and an AI-generated summa
 - **GitHub token** lives in the macOS Keychain (service `repo_dashboard`).
 - **App state** is a single local JSON file at `~/.repo_dashboard_state.json`.
 - **Command Center is read-only and secret-free** — it scans `~/.claude` for an
-  inventory only, capturing env var *names* (never values), redacting MCP endpoint
+  inventory only, capturing env var _names_ (never values), redacting MCP endpoint
   tokens, and never reading session transcripts or memory contents.
 
 ## Build from source

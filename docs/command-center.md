@@ -19,17 +19,17 @@ The scanner reads user-level `~/.claude` **and** each enabled plugin's installed
 directory, tagging every item with a `source` (`local`/`user`, or the plugin name)
 so the UI can group and filter by origin.
 
-| Category | Sources | Notes |
-|---|---|---|
-| **MCP servers** | `~/.claude.json` (global + `projects[*].mcpServers`), each project's `<path>/.mcp.json`, and every enabled plugin's `mcp.json` | **Deduped by name** (global wins over project) — counts unique servers, not per-project tuples. Transport (stdio/sse/http) inferred. A secret-free `packageHint` (e.g. `@scope/server-x`) is derived from the stdio command + args. |
-| **Skills** | `~/.claude/skills/<dir>/SKILL.md` **+** each enabled plugin's `<installPath>/skills/<dir>/SKILL.md` | Name + description from YAML frontmatter. Only the **active** plugin version is read (no stale cached versions). |
-| **Subagents** | `~/.claude/agents/*.md` **+** each plugin's `<installPath>/agents/…` | Handles **both** layouts: flat `agents/x.md` and nested `agents/x/AGENT.md` (e.g. bigbang-crew personas). |
-| **Slash commands** | `~/.claude/commands/**/*.md` **+** each plugin's `<installPath>/commands/**` | Depth-guarded walk; names namespaced by subdir. |
-| **Plugins** | `~/.claude/plugins/installed_plugins.json` + `settings.json` `enabledPlugins` + each plugin's `.claude-plugin/plugin.json` | Name, marketplace, active version, enabled flag, and the **authoritative description** from the plugin manifest. |
-| **Hooks** | `settings.json` `hooks` + standalone `*-hook-*` / `stop-hook-*` / `session-start-*` scripts | Event + truncated command preview. |
-| **Settings** | `settings.json` | Model, permission allow/deny counts, env var **names** only. |
-| **Global memory** | `~/.claude/CLAUDE.md` | Presence + character count only (body never read). |
-| **Sessions** | `~/.claude/projects/<slug>/*.jsonl` | Transcript **count** + newest transcript **mtime** (`lastModified`) per project. Contents never read. |
+| Category           | Sources                                                                                                                        | Notes                                                                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP servers**    | `~/.claude.json` (global + `projects[*].mcpServers`), each project's `<path>/.mcp.json`, and every enabled plugin's `mcp.json` | **Deduped by name** (global wins over project) — counts unique servers, not per-project tuples. Transport (stdio/sse/http) inferred. A secret-free `packageHint` (e.g. `@scope/server-x`) is derived from the stdio command + args. |
+| **Skills**         | `~/.claude/skills/<dir>/SKILL.md` **+** each enabled plugin's `<installPath>/skills/<dir>/SKILL.md`                            | Name + description from YAML frontmatter. Only the **active** plugin version is read (no stale cached versions).                                                                                                                    |
+| **Subagents**      | `~/.claude/agents/*.md` **+** each plugin's `<installPath>/agents/…`                                                           | Handles **both** layouts: flat `agents/x.md` and nested `agents/x/AGENT.md` (e.g. bigbang-crew personas).                                                                                                                           |
+| **Slash commands** | `~/.claude/commands/**/*.md` **+** each plugin's `<installPath>/commands/**`                                                   | Depth-guarded walk; names namespaced by subdir.                                                                                                                                                                                     |
+| **Plugins**        | `~/.claude/plugins/installed_plugins.json` + `settings.json` `enabledPlugins` + each plugin's `.claude-plugin/plugin.json`     | Name, marketplace, active version, enabled flag, and the **authoritative description** from the plugin manifest.                                                                                                                    |
+| **Hooks**          | `settings.json` `hooks` + standalone `*-hook-*` / `stop-hook-*` / `session-start-*` scripts                                    | Event + truncated command preview.                                                                                                                                                                                                  |
+| **Settings**       | `settings.json`                                                                                                                | Model, permission allow/deny counts, env var **names** only.                                                                                                                                                                        |
+| **Global memory**  | `~/.claude/CLAUDE.md`                                                                                                          | Presence + character count only (body never read).                                                                                                                                                                                  |
+| **Sessions**       | `~/.claude/projects/<slug>/*.jsonl`                                                                                            | Transcript **count** + newest transcript **mtime** (`lastModified`) per project. Contents never read.                                                                                                                               |
 
 Plugin content lives under `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`;
 the authoritative active version per plugin comes from `installed_plugins.json →
@@ -76,11 +76,13 @@ Two on-device features, both via the existing FoundationModels sidecar
 (`ai-sidecar/`, binary `coruro-ai-aarch64-apple-darwin`). No network, no API key.
 
 ### Health summary (`ai_day_notes` mode)
+
 `buildClaudeHealthDigest(inventory)` turns the inventory into a compact, number-light,
 secret-free `{ name, commits[] }[]` digest (≤ ~8000 chars) and reuses the existing
 `ai_day_notes` sidecar mode. Degrades gracefully when Apple Intelligence is off.
 
 ### Enrichment (`enrich` mode — new)
+
 Generates a short, one-sentence blurb for things the scanner can't describe (MCP
 servers, session projects).
 
@@ -91,7 +93,7 @@ servers, session projects).
 - **In-memory cache.** Ids already enriched are never re-generated; a fresh scan
   resets the cache.
 - **Secret-free context.** Each item is reduced to `name · transport · package
-  <packageHint> · <url-host>` (MCP) or a humanized project name (session). The raw
+<packageHint> · <url-host>` (MCP) or a humanized project name (session). The raw
   MCP `command` and any env/flag values **never** reach the model — the
   `packageHint` extractor rejects flags, `=`-values, and long/random tokens.
 - **Sidecar flow:** `useClaudeStore.generateEnrichments()` → Rust
@@ -117,7 +119,7 @@ cut token cost:
 
 1. Launch `dgc .` with **no prompt arg** (loads memory / dual-graph context).
 2. Wait for claude's **ready marker** (`Claude Code v` banner / the `❯` caret) in the
-   cumulative PTY buffer — crucially *not* the first output, since `dgc` prints
+   cumulative PTY buffer — crucially _not_ the first output, since `dgc` prints
    seconds of scan logs first and early keystrokes would be lost.
 3. Send `/caveman:caveman ultra` (activates the ultra-compact mode).
 4. After a settle delay, send the user's prompt — if one was given (bare sessions
@@ -157,25 +159,25 @@ Clicking any **skill / agent / command** card (or an **MCP** card) opens an
 
 ## 7. Architecture / key files
 
-| File | Role |
-|---|---|
-| `src/utils/claudeScanner.ts` | `scanClaude(): Promise<ClaudeInventory>` — full-scope read-only scanner (user + enabled plugins), MCP name-dedup, nested-agent + `packageHint` + session `mtime` + plugin-manifest descriptions |
-| `src/utils/claudeEnrich.ts` | `buildEnrichmentItems(inv)` — secret-free items for the on-device enrichment model |
-| `src/utils/claudeHealthContext.ts` | `buildClaudeHealthDigest(inv)` — secret-free health-summary digest |
-| `src/store/useClaudeStore.ts` | Zustand store: `scanClaude`, `generateHealthSummary`, `generateEnrichments` (auto, chunked, `enrichProgress`); in-memory only |
-| `src/components/CommandCenterTab.tsx` | Dashboard shell: KPI cards, sub-tabs, plugin cards, bottom bar, detail wiring |
-| `src/components/claude/KpiCard.tsx` | Progress-bar stat card |
-| `src/components/claude/SubTabNav.tsx` | In-tab segmented navigation |
-| `src/components/claude/SkillsDonut.tsx` | SVG donut + 3-column per-source meters |
-| `src/components/claude/FilterBar.tsx` | Search + segmented filter chips |
-| `src/components/claude/InventoryCards.tsx` | `McpCard` / `SkillCard` / `AgentCard` (clickable → detail) |
-| `src/components/claude/SessionsTable.tsx` | Sessions table (transcripts + last-modified) |
-| `src/components/claude/ClaudeDetail.tsx` | 85vw×85vh detail modal (file tree + content, or MCP config) |
-| `src/components/AskTab.tsx` | PTY sessions; unified caveman boot sequence |
-| `ai-sidecar/Sources/coruro-ai/main.swift` | FoundationModels sidecar: `day_notes` + `enrich` modes |
-| `src-tauri/src/commands.rs` | `ai_day_notes`, `ai_enrich` Tauri commands |
-| `src-tauri/capabilities/default.json` | fs scope for `~/.claude/**` (read/dir/exists/**stat**) |
-| `src/types.ts` | `ClaudeInventory` + members, enrichment types |
+| File                                       | Role                                                                                                                                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/utils/claudeScanner.ts`               | `scanClaude(): Promise<ClaudeInventory>` — full-scope read-only scanner (user + enabled plugins), MCP name-dedup, nested-agent + `packageHint` + session `mtime` + plugin-manifest descriptions |
+| `src/utils/claudeEnrich.ts`                | `buildEnrichmentItems(inv)` — secret-free items for the on-device enrichment model                                                                                                              |
+| `src/utils/claudeHealthContext.ts`         | `buildClaudeHealthDigest(inv)` — secret-free health-summary digest                                                                                                                              |
+| `src/store/useClaudeStore.ts`              | Zustand store: `scanClaude`, `generateHealthSummary`, `generateEnrichments` (auto, chunked, `enrichProgress`); in-memory only                                                                   |
+| `src/components/CommandCenterTab.tsx`      | Dashboard shell: KPI cards, sub-tabs, plugin cards, bottom bar, detail wiring                                                                                                                   |
+| `src/components/claude/KpiCard.tsx`        | Progress-bar stat card                                                                                                                                                                          |
+| `src/components/claude/SubTabNav.tsx`      | In-tab segmented navigation                                                                                                                                                                     |
+| `src/components/claude/SkillsDonut.tsx`    | SVG donut + 3-column per-source meters                                                                                                                                                          |
+| `src/components/claude/FilterBar.tsx`      | Search + segmented filter chips                                                                                                                                                                 |
+| `src/components/claude/InventoryCards.tsx` | `McpCard` / `SkillCard` / `AgentCard` (clickable → detail)                                                                                                                                      |
+| `src/components/claude/SessionsTable.tsx`  | Sessions table (transcripts + last-modified)                                                                                                                                                    |
+| `src/components/claude/ClaudeDetail.tsx`   | 85vw×85vh detail modal (file tree + content, or MCP config)                                                                                                                                     |
+| `src/components/AskTab.tsx`                | PTY sessions; unified caveman boot sequence                                                                                                                                                     |
+| `ai-sidecar/Sources/coruro-ai/main.swift`  | FoundationModels sidecar: `day_notes` + `enrich` modes                                                                                                                                          |
+| `src-tauri/src/commands.rs`                | `ai_day_notes`, `ai_enrich` Tauri commands                                                                                                                                                      |
+| `src-tauri/capabilities/default.json`      | fs scope for `~/.claude/**` (read/dir/exists/**stat**)                                                                                                                                          |
+| `src/types.ts`                             | `ClaudeInventory` + members, enrichment types                                                                                                                                                   |
 
 **fs scope note:** Tauri's `$HOME/**` glob does not match leading-dot path segments,
 so explicit `$HOME/.claude`, `$HOME/.claude/**`, `$HOME/.claude.json`,

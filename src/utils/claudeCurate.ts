@@ -151,9 +151,7 @@ const EMPTY_SUMMARY = (): Record<CurateCategory, number> => ({
  * model has nothing numeric to echo and no identifiers to leak. INVARIANT: every
  * finding `title` is count-free (see buildCurateFindings).
  */
-export function buildCuratePayload(
-  findings: ReadonlyArray<CurateFinding>,
-): CuratePayload {
+export function buildCuratePayload(findings: ReadonlyArray<CurateFinding>): CuratePayload {
   const summary = EMPTY_SUMMARY();
   for (const f of findings) summary[f.category] += 1;
   return {

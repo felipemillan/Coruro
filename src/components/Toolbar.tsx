@@ -37,7 +37,6 @@ export function Toolbar({ onOpenSettings }: ToolbarProps) {
 
   return (
     <div className="px-4 py-2 border-b border-warm-gray bg-cream/80 backdrop-blur-sm flex items-center gap-3 flex-wrap shrink-0">
-
       {/* ── Brand — moved here from the old standalone nav bar ── */}
       <span className="text-[13px] font-semibold tracking-wide text-navy select-none shrink-0">
         Coruro
@@ -95,11 +94,7 @@ export function Toolbar({ onOpenSettings }: ToolbarProps) {
 
       {/* ── Sort dropdown ── */}
       <div className="flex items-center gap-1.5">
-        <ArrowUpDown
-          size={13}
-          strokeWidth={1.5}
-          className="text-navy-light/50 shrink-0"
-        />
+        <ArrowUpDown size={13} strokeWidth={1.5} className="text-navy-light/50 shrink-0" />
         <select
           value={sort}
           onChange={(e) => {
