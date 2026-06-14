@@ -15,6 +15,7 @@ import {
   validateAiCache,
   validateDayNotes,
   validateChatSessions,
+  validateActivityLog,
 } from '../utils/appStateValidation';
 import type { BoardStore } from './boardStoreTypes';
 
@@ -70,6 +71,7 @@ export function validateAppState(raw: unknown): AppState {
     aiCache: validateAiCache(parsed.aiCache, base.aiCache),
     dayNotes: validateDayNotes(parsed.dayNotes, base.dayNotes),
     chatSessions: validateChatSessions(parsed.chatSessions, base.chatSessions),
+    activityLog: validateActivityLog(parsed.activityLog, base.activityLog),
   };
 }
 
@@ -83,6 +85,7 @@ export function serialise(state: AppState): string {
     aiCache: state.aiCache,
     dayNotes: state.dayNotes,
     chatSessions: state.chatSessions,
+    activityLog: state.activityLog,
   };
   return JSON.stringify(snapshot, null, 2);
 }

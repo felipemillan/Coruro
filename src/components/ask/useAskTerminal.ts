@@ -7,6 +7,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { ChatSession } from '../../types';
+import { useBoardStore } from '../../store/useBoardStore';
 
 interface PtyOutput {
   id: string;
@@ -172,6 +173,12 @@ export function useAskTerminal({
       };
 
       addChatSession(session);
+      useBoardStore.getState().logActivity({
+        id: crypto.randomUUID(),
+        ts: Date.now(),
+        kind: 'ask_session_started',
+        repoName: rName,
+      });
       buffersRef.current.set(id, '');
 
       // Point terminal at new session before subscribing so no bytes are missed.
@@ -235,6 +242,13 @@ export function useAskTerminal({
         buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + msg);
         if (displayedIdRef.current === id) term.write(msg);
         updateChatSessionStatus(id, 'ended', e.payload.code);
+        useBoardStore.getState().logActivity({
+          id: crypto.randomUUID(),
+          ts: Date.now(),
+          kind: 'ask_session_ended',
+          repoName: rName,
+          label: `ended:${String(e.payload.code)}`,
+        });
       });
 
       unlistenersRef.current.set(id, [unOut, unExit]);
@@ -296,6 +310,13 @@ export function useAskTerminal({
       };
 
       addChatSession(session);
+      useBoardStore.getState().logActivity({
+        id: crypto.randomUUID(),
+        ts: Date.now(),
+        kind: 'run_command_fired',
+        repoName: rName,
+        label: repoDetection.repoType,
+      });
       buffersRef.current.set(id, '');
 
       const term = ensureTerminal()!;

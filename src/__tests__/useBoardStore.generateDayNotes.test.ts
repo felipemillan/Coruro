@@ -76,6 +76,10 @@ function resetStore() {
     generatingNotes: false,
     notesError: null,
     repos: [],
+    // Seed an empty activity log so app-activity state never leaks between
+    // tests — a stray in-window event would defeat the empty-window early
+    // returns ("returns early when empty" / "silent auto on quiet window").
+    activityLog: { events: [] },
   });
 }
 
@@ -135,6 +139,44 @@ describe('generateDayNotes', () => {
     await useBoardStore.getState().generateDayNotes('auto');
 
     expect(useBoardStore.getState().notesError).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalledWith('ai_day_notes', expect.anything());
+  });
+
+  it('produces an app-only local-stats note without invoking the sidecar', async () => {
+    // No repos, but one in-window activity event. The app-only path must emit a
+    // deterministic stats-only note and must NEVER call ai_day_notes (P0 #1:
+    // the on-device model is never invoked with empty repo data).
+    useBoardStore.setState({
+      repos: [],
+      activityLog: {
+        events: [
+          {
+            id: 'evt-1',
+            ts: Date.now(),
+            kind: 'ask_session_started' as const,
+            repoName: 'fake-repo',
+          },
+        ],
+      },
+    });
+
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === 'get_token') return Promise.resolve(null);
+      if (cmd === 'git_dirty_stat') return Promise.resolve('');
+      if (cmd === 'git_commits_since_numstat') return Promise.resolve([]);
+      return Promise.resolve('{}');
+    });
+
+    await useBoardStore.getState().generateDayNotes('manual');
+
+    const { notesError, dayNotes } = useBoardStore.getState();
+    expect(notesError).toBeNull();
+    // Exactly one note was produced.
+    expect(dayNotes.notes).toHaveLength(1);
+    const note = dayNotes.notes[0];
+    expect(note.model).toBe('local-stats');
+    expect(note.body).toContain('App Activity');
+    // Zero-network AI: the sidecar must not have been touched on the app-only path.
     expect(invokeMock).not.toHaveBeenCalledWith('ai_day_notes', expect.anything());
   });
 

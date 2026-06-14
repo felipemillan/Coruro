@@ -5,7 +5,14 @@
 // slice creators can import it without a cycle through the composition root
 // (useBoardStore.ts). The public hook API is unchanged.
 
-import { type AppState, type ColumnId, type Repo, type DayNote, type ChatSession } from '../types';
+import {
+  type AppState,
+  type ColumnId,
+  type Repo,
+  type DayNote,
+  type ChatSession,
+  type ActivityEvent,
+} from '../types';
 
 export interface BoardStore extends AppState {
   /** Runtime-only: repos discovered by the most recent filesystem scan. */
@@ -105,6 +112,13 @@ export interface BoardStore extends AppState {
   setAutoNotesEnabled: (enabled: boolean) => void;
   /** Set the auto-note interval (minutes) and persist. */
   setAutoNotesIntervalMin: (min: number) => void;
+
+  /** Append an in-app activity event and persist. */
+  logActivity: (event: ActivityEvent) => void;
+  /** Query activity events in a time window (ISO string boundaries). */
+  eventsInWindow: (windowStartIso: string, windowEndIso: string) => ActivityEvent[];
+  /** Clear all activity events and persist. */
+  clearActivityLog: () => void;
 
   /** Generate a day-note by querying the AI sidecar over the recent commit window. */
   generateDayNotes: (trigger: 'manual' | 'auto') => Promise<void>;

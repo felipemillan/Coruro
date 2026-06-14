@@ -14,9 +14,10 @@
  * This bar is the always-visible mouse path; Cmd+K remains the keyboard path.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Star, Search } from 'lucide-react';
 import { useClaudeStore } from '../store/useClaudeStore';
+import { useBoardStore } from '../store/useBoardStore';
 import type {
   ClaudeSkill,
   ClaudeAgent,
@@ -99,13 +100,19 @@ export interface TopActionBarProps {
   onInsert(text: string): void;
   /** True when no PTY session is displayed — items disabled with a hint. */
   disabled?: boolean;
+  /** Name slug of the currently selected repo, for activity logging. */
+  currentRepoName?: string | null;
 }
 
 type GroupKey = 'favorites' | 'skills' | 'agents' | 'commands' | 'mcp' | 'plugins';
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) {
+export function TopActionBar({
+  onInsert,
+  disabled = false,
+  currentRepoName = null,
+}: TopActionBarProps) {
   const inventory = useClaudeStore((s) => s.inventory);
   const scanClaude = useClaudeStore((s) => s.scanClaude);
 
@@ -165,10 +172,20 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
     });
   };
 
-  const insert = (text: string): void => {
-    if (disabled) return;
-    onInsert(text);
-  };
+  const insert = useCallback(
+    (text: string, commandType: string): void => {
+      if (disabled) return;
+      onInsert(text);
+      useBoardStore.getState().logActivity({
+        id: crypto.randomUUID(),
+        ts: Date.now(),
+        kind: 'run_command_fired',
+        repoName: currentRepoName ?? null,
+        label: commandType,
+      });
+    },
+    [disabled, onInsert, currentRepoName],
+  );
 
   const openTo = (group: GroupKey): void => {
     setOpen(true);
@@ -195,7 +212,14 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
   );
 
   // One insertable card in the drawer grid.
-  const card = (key: string, name: string, sub: string, text: string, badge?: string) => (
+  const card = (
+    key: string,
+    name: string,
+    sub: string,
+    text: string,
+    badge?: string,
+    commandType = 'command',
+  ) => (
     <div
       key={key}
       className="group relative flex items-start gap-1.5 rounded-lg border border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5 transition-colors"
@@ -203,7 +227,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
       <button
         type="button"
         disabled={disabled}
-        onClick={() => insert(text)}
+        onClick={() => insert(text, commandType)}
         title={disabled ? 'Start a session first' : `Insert: ${text.trim()}`}
         className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
       >
@@ -264,7 +288,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
               key={b.text}
               type="button"
               disabled={disabled}
-              onClick={() => insert(b.text)}
+              onClick={() => insert(b.text, 'builtin')}
               title={`Insert: ${b.text.trim()}`}
               className="px-2 py-1 text-[11px] font-mono text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy rounded-full transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
             >
@@ -363,7 +387,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                       <button
                         type="button"
                         disabled={disabled}
-                        onClick={() => insert(f.text)}
+                        onClick={() => insert(f.text, 'favorite')}
                         title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
                         className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
                       >
@@ -436,6 +460,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                       m.transport !== 'unknown' ? m.transport : 'mcp',
                       mcpInsert(m),
                       m.source !== 'user' ? m.source : undefined,
+                      'mcp',
                     ),
                   ),
                 )}
@@ -457,6 +482,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                       commandInsert(c).trim(),
                       commandInsert(c),
                       c.source !== 'local' ? c.source : undefined,
+                      'command',
                     ),
                   ),
                 )}
@@ -471,6 +497,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                       `subagent`,
                       agentInsert(a),
                       a.source !== 'local' ? a.source : undefined,
+                      'agent',
                     ),
                   ),
                 )}
@@ -485,6 +512,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
                       skillInsert(s).trim(),
                       skillInsert(s),
                       s.source !== 'local' ? s.source : undefined,
+                      'skill',
                     ),
                   ),
                   true, // 2-column card grid — tames the 221-item list

@@ -4,10 +4,14 @@
 // them to store state. Behaviour is identical to the inline implementation.
 
 import { invoke } from '@tauri-apps/api/core';
-import { type DayNote } from '../types';
+import { type DayNote, type ActivityEvent } from '../types';
 import { capItemsToContextBudget } from '../utils/aiContext';
 import { capContextLines } from '../utils/dayNotesContext';
-import { composeSessionReport } from '../utils/sessionReport';
+import {
+  composeSessionReport,
+  sanitizeExecSummary,
+  EXEC_SUMMARY_FALLBACK,
+} from '../utils/sessionReport';
 import { fetchUserLogin } from '../utils/githubUser';
 import { fetchUserEvents } from '../utils/githubEvents';
 import type { BoardStore } from './boardStoreTypes';
@@ -73,6 +77,14 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
         trigger: 'user',
       };
       get().addDayNote(note);
+      // Log the user-note write as app activity. Metadata only: no body, no
+      // repoRefs — those would leak free-text/secret content (P0 invariant #2).
+      get().logActivity({
+        id: crypto.randomUUID(),
+        ts: Date.now(),
+        kind: 'user_note_written',
+        repoName: null,
+      });
     },
 
     updateDayNote: (id, body) => {
@@ -137,12 +149,26 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
         // Only include repos that have activity in the window
         const activeRepoData = repoData.filter((r) => r.commits.length > 0);
 
-        if (activeRepoData.length === 0) {
+        // In-app activity (Ask/Run/Command Center/Curator/user notes) within the
+        // same window. Metadata-only, never sent to the sidecar (P0 #1/#2).
+        const appEvents = get().eventsInWindow(windowStart, windowEnd);
+
+        if (activeRepoData.length === 0 && appEvents.length === 0) {
           // Manual click deserves feedback; a recurring auto run with a quiet
           // window should not paint an error banner.
           if (trigger === 'manual') {
             set({ notesError: 'No activity found since the last note.' });
           }
+          return;
+        }
+
+        // App-only path: repo activity is empty but in-app activity exists.
+        // Short-circuit BEFORE any sidecar call — the on-device model is never
+        // invoked with empty repo data (P0 invariant #1, zero-network AI). The
+        // note is a deterministic stats-only digest of the activity log.
+        if (activeRepoData.length === 0) {
+          get().addDayNote(buildAppOnlyNote(now, windowStart, windowEnd, appEvents, trigger));
+          set({ notesError: null });
           return;
         }
 
@@ -165,6 +191,7 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
           activeRepoData.map((r) => r.activity),
           execSummary,
           new Date(now),
+          appEvents,
         );
 
         const note: DayNote = {
@@ -180,11 +207,7 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
         get().addDayNote(note);
         set({ notesError: null });
       } catch (e) {
-        if (e instanceof RateLimitError) {
-          set({ notesError: 'GitHub API rate limit reached. Wait a moment and try again.' });
-        } else {
-          set({ notesError: `Error: ${e instanceof Error ? e.message : String(e)}` });
-        }
+        set({ notesError: dayNotesErrorMessage(e) });
       } finally {
         set({ generatingNotes: false });
       }
@@ -220,6 +243,42 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
  * Read the GitHub PAT from the Keychain (null when absent). A rejection is a
  * genuine Keychain access failure, not "no token" — log it and degrade to null.
  */
+/**
+ * Map a generateDayNotes failure to the user-facing banner string. Rate-limit
+ * errors get a dedicated retry hint; everything else surfaces the message.
+ */
+function dayNotesErrorMessage(e: unknown): string {
+  if (e instanceof RateLimitError) {
+    return 'GitHub API rate limit reached. Wait a moment and try again.';
+  }
+  return `Error: ${e instanceof Error ? e.message : String(e)}`;
+}
+
+/**
+ * Build the app-only day note: repo activity is empty but in-app activity
+ * exists, so the note is a deterministic stats-only digest of the activity log
+ * (no sidecar call, P0 invariant #1). Pure — caller owns store mutation.
+ */
+function buildAppOnlyNote(
+  now: number,
+  windowStart: string,
+  windowEnd: string,
+  appEvents: ActivityEvent[],
+  trigger: 'manual' | 'auto',
+): DayNote {
+  const body = composeSessionReport([], EXEC_SUMMARY_FALLBACK, new Date(now), appEvents);
+  return {
+    id: crypto.randomUUID(),
+    generatedAt: new Date().toISOString(),
+    windowStart,
+    windowEnd,
+    body,
+    repoRefs: extractRepoRefs(body),
+    model: 'local-stats',
+    trigger,
+  };
+}
+
 async function resolveToken(): Promise<string | null> {
   return invoke<string | null>('get_token').catch((e: unknown) => {
     console.error('[keychain] get_token failed', errorMessage(e));
@@ -247,7 +306,7 @@ async function gatherUserEvents(
 async function fetchExecSummary(
   cappedRepoData: Array<{ name: string; commits: string[] }>,
 ): Promise<{ execSummary: string; model: string }> {
-  let execSummary = '_Apple Intelligence summary unavailable — stats compiled locally._';
+  let execSummary = EXEC_SUMMARY_FALLBACK;
   let model = 'local-stats';
   try {
     const raw = await invoke<string>('ai_day_notes', { repos: cappedRepoData });
@@ -258,8 +317,16 @@ async function fetchExecSummary(
       error?: string;
     };
     if (parsed.ok && parsed.body) {
-      execSummary = parsed.body.trim();
-      model = parsed.model ?? 'apple/foundation-models';
+      // Deterministic gate: the on-device model leaks time spans and numbers
+      // despite three prompt layers forbidding them. Sanitize before the
+      // report uses it; if nothing survives, the gate returns the fallback and
+      // we keep the local-stats attribution.
+      const cleaned = sanitizeExecSummary(parsed.body);
+      execSummary = cleaned;
+      model =
+        cleaned === EXEC_SUMMARY_FALLBACK
+          ? 'local-stats'
+          : (parsed.model ?? 'apple/foundation-models');
     }
   } catch {
     // Sidecar spawn/parse failure — keep the fallback summary.

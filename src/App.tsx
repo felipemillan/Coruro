@@ -279,7 +279,15 @@ export default function App() {
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('claude')}
+                onClick={() => {
+                  setActiveTab('claude');
+                  useBoardStore.getState().logActivity({
+                    id: crypto.randomUUID(),
+                    ts: Date.now(),
+                    kind: 'command_center_opened',
+                    repoName: null,
+                  });
+                }}
                 className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
                   activeTab === 'claude'
                     ? 'text-navy bg-cream'
