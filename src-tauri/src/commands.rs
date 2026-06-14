@@ -158,8 +158,10 @@ pub fn git_branches(path: String) -> Result<Vec<String>, String> {
     Ok(branches)
 }
 
-/// Fetch remote refs (`git -C <path> fetch`). Read-only w.r.t. the working tree
-/// (updates remote-tracking refs only); never changes checked-out files.
+/// Fetch remote refs (`git -C <path> fetch`). This is the SOLE git_* command
+/// permitted to touch the network (Coruro invariant #4): it updates
+/// remote-tracking refs / FETCH_HEAD only — never the working tree or HEAD.
+/// The boundary is locked by `git_boundary_tests` below.
 #[tauri::command]
 pub fn git_fetch(path: String) -> Result<(), String> {
     let out = Command::new("git")
@@ -749,4 +751,78 @@ pub fn detect_repo_type(path: String) -> Result<RepoDetection, String> {
         repo_type: "Unknown".to_string(),
         label: String::new(),
     })
+}
+
+#[cfg(test)]
+mod git_boundary_tests {
+    //! Locks Coruro invariant #4: git operations are read-only on the user's
+    //! repos. `git_fetch` is the SOLE git_* command allowed to touch the network
+    //! (it updates remote-tracking refs / FETCH_HEAD only, never the working tree
+    //! or HEAD); every other git_* command uses a read-only verb.
+    //!
+    //! These tests scan this file's own source, so adding a network-reaching or
+    //! working-tree-mutating git verb fails CI unless the contract is updated
+    //! deliberately.
+
+    /// Documented contract: (command, git subcommand(s), reaches_network).
+    /// The networked entry's verb is spelled descriptively so it does not collide
+    /// with the quoted fetch arg the source-scan tests count.
+    const GIT_CONTRACT: &[(&str, &str, bool)] = &[
+        ("git_ahead_behind", "rev-list", false),
+        ("git_branches", "branch", false),
+        ("git_fetch", "fetch (remote refs)", true),
+        ("git_local_stats", "rev-list/log/branch", false),
+        ("git_recent_commits", "log", false),
+        ("git_commits_since", "log", false),
+        ("git_commits_since_numstat", "log", false),
+        ("git_dirty_stat", "diff/ls-files", false),
+    ];
+
+    #[test]
+    fn contract_lists_exactly_one_networked_command() {
+        let networked: Vec<&str> = GIT_CONTRACT
+            .iter()
+            .filter(|(_, _, net)| *net)
+            .map(|(cmd, _, _)| *cmd)
+            .collect();
+        assert_eq!(networked, vec!["git_fetch"]);
+    }
+
+    #[test]
+    fn source_contains_no_mutating_or_extra_network_git_verbs() {
+        let src = include_str!("commands.rs");
+        // Quoted forms only appear as actual `Command::args([...])` arguments;
+        // prose and comments use the unquoted word, so this never false-positives.
+        let forbidden = [
+            "\"push\"",
+            "\"pull\"",
+            "\"clone\"",
+            "\"commit\"",
+            "\"merge\"",
+            "\"rebase\"",
+            "\"reset\"",
+            "\"checkout\"",
+            "\"cherry-pick\"",
+            "\"stash\"",
+        ];
+        for verb in forbidden {
+            assert!(
+                !src.contains(verb),
+                "git invariant #4 violated: forbidden git verb {verb} found in commands.rs"
+            );
+        }
+    }
+
+    #[test]
+    fn fetch_is_the_only_networked_git_verb_in_source() {
+        let src = include_str!("commands.rs");
+        let needle = ['"', 'f', 'e', 't', 'c', 'h', '"']
+            .iter()
+            .collect::<String>();
+        let fetch_args = src.matches(&needle).count();
+        assert_eq!(
+            fetch_args, 1,
+            "expected exactly one quoted fetch git arg (git_fetch); found {fetch_args}"
+        );
+    }
 }
