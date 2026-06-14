@@ -20,18 +20,18 @@ All five P0 invariants PASS. The two that were P0-broken at audit time (#4 soft,
 
 ## Engineering Constitution
 
-| #   | Rule                                                  | Verdict | Notes                                                                                                           |
-| --- | ----------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
-| 1   | Small units (fns ≤ ~40 LOC, ≤ 3–4 props)              | PARTIAL | New code complies + enforced; `generateDayNotes` (~277 LOC) and other large fns still queued                    |
-| 2   | Bounded files (~300–500 LOC)                          | PARTIAL | 9 files still > 500 LOC; the god-store slice split is a documented follow-up                                    |
-| 3   | Cyclomatic ≤ 10 / nesting ≤ 3                         | PASS\*  | Enforced for new code (ESLint `complexity`/`max-depth` errors, clippy `cognitive_complexity`); legacy baselined |
-| 4   | Deep modules / narrow interfaces                      | PASS    | `run_sidecar_mode`, `spawn_in_pty`/`spawn_pty_reader`, per-slice validators, `CoruroAICore`                     |
-| 5   | DRY the decisions                                     | PASS    | One AiContext mapping (serde), one sidecar-run owner, one PTY reader, one shared token estimator                |
-| 6   | Intention-revealing naming · one style · no dead code | PASS    | Prettier + rustfmt + SwiftFormat + ESLint + clippy all enforced in the gate                                     |
-| 7   | Tests first-class                                     | PARTIAL | Added Rust/Swift/TS unit tests; React component coverage still thin                                             |
-| 8   | Docs live with code                                   | PASS    | ARCHITECTURE.md, CONTRIBUTING.md, 4 ADRs, key docstrings                                                        |
-| 9   | Explicit errors / boundaries                          | PASS    | Typed AI error taxonomy (`invoke_failed` vs `generation`), keychain surfacing, single synthetic-error owner     |
-| 10  | Automation / one-command cross-language gate          | PASS    | `just gate` (TS+Rust+Swift) + CI (TS+Rust on Ubuntu, Swift gated locally)                                       |
+| #   | Rule                                                  | Verdict  | Notes                                                                                                                                                                                                                |
+| --- | ----------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Small units (fns ≤ ~40 LOC, ≤ 3–4 props)              | PARTIAL  | New code complies + enforced; `generateDayNotes` (~277 LOC) and other large fns still queued                                                                                                                         |
+| 2   | Bounded files (~300–500 LOC)                          | PASS\*\* | All 7 oversized files split (useBoardStore 1209→48, RepoDetail→450, CommandCenterTab→416, claudeScanner→193, AskTab→272, Settings→154, CommandPalette→311); only `types.ts` (508, pure declarations) marginally over |
+| 3   | Cyclomatic ≤ 10 / nesting ≤ 3                         | PASS\*   | Enforced for new code (ESLint `complexity`/`max-depth` errors, clippy `cognitive_complexity`); legacy baselined                                                                                                      |
+| 4   | Deep modules / narrow interfaces                      | PASS     | `run_sidecar_mode`, `spawn_in_pty`/`spawn_pty_reader`, per-slice validators, `CoruroAICore`                                                                                                                          |
+| 5   | DRY the decisions                                     | PASS     | One AiContext mapping (serde), one sidecar-run owner, one PTY reader, one shared token estimator                                                                                                                     |
+| 6   | Intention-revealing naming · one style · no dead code | PASS     | Prettier + rustfmt + SwiftFormat + ESLint + clippy all enforced in the gate                                                                                                                                          |
+| 7   | Tests first-class                                     | PARTIAL  | Added Rust/Swift/TS unit tests; React component coverage still thin                                                                                                                                                  |
+| 8   | Docs live with code                                   | PASS     | ARCHITECTURE.md, CONTRIBUTING.md, 4 ADRs, key docstrings                                                                                                                                                             |
+| 9   | Explicit errors / boundaries                          | PASS     | Typed AI error taxonomy (`invoke_failed` vs `generation`), keychain surfacing, single synthetic-error owner                                                                                                          |
+| 10  | Automation / one-command cross-language gate          | PASS     | `just gate` (TS+Rust+Swift) + CI (TS+Rust on Ubuntu, Swift gated locally)                                                                                                                                            |
 
 \* Enforced via a ratcheting baseline (ADR 0004): new code must comply; the
 existing-violation baseline only shrinks.
@@ -51,13 +51,11 @@ Branch `hardening/phase3`, 14 commits, each gate-green:
 
 ## Deliberate follow-ups (not regressions)
 
-- **Identity-preserving slice split of `useBoardStore`** and the
-  **`generateDayNotes` decomposition** (~277 → ~40 LOC) — the highest-risk parts
-  of the god-store refactor, best done in their own focused sessions; the
-  lower-risk validator extraction landed this pass. Tracked in `REMEDIATION-PLAN.md`.
-- **Remaining > 500-LOC files** (RepoDetail, CommandCenterTab, claudeScanner,
-  AskTab, Settings, CommandPalette) — split as they are next touched; the
-  suppression baseline keeps their complexity from growing.
+- ~~Identity-preserving slice split of `useBoardStore` + `generateDayNotes`
+  decomposition~~ — **DONE** (commit `0a18166`): 5 slice creators + runtimeEffects
+  - dayNotesWindow/githubDayNotes; useBoardStore 1209→48, generateDayNotes 277→~83.
+- ~~Remaining > 500-LOC files~~ — **DONE** (commit `0a18166`): all 6 split via the
+  model-tiered workflow. Only `types.ts` (508, declarations) marginally over.
 - **Component-level test coverage** — pure logic is well covered; React component
   tests remain thin.
 - `npm install` reported 3 high-severity advisories in dev-only tooling — triage
