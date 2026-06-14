@@ -342,6 +342,45 @@ fn run_sidecar(bin: &std::path::Path, payload: &[u8]) -> std::io::Result<String>
     Ok(out)
 }
 
+/// Serialize a request body to a newline-terminated JSON payload for the sidecar
+/// (the Swift side reads exactly one line).
+fn encode_payload(value: serde_json::Value) -> Result<Vec<u8>, String> {
+    let mut payload = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
+    payload.push(b'\n');
+    Ok(payload)
+}
+
+/// Run the sidecar with a prepared `payload` under `timeout_secs`, returning its
+/// JSON line verbatim. Every missing-binary / spawn / join / timeout failure is
+/// mapped to a well-formed synthetic error JSON so the caller always receives a
+/// parseable AiResult-shaped string (never `Err`). This is the single owner of
+/// the spawn + timeout + error-classification policy shared by all `ai_*`
+/// commands.
+async fn run_sidecar_mode(payload: Vec<u8>, timeout_secs: u64) -> String {
+    let bin = match resolve_sidecar() {
+        Some(p) => p,
+        None => {
+            eprintln!("[ai] sidecar binary not found next to current_exe");
+            return r#"{"ok":false,"error":"sidecar_missing"}"#.to_string();
+        }
+    };
+
+    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
+    match tokio::time::timeout(Duration::from_secs(timeout_secs), work).await {
+        Ok(Ok(Ok(out))) if !out.trim().is_empty() => out.trim().to_string(),
+        Ok(Ok(Ok(_))) => r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string(),
+        Ok(Ok(Err(e))) => {
+            eprintln!("[ai] sidecar spawn err: {e}");
+            r#"{"ok":false,"error":"sidecar_missing"}"#.to_string()
+        }
+        Ok(Err(e)) => {
+            eprintln!("[ai] join err: {e}");
+            r#"{"ok":false,"error":"generation"}"#.to_string()
+        }
+        Err(_) => r#"{"ok":false,"error":"timeout"}"#.to_string(),
+    }
+}
+
 /// Commit subject lines since a given ISO 8601 timestamp.
 /// `git -C <path> log --since=<iso> --format=%s`
 /// Returns an empty vec on failure; never errors.
@@ -453,37 +492,8 @@ pub async fn git_commits_since_numstat(
 /// can reuse the same error-handling path.
 #[tauri::command]
 pub async fn ai_enrich(items: serde_json::Value) -> Result<String, String> {
-    let mut payload = serde_json::to_vec(&serde_json::json!({
-        "mode": "enrich",
-        "items": items,
-    }))
-    .map_err(|e| e.to_string())?;
-    payload.push(b'\n');
-
-    let bin = match resolve_sidecar() {
-        Some(p) => p,
-        None => {
-            eprintln!("[ai] sidecar binary not found next to current_exe");
-            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
-        }
-    };
-
-    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
-    match tokio::time::timeout(Duration::from_secs(45), work).await {
-        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => {
-            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
-        }
-        Ok(Ok(Err(e))) => {
-            eprintln!("[ai] sidecar spawn err: {e}");
-            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
-        }
-        Ok(Err(e)) => {
-            eprintln!("[ai] join err: {e}");
-            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
-        }
-        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
-    }
+    let payload = encode_payload(serde_json::json!({ "mode": "enrich", "items": items }))?;
+    Ok(run_sidecar_mode(payload, 45).await)
 }
 
 /// Uncommitted-work summary for a repo.
@@ -534,37 +544,8 @@ pub async fn git_dirty_stat(path: String) -> Result<String, String> {
 /// On any spawn / sidecar-missing error returns a synthetic error JSON.
 #[tauri::command]
 pub async fn ai_day_notes(repos: serde_json::Value) -> Result<String, String> {
-    let mut payload = serde_json::to_vec(&serde_json::json!({
-        "mode": "day_notes",
-        "repos": repos,
-    }))
-    .map_err(|e| e.to_string())?;
-    payload.push(b'\n');
-
-    let bin = match resolve_sidecar() {
-        Some(p) => p,
-        None => {
-            eprintln!("[ai] sidecar binary not found next to current_exe");
-            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
-        }
-    };
-
-    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
-    match tokio::time::timeout(Duration::from_secs(60), work).await {
-        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => {
-            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
-        }
-        Ok(Ok(Err(e))) => {
-            eprintln!("[ai] sidecar spawn err: {e}");
-            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
-        }
-        Ok(Err(e)) => {
-            eprintln!("[ai] join err: {e}");
-            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
-        }
-        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
-    }
+    let payload = encode_payload(serde_json::json!({ "mode": "day_notes", "repos": repos }))?;
+    Ok(run_sidecar_mode(payload, 60).await)
 }
 
 /// Spawn the coruro-ai sidecar in "curate" mode for the Setup Curator.
@@ -579,41 +560,16 @@ pub async fn ai_curate(
     findings: serde_json::Value,
     summary: serde_json::Value,
 ) -> Result<String, String> {
-    let mut payload = serde_json::to_vec(&serde_json::json!({
+    let payload = encode_payload(serde_json::json!({
         "mode": "curate",
         "findings": findings,
         "summary": summary,
-    }))
-    .map_err(|e| e.to_string())?;
-    payload.push(b'\n');
-
-    let bin = match resolve_sidecar() {
-        Some(p) => p,
-        None => {
-            eprintln!("[ai] sidecar binary not found next to current_exe");
-            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
-        }
-    };
+    }))?;
 
     // 90s: the curator narrates the whole scanned inventory (largest of the
     // sidecar prompts) on the on-device model. Generous ceiling, but the AI
     // output is additive — findings already rendered — so it never blocks the UI.
-    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
-    match tokio::time::timeout(Duration::from_secs(90), work).await {
-        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => {
-            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
-        }
-        Ok(Ok(Err(e))) => {
-            eprintln!("[ai] sidecar spawn err: {e}");
-            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
-        }
-        Ok(Err(e)) => {
-            eprintln!("[ai] join err: {e}");
-            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
-        }
-        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
-    }
+    Ok(run_sidecar_mode(payload, 90).await)
 }
 
 #[tauri::command]
@@ -622,33 +578,8 @@ pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<St
     // inject the mode discriminator. No hand-replicated field list.
     let mut value = serde_json::to_value(&context).map_err(|e| e.to_string())?;
     value["mode"] = serde_json::Value::String("analyze".to_string());
-    let mut payload = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
-    payload.push(b'\n');
-
-    let bin = match resolve_sidecar() {
-        Some(p) => p,
-        None => {
-            eprintln!("[ai] sidecar binary not found next to current_exe");
-            return Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string());
-        }
-    };
-
-    let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
-    match tokio::time::timeout(Duration::from_secs(30), work).await {
-        Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => {
-            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
-        }
-        Ok(Ok(Err(e))) => {
-            eprintln!("[ai] sidecar spawn err: {e}");
-            Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
-        }
-        Ok(Err(e)) => {
-            eprintln!("[ai] join err: {e}");
-            Ok(r#"{"ok":false,"error":"generation"}"#.to_string())
-        }
-        Err(_) => Ok(r#"{"ok":false,"error":"timeout"}"#.to_string()),
-    }
+    let payload = encode_payload(value)?;
+    Ok(run_sidecar_mode(payload, 30).await)
 }
 
 // ---------------------------------------------------------------------------
@@ -846,5 +777,15 @@ mod ai_context_serde_tests {
         assert!(value.get("repo_name").is_none());
         assert!(value.get("recent_commits").is_none());
         assert!(value.get("top_entries").is_none());
+    }
+
+    #[test]
+    fn encode_payload_is_newline_terminated_valid_json() {
+        let bytes = encode_payload(serde_json::json!({ "mode": "enrich", "items": [] }))
+            .expect("encode payload");
+        assert_eq!(*bytes.last().unwrap(), b'\n');
+        let parsed: serde_json::Value =
+            serde_json::from_slice(&bytes[..bytes.len() - 1]).expect("payload is valid JSON");
+        assert_eq!(parsed["mode"], "enrich");
     }
 }
