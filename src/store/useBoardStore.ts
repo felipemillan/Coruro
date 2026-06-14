@@ -50,6 +50,9 @@ import { fetchPRDetails, formatPRLine } from '../utils/githubPRDetails';
 /** Filename written under the user's home directory. */
 const STATE_FILE = '.repo_dashboard_state.json';
 
+/** Extract a human-readable message from an unknown thrown value. */
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 /** Sentinel thrown inside fetchWithTimeout when the GitHub API returns 429. */
 class RateLimitError extends Error {
   constructor() {
@@ -600,7 +603,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (targets.length === 0) return;
 
     // Transient token (never stored in JS state); unauthenticated if absent.
-    const token = await invoke<string | null>('get_token').catch(() => null);
+    const token = await invoke<string | null>('get_token').catch((e: unknown) => {
+      // Rust returns Ok(None) (→ null) when no token is stored; a rejection here
+      // is a genuine Keychain access failure, not "no token". Surface it.
+      console.error('[keychain] get_token failed', errorMessage(e));
+      return null;
+    });
 
     // Bounded-concurrency pool so a large root can't fire hundreds of requests.
     const CONCURRENCY = 6;
@@ -644,7 +652,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     const coords = parseRemote(repo.remoteUrl);
     if (coords === null) return;
 
-    const token = await invoke<string | null>('get_token').catch(() => null);
+    const token = await invoke<string | null>('get_token').catch((e: unknown) => {
+      // Rust returns Ok(None) (→ null) when no token is stored; a rejection here
+      // is a genuine Keychain access failure, not "no token". Surface it.
+      console.error('[keychain] get_token failed', errorMessage(e));
+      return null;
+    });
     let gh: RepoGitHub;
     try {
       gh = await fetchRepoCard(coords, token ?? undefined);
@@ -772,8 +785,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       try {
         const raw = await invoke<string>('ai_analyze', { context: ctx });
         result = JSON.parse(raw) as AiResult;
-      } catch {
-        result = { ok: false, error: 'generation' };
+      } catch (err) {
+        // IPC/parse failure — NOT a model generation failure. Keep the codes
+        // distinct so 'generation' always means the sidecar's own failure.
+        result = { ok: false, error: 'invoke_failed', reason: errorMessage(err) };
       }
       set((s) => {
         const next = new Set(s.analyzingPaths);
@@ -813,8 +828,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     let result: AiResult;
     try {
       result = JSON.parse(await invoke<string>('ai_analyze', { context: ctx })) as AiResult;
-    } catch {
-      result = { ok: false, error: 'generation' };
+    } catch (err) {
+      // IPC/parse failure — NOT a model generation failure (see enrichAi).
+      result = { ok: false, error: 'invoke_failed', reason: errorMessage(err) };
     }
     set((s) => {
       const n = new Set(s.analyzingPaths);
@@ -998,7 +1014,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const windowStart = new Date(windowStartMs).toISOString();
       const windowEnd = new Date(now).toISOString();
 
-      const token = await invoke<string | null>('get_token').catch(() => null);
+      const token = await invoke<string | null>('get_token').catch((e: unknown) => {
+        // Rust returns Ok(None) (→ null) when no token is stored; a rejection here
+        // is a genuine Keychain access failure, not "no token". Surface it.
+        console.error('[keychain] get_token failed', errorMessage(e));
+        return null;
+      });
 
       const login = token ? await fetchUserLogin(token).catch(() => null) : null;
       const allEvents =

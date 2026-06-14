@@ -100,7 +100,8 @@ export interface AiResult {
     | 'generation'
     | 'badInput'
     | 'timeout'
-    | 'sidecar_missing';
+    | 'sidecar_missing'
+    | 'invoke_failed';
   reason?: string;
 }
 
