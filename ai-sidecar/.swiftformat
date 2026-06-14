@@ -1,0 +1,8 @@
+# SwiftFormat config for the on-device AI sidecar.
+# Conditional gate: the binary is not installed in CI, so `just sidecar-fmt`
+# skips gracefully when swiftformat is absent (see Justfile).
+--swiftversion 5.9
+--indent 4
+--maxwidth 100
+--commas always
+--trimwhitespace always

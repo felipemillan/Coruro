@@ -1,0 +1,25 @@
+# SwiftLint config for the on-device AI sidecar.
+# Conditional gate: skipped when the binary is absent (CI has no macOS-26
+# FoundationModels runner). The custom `no_network` rule machine-enforces the
+# Coruro zero-network invariant — the sidecar must never reach the network.
+included:
+  - Sources
+
+line_length:
+  warning: 120
+  error: 160
+
+file_length:
+  warning: 500
+  error: 700
+
+cyclomatic_complexity:
+  warning: 10
+  error: 15
+
+custom_rules:
+  no_network:
+    name: 'Zero-network invariant'
+    regex: "URLSession|URLRequest|NWConnection|Network\\."
+    message: 'Sidecar must make ZERO network calls (Coruro invariant). Networking APIs are forbidden.'
+    severity: error

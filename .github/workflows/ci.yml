@@ -1,0 +1,59 @@
+name: CI
+
+# The Swift on-device AI sidecar is intentionally NOT built here: it requires
+# macOS 26 + the FoundationModels framework, which GitHub-hosted runners do not
+# provide. The sidecar is gated locally via `just gate-swift` / `just
+# sidecar-smoke`; any PR touching `ai-sidecar/` must note a local smoke run.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typescript:
+    name: TypeScript (typecheck · lint · format · test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+
+  rust:
+    name: Rust (fmt · clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+      - name: cargo fmt
+        run: cargo fmt --check
+        working-directory: src-tauri
+      - name: cargo clippy
+        run: cargo clippy
+        working-directory: src-tauri
