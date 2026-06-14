@@ -1,13 +1,12 @@
 # Context
 
-**Current Task:** Shipped the Setup Curator — a "Curate" sub-tab in the Command Center that judges the scanned `~/.claude` inventory (remove / consolidate / stale findings) with an additive on-device AI narrative.
+**Current Task:** ASK session persistence + per-session delete + favorites drawer card shipped, committed+pushed to main (`98f9b30`), release app rebuilt and replacing `/Applications/Coruro.app` (running, PID verified). Crew-reviewed (Howard+Raj), Leonard-decomposed.
 
 **Key Decisions:**
-- Deterministic findings (TS) render instantly + carry all numbers; AI narrative is additive, number-free, omitted if unavailable.
-- Secret-free: model payload carries finding `title` only — Swift `Finding` has no `detail` field. No MCP server; reuses sidecar pattern.
-- "Ask Claude to fix" delegates execution to a real Claude session via the Ask bridge; Curator never mutates the setup.
+- Persist sessions metadata-only via new `chatSessions` AppState slice (dayNotes pattern); reconcile `running`→`ended` on load; keep-until-deleted.
+- Delete = inline undo toast (~6s) with deferred PTY kill so running session survives undo window; ordered teardown on expiry.
+- Favorites moved navbar→drawer card + single `Favorites (N)` pill; storage unchanged (localStorage), only rendering moved.
 
 **Next Steps:**
-- Manual UI click-through: Curate tab findings render, narrative banner, "Ask Claude to fix" → Ask tab.
-- Future: deterministic `gap`/`keep` slice; `cost`/context-budget category.
-- Optional: build + replace `/Applications` app with the new sidecar.
+- Deferred: H6 collapsible repo-groups; Contrast 3:1 verify (terracotta trash/dots/ring on dark+cream).
+- Doc: `docs/ask-sessions.md`. Synthesis: `.scratch/ask-sessions-favorites-review-2026-06-14/`.
