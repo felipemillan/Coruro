@@ -11,6 +11,8 @@ import {
   type RepoGitHub,
   type DayNote,
   type ChatSession,
+  type ActivityEvent,
+  type ActivityEventKind,
   COLUMN_IDS,
 } from '../types';
 
@@ -183,6 +185,90 @@ export function validateChatSessions(
           exitCode: typeof s.exitCode === 'number' ? (s.exitCode as number) : null,
         }),
       );
+  }
+  return base;
+}
+
+/**
+ * On-load cap for the activity log (mirrors the in-slice MAX_ACTIVITY_EVENTS).
+ * Kept local rather than imported from activityLogSlice to keep this module
+ * pure — that slice pulls in the store runtime (boardStoreShared), which would
+ * create an import cycle (boardStoreShared → appStateValidation → slice → …).
+ */
+const MAX_ACTIVITY_EVENTS = 500;
+
+/** Max persisted `label` length; longer values are treated as malformed. */
+const MAX_ACTIVITY_LABEL_LEN = 200;
+
+/**
+ * Set of all valid activity kinds, asserted in-sync with the union via
+ * `satisfies Set<ActivityEventKind>`: adding a member to ActivityEventKind
+ * without adding it here (or vice versa) is a tsc error, so the runtime guard
+ * can never silently drift from the type.
+ */
+const ACTIVITY_EVENT_KINDS = new Set<ActivityEventKind>([
+  'ask_session_started',
+  'ask_session_ended',
+  'run_command_fired',
+  'command_center_opened',
+  'curator_run',
+  'user_note_written',
+]) satisfies Set<ActivityEventKind>;
+
+/**
+ * Typed guard for a persisted ActivityEvent. Enforces the secret-free,
+ * metadata-only contract (P0 #2): `label` is the only free-text field and is
+ * rejected when path-shaped (leading `/` or `\`) or longer than 200 chars, so
+ * absolute filesystem paths can never survive hydration.
+ */
+function isValidActivityLabel(label: unknown): boolean {
+  if (label === undefined) return true;
+  if (typeof label !== 'string') return false;
+  if (label.length > MAX_ACTIVITY_LABEL_LEN) return false;
+  return !label.startsWith('/') && !label.startsWith('\\');
+}
+
+function isValidActivityTs(ts: unknown): boolean {
+  return typeof ts === 'number' && Number.isFinite(ts) && ts > 0;
+}
+
+function isValidActivityKind(kind: unknown): boolean {
+  return typeof kind === 'string' && ACTIVITY_EVENT_KINDS.has(kind as ActivityEventKind);
+}
+
+function isValidActivityRepoName(repoName: unknown): boolean {
+  return repoName === null || typeof repoName === 'string';
+}
+
+function isActivityEvent(e: unknown): e is ActivityEvent {
+  if (typeof e !== 'object' || e === null) return false;
+  const r = e as Record<string, unknown>;
+  return (
+    typeof r.id === 'string' &&
+    isValidActivityTs(r.ts) &&
+    isValidActivityKind(r.kind) &&
+    isValidActivityRepoName(r.repoName) &&
+    isValidActivityLabel(r.label)
+  );
+}
+
+/**
+ * Keep only well-shaped events; drop anything malformed, then cap to the newest
+ * MAX_ACTIVITY_EVENTS (tail slice) on load. Returns `base` on missing/malformed
+ * input so corrupt state never crashes hydration.
+ */
+export function validateActivityLog(
+  raw: unknown,
+  base: AppState['activityLog'],
+): AppState['activityLog'] {
+  if (!raw || typeof raw !== 'object') return base;
+  const al = raw as Record<string, unknown>;
+  if (Array.isArray(al.events)) {
+    const events = al.events.filter(isActivityEvent);
+    base.events =
+      events.length > MAX_ACTIVITY_EVENTS
+        ? events.slice(events.length - MAX_ACTIVITY_EVENTS)
+        : events;
   }
   return base;
 }

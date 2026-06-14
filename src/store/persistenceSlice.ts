@@ -52,6 +52,7 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
             aiCache: state.aiCache,
             dayNotes: state.dayNotes,
             chatSessions: state.chatSessions,
+            activityLog: state.activityLog,
             loaded: true,
           });
         } else {
@@ -72,7 +73,16 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
       if (!get().loaded) return Promise.resolve();
       // Serialise the snapshot now (synchronously), but commit the disk write
       // through the write chain so concurrent saves never interleave partial writes.
-      const { settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions } = get();
+      const {
+        settings,
+        board,
+        repoMetadata,
+        ghCache,
+        aiCache,
+        dayNotes,
+        chatSessions,
+        activityLog,
+      } = get();
       const payload = serialise({
         settings,
         board,
@@ -81,6 +91,7 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
         aiCache,
         dayNotes,
         chatSessions,
+        activityLog,
       });
       return runtimeEffects.enqueueWrite(() =>
         writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),

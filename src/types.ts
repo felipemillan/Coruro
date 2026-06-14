@@ -130,6 +130,8 @@ export interface AppState {
   dayNotes: DayNotesState;
   /** Persisted ASK-tab chat sessions (metadata only; transcripts never stored). */
   chatSessions: ChatSessionsState;
+  /** Persisted in-app activity log (metadata only; secret-free). */
+  activityLog: ActivityLogState;
 }
 
 /** Latest CI (GitHub Actions) conclusion for the default branch. */
@@ -237,6 +239,38 @@ export interface ChatSessionsState {
   sessions: ChatSession[];
 }
 
+/**
+ * Discriminated union of all in-app activity event kinds.
+ * Extend only with new enum-ish string literals — never with free-text kinds.
+ */
+export type ActivityEventKind =
+  | 'ask_session_started'
+  | 'ask_session_ended'
+  | 'run_command_fired'
+  | 'command_center_opened'
+  | 'curator_run'
+  | 'user_note_written';
+
+/**
+ * One persisted in-app activity event. Metadata-only and secret-free:
+ * - No prompt body, transcript content, or token values are ever stored here.
+ * - `repoName` is a slug (display name), never an absolute filesystem path.
+ * - `label` is constrained (validator rejects path-shaped or >200-char values).
+ * Mirrors the metadata-only contract of {@link ChatSession}.
+ */
+export interface ActivityEvent {
+  id: string;
+  ts: number;
+  kind: ActivityEventKind;
+  repoName: string | null;
+  label?: string;
+}
+
+/** Persisted collection of in-app activity events (metadata only). */
+export interface ActivityLogState {
+  events: ActivityEvent[];
+}
+
 /** Factory for a fresh, empty app state matching PRD §6 (minus raw token). */
 export function createEmptyAppState(): AppState {
   return {
@@ -263,6 +297,7 @@ export function createEmptyAppState(): AppState {
     aiCache: {},
     dayNotes: { notes: [] },
     chatSessions: { sessions: [] },
+    activityLog: { events: [] },
   };
 }
 

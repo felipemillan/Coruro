@@ -260,6 +260,16 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
     const findings: CurateFinding[] = buildCurateFindings(inventory);
     set({ recommendations: findings });
 
+    // Log curator_run after findings are committed. Cross-store call via
+    // getState() at call-time to avoid a top-level import cycle.
+    const { useBoardStore } = await import('./useBoardStore');
+    useBoardStore.getState().logActivity({
+      id: crypto.randomUUID(),
+      ts: Date.now(),
+      kind: 'curator_run',
+      repoName: null,
+    });
+
     // ADDITIVE: qualitative narrative only. Mirrors generateHealthSummary.
     set({ curateLoading: true, curateUnavailableReason: null });
     try {

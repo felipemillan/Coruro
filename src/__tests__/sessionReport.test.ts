@@ -5,6 +5,7 @@ import {
   composeSessionReport,
   type RepoActivity,
 } from '../utils/sessionReport';
+import type { ActivityEvent } from '../types';
 
 const act = (over: Partial<RepoActivity>): RepoActivity => ({
   name: 'repo',
@@ -130,5 +131,131 @@ describe('composeSessionReport', () => {
     expect(md).toContain('### 🟢 Low Activity / Minor Tweaks');
     expect(md).not.toContain('### 🔴');
     expect(md).not.toContain('### ⚪');
+  });
+
+  it('existing 3-arg calls (no appEvents) still pass', () => {
+    const md = composeSessionReport(sample, 'I worked on multiple repos.', new Date());
+    expect(md).toContain('# 📅 Daily Session Summary —');
+    expect(md).toContain('## 🚦 Repository Status Breakdown');
+    expect(md).not.toContain('## App Activity');
+  });
+});
+
+describe('composeSessionReport — App Activity section', () => {
+  const sampleEvents = (): ActivityEvent[] => [
+    { id: 'e1', ts: 1000, kind: 'ask_session_started', repoName: 'myapp' },
+    { id: 'e2', ts: 1001, kind: 'ask_session_started', repoName: 'myapp' },
+    { id: 'e3', ts: 1002, kind: 'ask_session_ended', repoName: 'myapp' },
+    { id: 'e4', ts: 1003, kind: 'run_command_fired', repoName: 'utils', label: 'some label text' },
+    { id: 'e5', ts: 1004, kind: 'command_center_opened', repoName: null },
+    { id: 'e6', ts: 1005, kind: 'curator_run', repoName: 'config' },
+    { id: 'e7', ts: 1006, kind: 'user_note_written', repoName: 'config' },
+  ];
+
+  it('omits section when appEvents is undefined', () => {
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      undefined,
+    );
+    expect(md).not.toContain('## App Activity');
+  });
+
+  it('omits section when appEvents is empty array', () => {
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      [],
+    );
+    expect(md).not.toContain('## App Activity');
+  });
+
+  it('renders section with grouped per-kind counts', () => {
+    const events = sampleEvents();
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      events,
+    );
+    expect(md).toContain('## App Activity');
+    expect(md).toContain('- Ask sessions started: 2');
+    expect(md).toContain('- Ask sessions ended: 1');
+    expect(md).toContain('- Run commands fired: 1');
+    expect(md).toContain('- Command Center opens: 1');
+    expect(md).toContain('- Setup Curator runs: 1');
+    expect(md).toContain('- Notes written: 1');
+  });
+
+  it('renders @repoName touched-line with sorted, deduped repos', () => {
+    const events = sampleEvents();
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      events,
+    );
+    expect(md).toContain('- Repos touched in-app: @config, @myapp, @utils');
+  });
+
+  it('never renders event label values in output', () => {
+    const events = sampleEvents();
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      events,
+    );
+    expect(md).not.toContain('some label text');
+  });
+
+  it('same-kind events collapse to one bullet with count>1', () => {
+    const events = sampleEvents();
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      events,
+    );
+    // ask_session_started has 2 events; should render as a single bullet "Ask sessions started: 2"
+    const asksStartedMatches = md.match(/- Ask sessions started/g);
+    expect(asksStartedMatches).toHaveLength(1);
+  });
+
+  it('renders only kinds present in events (omits kinds with count=0)', () => {
+    const events: ActivityEvent[] = [
+      { id: 'e1', ts: 1000, kind: 'ask_session_started', repoName: 'repo' },
+      { id: 'e2', ts: 1001, kind: 'user_note_written', repoName: 'repo' },
+    ];
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      events,
+    );
+    expect(md).toContain('- Ask sessions started: 1');
+    expect(md).toContain('- Notes written: 1');
+    expect(md).not.toContain('ask_session_ended');
+    expect(md).not.toContain('Run commands fired');
+    expect(md).not.toContain('Command Center opens');
+    expect(md).not.toContain('Setup Curator runs');
+  });
+
+  it('omits Repos touched line when all events have repoName=null', () => {
+    const events: ActivityEvent[] = [
+      { id: 'e1', ts: 1000, kind: 'command_center_opened', repoName: null },
+      { id: 'e2', ts: 1001, kind: 'command_center_opened', repoName: null },
+    ];
+    const md = composeSessionReport(
+      [act({ name: 'repo', filesChanged: 1, insertions: 1, deletions: 0 })],
+      'summary',
+      new Date(),
+      events,
+    );
+    expect(md).toContain('## App Activity');
+    expect(md).toContain('- Command Center opens: 2');
+    expect(md).not.toContain('Repos touched in-app');
   });
 });
