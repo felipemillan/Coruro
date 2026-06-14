@@ -8,10 +8,12 @@
 - Constitution: rules 4,5,6,8,9,10 PASS; 1,2,3,7 PARTIAL (enforced for new code via ESLint suppression-baseline ratchet + clippy; legacy debt baselined).
 - Deliberate follow-ups (NOT done): identity-preserving `useBoardStore` slice split + `generateDayNotes` decomposition (highest-risk, own session); remaining >500-LOC files; React component test coverage; 3 dev-tooling npm advisories.
 
-**In flight:** `hardening/phase3` fast-forward-merged to local `main` (HEAD `3207374`); push to origin/main NOT done (policy-gated, needs explicit user OK). ultracode workflow `coruro-finish` (run `wf_1c6766a4-d7e`, `.claude/workflows/coruro-finish.js`) launched: 7 parallel worktree agents splitting the oversized files (useBoardStore god-store + RepoDetail/CommandCenterTab/claudeScanner/AskTab/Settings/CommandPalette), each returns a TS-gate-green patch or skips. Integrator (main thread) applies green patches sequentially: `git apply` → prune eslint baseline → `just gate` → commit per file.
+**State:** Hardening merged to local `main` (gate-green; `npm run build` prod frontend build passes). Push to origin/main NOT done (policy-gated, needs explicit user OK — origin/main still at pre-hardening `55b0669`).
+
+**Workflow `coruro-finish` — attempted + REVERTED.** 7 parallel worktree agents split the oversized files, but worktrees branched from unpushed `origin/main` (`55b0669`, pre-hardening) which lacked `eslint.config.js`; agents lint-checked against no config, so their splits hit 525 ESLint errors (complexity/max-depth/no-explicit-any + react-hooks set-state-in-effect/static-components) on real main, and the useBoardStore split conflicted with the shipped `appStateValidation` extraction. Reverted cleanly; worktrees removed; main untouched. Root cause: never pushed main → stale worktree base. To retry correctly: push main first (so worktrees branch from the hardened tree WITH the eslint config), then re-run — or do the splits per-file with the gate live.
 
 **Next Steps:**
 
-- On workflow completion: integrate green patches (gate-green commit each), note skipped ones.
-- npm audit triage (3 high-sev dev advisories); build app + verify; update SCORECARD.
-- Push origin/main once user approves.
+- Decide: push origin/main (needs user OK) then re-run `coruro-finish` on the hardened base, OR accept current hardened state + defer splits.
+- npm audit triage (3 high-sev dev advisories).
+- Oversized-file splits + god-store split remain follow-ups (see SCORECARD).
