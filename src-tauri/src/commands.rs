@@ -276,7 +276,10 @@ mod recent_commits_tests {
 }
 
 /// Request shape mirrors src/types.ts AiContext (serde camelCase).
-#[derive(serde::Deserialize)]
+/// `Serialize` lets `ai_analyze` derive the wire payload from this single struct
+/// instead of a hand-maintained `json!` literal — the camelCase mapping lives in
+/// exactly one place. Round-trip-tested by `ai_context_serde_tests`.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AiContext {
     repo_name: String,
@@ -615,16 +618,11 @@ pub async fn ai_curate(
 
 #[tauri::command]
 pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<String, String> {
-    let mut payload = serde_json::to_vec(&serde_json::json!({
-        "mode": "analyze",
-        "repoName": context.repo_name,
-        "description": context.description,
-        "languages": context.languages,
-        "recentCommits": context.recent_commits,
-        "topEntries": context.top_entries,
-        "readme": context.readme,
-    }))
-    .map_err(|e| e.to_string())?;
+    // Derive the wire object from the struct (single camelCase mapping), then
+    // inject the mode discriminator. No hand-replicated field list.
+    let mut value = serde_json::to_value(&context).map_err(|e| e.to_string())?;
+    value["mode"] = serde_json::Value::String("analyze".to_string());
+    let mut payload = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
     payload.push(b'\n');
 
     let bin = match resolve_sidecar() {
@@ -824,5 +822,29 @@ mod git_boundary_tests {
             fetch_args, 1,
             "expected exactly one quoted fetch git arg (git_fetch); found {fetch_args}"
         );
+    }
+}
+
+#[cfg(test)]
+mod ai_context_serde_tests {
+    use super::*;
+
+    /// The single camelCase mapping (struct derive) must round-trip both ways so
+    /// `ai_analyze`'s `to_value(&context)` produces exactly the keys the sidecar
+    /// and src/types.ts expect — no snake_case leak, no hand-maintained literal.
+    #[test]
+    fn ai_context_round_trips_to_camelcase() {
+        let json = r#"{"repoName":"coruro","description":"d","languages":["Rust"],"recentCommits":["c1"],"topEntries":["src"],"readme":"r"}"#;
+        let ctx: AiContext = serde_json::from_str(json).expect("deserialize AiContext");
+        let value = serde_json::to_value(&ctx).expect("serialize AiContext");
+
+        assert_eq!(value["repoName"], "coruro");
+        assert_eq!(value["recentCommits"][0], "c1");
+        assert_eq!(value["topEntries"][0], "src");
+        assert_eq!(value["readme"], "r");
+        // No snake_case keys may leak onto the wire.
+        assert!(value.get("repo_name").is_none());
+        assert!(value.get("recent_commits").is_none());
+        assert!(value.get("top_entries").is_none());
     }
 }
