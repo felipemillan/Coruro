@@ -1,0 +1,4 @@
+# Cognitive-complexity ceiling. 25 (not the default 25-but-as-warn) because
+# command-dispatch match arms and serde plumbing are idiomatically "complex"
+# without being hard to read. Cognitive complexity ≠ cyclomatic complexity.
+cognitive-complexity-threshold = 25

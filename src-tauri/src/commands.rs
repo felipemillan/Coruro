@@ -55,10 +55,8 @@ pub fn get_token() -> Result<Option<String>, String> {
 pub fn open_in_editor(command: String, app: String, path: String) -> Result<(), String> {
     // Step 1: CLI binary. spawn() Ok means the process launched.
     let cli = command.trim();
-    if !cli.is_empty() {
-        if Command::new(cli).arg(&path).spawn().is_ok() {
-            return Ok(());
-        }
+    if !cli.is_empty() && Command::new(cli).arg(&path).spawn().is_ok() {
+        return Ok(());
     }
 
     // Step 2: macOS `open -a <App>`. status() surfaces a wrong/missing app name.
@@ -115,7 +113,14 @@ pub fn open_in_terminal(app: String, path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn git_ahead_behind(path: String) -> Result<Option<(i64, i64)>, String> {
     let out = Command::new("git")
-        .args(["-C", &path, "rev-list", "--left-right", "--count", "@{u}...HEAD"])
+        .args([
+            "-C",
+            &path,
+            "rev-list",
+            "--left-right",
+            "--count",
+            "@{u}...HEAD",
+        ])
         .output()
         .map_err(|e| format!("Failed to run git rev-list: {e}"))?;
     // Non-zero exit almost always means "no upstream" — treat as None, not error.
@@ -185,7 +190,12 @@ pub fn git_local_stats(path: String) -> Result<(i64, Option<String>, i64), Strin
         .output()
         .ok()
         .filter(|o| o.status.success())
-        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse::<i64>().ok())
+        .and_then(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .parse::<i64>()
+                .ok()
+        })
         .unwrap_or(0);
 
     // Last commit time, strict ISO 8601. None on empty repo.
@@ -225,7 +235,10 @@ mod local_stats_tests {
             .expect("git_local_stats should succeed in a repo");
         assert!(commits >= 1, "expected at least one commit, got {commits}");
         assert!(last.is_some(), "expected a last-commit timestamp");
-        assert!(branches >= 1, "expected at least one branch, got {branches}");
+        assert!(
+            branches >= 1,
+            "expected at least one branch, got {branches}"
+        );
     }
 }
 
@@ -330,7 +343,13 @@ fn run_sidecar(bin: &std::path::Path, payload: &[u8]) -> std::io::Result<String>
 #[tauri::command]
 pub async fn git_commits_since(path: String, since_iso: String) -> Result<Vec<String>, String> {
     let output = std::process::Command::new("git")
-        .args(["-C", &path, "log", &format!("--since={}", since_iso), "--format=%s"])
+        .args([
+            "-C",
+            &path,
+            "log",
+            &format!("--since={}", since_iso),
+            "--format=%s",
+        ])
         .output()
         .map_err(|e| e.to_string())?;
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -361,12 +380,20 @@ pub struct CommitDetail {
 /// SHA dedup in the store handles any overlap between local branches.
 /// Returns CommitDetail per commit; empty vec on failure.
 #[tauri::command]
-pub async fn git_commits_since_numstat(path: String, since_iso: String) -> Result<Vec<CommitDetail>, String> {
+pub async fn git_commits_since_numstat(
+    path: String,
+    since_iso: String,
+) -> Result<Vec<CommitDetail>, String> {
     let output = std::process::Command::new("git")
-        .args(["-C", &path, "log", "--branches",
-               &format!("--since={}", since_iso),
-               "--format=COMMIT:%H %s",
-               "--numstat"])
+        .args([
+            "-C",
+            &path,
+            "log",
+            "--branches",
+            &format!("--since={}", since_iso),
+            "--format=COMMIT:%H %s",
+            "--numstat",
+        ])
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -376,11 +403,20 @@ pub async fn git_commits_since_numstat(path: String, since_iso: String) -> Resul
 
     for line in stdout.lines() {
         if let Some(rest) = line.strip_prefix("COMMIT:") {
-            if let Some(c) = current.take() { commits.push(c); }
+            if let Some(c) = current.take() {
+                commits.push(c);
+            }
             let mut parts = rest.splitn(2, ' ');
             let sha = parts.next().unwrap_or("").to_string();
             let subject = parts.next().unwrap_or("").to_string();
-            current = Some(CommitDetail { sha, subject, files: vec![], folders: vec![], added: 0, deleted: 0 });
+            current = Some(CommitDetail {
+                sha,
+                subject,
+                files: vec![],
+                folders: vec![],
+                added: 0,
+                deleted: 0,
+            });
         } else if let Some(c) = current.as_mut() {
             let cols: Vec<&str> = line.split('\t').collect();
             if cols.len() == 3 {
@@ -390,12 +426,18 @@ pub async fn git_commits_since_numstat(path: String, since_iso: String) -> Resul
                 let folder = file.split('/').next().unwrap_or(&file).to_string();
                 c.added += added;
                 c.deleted += deleted;
-                if !c.files.contains(&file) { c.files.push(file); }
-                if !c.folders.contains(&folder) { c.folders.push(folder); }
+                if !c.files.contains(&file) {
+                    c.files.push(file);
+                }
+                if !c.folders.contains(&folder) {
+                    c.folders.push(folder);
+                }
             }
         }
     }
-    if let Some(c) = current { commits.push(c); }
+    if let Some(c) = current {
+        commits.push(c);
+    }
     Ok(commits)
 }
 
@@ -424,7 +466,9 @@ pub async fn ai_enrich(items: serde_json::Value) -> Result<String, String> {
     let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
     match tokio::time::timeout(Duration::from_secs(45), work).await {
         Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Ok(_))) => {
+            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
+        }
         Ok(Ok(Err(e))) => {
             eprintln!("[ai] sidecar spawn err: {e}");
             Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
@@ -453,7 +497,7 @@ pub async fn git_dirty_stat(path: String) -> Result<String, String> {
             stdout
                 .lines()
                 .filter(|l| !l.trim().is_empty())
-                .last()
+                .next_back()
                 .filter(|l| l.contains("changed"))
                 .map(|l| l.trim().to_string())
         })
@@ -503,7 +547,9 @@ pub async fn ai_day_notes(repos: serde_json::Value) -> Result<String, String> {
     let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
     match tokio::time::timeout(Duration::from_secs(60), work).await {
         Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Ok(_))) => {
+            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
+        }
         Ok(Ok(Err(e))) => {
             eprintln!("[ai] sidecar spawn err: {e}");
             Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
@@ -550,7 +596,9 @@ pub async fn ai_curate(
     let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
     match tokio::time::timeout(Duration::from_secs(90), work).await {
         Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Ok(_))) => {
+            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
+        }
         Ok(Ok(Err(e))) => {
             eprintln!("[ai] sidecar spawn err: {e}");
             Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
@@ -573,7 +621,8 @@ pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<St
         "recentCommits": context.recent_commits,
         "topEntries": context.top_entries,
         "readme": context.readme,
-    })).map_err(|e| e.to_string())?;
+    }))
+    .map_err(|e| e.to_string())?;
     payload.push(b'\n');
 
     let bin = match resolve_sidecar() {
@@ -587,7 +636,9 @@ pub async fn ai_analyze(_app: tauri::AppHandle, context: AiContext) -> Result<St
     let work = tokio::task::spawn_blocking(move || run_sidecar(&bin, &payload));
     match tokio::time::timeout(Duration::from_secs(30), work).await {
         Ok(Ok(Ok(out))) if !out.trim().is_empty() => Ok(out.trim().to_string()),
-        Ok(Ok(Ok(_))) => Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string()),
+        Ok(Ok(Ok(_))) => {
+            Ok(r#"{"ok":false,"error":"generation","reason":"empty output"}"#.to_string())
+        }
         Ok(Ok(Err(e))) => {
             eprintln!("[ai] sidecar spawn err: {e}");
             Ok(r#"{"ok":false,"error":"sidecar_missing"}"#.to_string())
