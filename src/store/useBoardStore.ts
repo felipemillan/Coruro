@@ -33,7 +33,7 @@ import {
 import { scanRepos } from '../utils/scanner';
 import { parseRemote, fetchRepoCard } from '../utils/github';
 import { readRepoNotes, writeRepoNotes } from '../utils/notesFile';
-import { buildAiContext, inputHash } from '../utils/aiContext';
+import { buildAiContext, inputHash, capItemsToContextBudget } from '../utils/aiContext';
 import { formatRepoContext, capContextLines } from '../utils/dayNotesContext';
 import {
   parseDirtyStat,
@@ -1201,9 +1201,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
       // Cap total context before sending to sidecar. The AI sees only the
       // number-free digest lines; the numeric stats live in the composed report.
-      const cappedRepoData = capContextLines(
-        activeRepoData.map(({ name, aiLines }) => ({ name, commits: aiLines })),
-        8000,
+      const cappedRepoData = capItemsToContextBudget(
+        capContextLines(
+          activeRepoData.map(({ name, aiLines }) => ({ name, commits: aiLines })),
+          8000,
+        ),
+        (repos) => JSON.stringify({ mode: 'day_notes', repos }),
       );
 
       // The report skeleton (tiers, metrics, per-repo stats) is deterministic;

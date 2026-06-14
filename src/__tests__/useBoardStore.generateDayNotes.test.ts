@@ -35,6 +35,7 @@ vi.mock('../utils/notesFile', () => ({
 vi.mock('../utils/aiContext', () => ({
   buildAiContext: vi.fn().mockResolvedValue({}),
   inputHash: vi.fn().mockReturnValue('hash'),
+  capItemsToContextBudget: <T>(items: T[]) => items,
 }));
 
 // ── Import store AFTER mocks are in place ─────────────────────────────────────

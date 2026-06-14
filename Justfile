@@ -30,9 +30,9 @@ gate-swift:
     #!/usr/bin/env bash
     set -euo pipefail
     if command -v swift >/dev/null 2>&1; then
-      (cd ai-sidecar && swift build)
+      (cd ai-sidecar && swift build && swift test)
     else
-      echo "swift not installed — skipping sidecar build gate"
+      echo "swift not installed — skipping sidecar build/test gate"
     fi
     if command -v swiftformat >/dev/null 2>&1; then
       (cd ai-sidecar && swiftformat --lint .)
