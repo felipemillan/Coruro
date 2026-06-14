@@ -26,6 +26,8 @@ pub struct PtySession {
 #[derive(Default)]
 pub struct PtyState(pub Arc<Mutex<HashMap<String, PtySession>>>);
 
+type Sessions = Arc<Mutex<HashMap<String, PtySession>>>;
+
 #[derive(Clone, Serialize)]
 struct PtyOutput<'a> {
     id: &'a str,
@@ -38,84 +40,16 @@ struct PtyExit<'a> {
     code: Option<u32>,
 }
 
-/// Spawn an interactive `claude` session in a PTY rooted at `cwd`.
-/// `prompt` (optional) becomes the initial question. Errors are surfaced as
-/// strings so the frontend can show them inline.
-#[tauri::command]
-pub fn pty_spawn(
+/// Stream a PTY reader to the webview via `pty-output`, then emit `pty-exit` and
+/// drop the session on EOF. A trailing incomplete UTF-8 sequence is kept in
+/// `carry` so multibyte chars never split across two events. Shared by both
+/// spawn paths so the streaming/cleanup logic lives in exactly one place.
+fn spawn_pty_reader(
     app: AppHandle,
-    state: State<'_, PtyState>,
+    sessions: Sessions,
     id: String,
-    cwd: String,
-    prompt: Option<String>,
-    cols: u16,
-    rows: u16,
-) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if sessions.contains_key(&id) {
-        return Err(format!("session {id} already exists"));
-    }
-
-    let pty_system = native_pty_system();
-    let pair = pty_system
-        .openpty(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
-
-    // Login shell resolves PATH; the prompt rides in an env var so no shell
-    // quoting of user input is ever needed. Sessions launch through `dgc`
-    // (graperoot dual-graph launcher: scans the project, then starts claude
-    // with the MCP context server attached) when installed, falling back to
-    // plain `claude`. Model pinned to Sonnet 4.6 — interactive sessions bill
-    // against the user's plan, and Sonnet is the right cost/quality tier for
-    // repo Q&A.
-    const MODEL: &str = "--model=claude-sonnet-4-6";
-    let has_prompt = prompt.as_deref().is_some_and(|p| !p.trim().is_empty());
-    let script = if has_prompt {
-        format!(
-            "if command -v dgc >/dev/null 2>&1; then exec dgc . \"$CORURO_PROMPT\" {MODEL}; \
-             else exec claude {MODEL} \"$CORURO_PROMPT\"; fi"
-        )
-    } else {
-        format!(
-            "if command -v dgc >/dev/null 2>&1; then exec dgc . {MODEL}; \
-             else exec claude {MODEL}; fi"
-        )
-    };
-    let mut cmd = CommandBuilder::new("/bin/zsh");
-    cmd.args(["-lc", &script]);
-    cmd.cwd(&cwd);
-    cmd.env("TERM", "xterm-256color");
-    if has_prompt {
-        if let Some(p) = &prompt {
-            cmd.env("CORURO_PROMPT", p);
-        }
-    }
-
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
-    drop(pair.slave);
-
-    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
-
-    sessions.insert(
-        id.clone(),
-        PtySession {
-            writer,
-            master: pair.master,
-            child,
-        },
-    );
-    drop(sessions);
-
-    // Reader thread: stream PTY output to the webview, keeping any trailing
-    // incomplete UTF-8 sequence in `carry` so multibyte chars never split
-    // across two events.
-    let sessions_arc = Arc::clone(&state.0);
+    mut reader: Box<dyn Read + Send>,
+) {
     std::thread::spawn(move || {
         let mut buf = [0u8; 8192];
         let mut carry: Vec<u8> = Vec::new();
@@ -150,7 +84,7 @@ pub fn pty_spawn(
         }
         // EOF: reap the child for an exit code, then clean up the session.
         let code = {
-            let mut sessions = match sessions_arc.lock() {
+            let mut sessions = match sessions.lock() {
                 Ok(s) => s,
                 Err(p) => p.into_inner(),
             };
@@ -160,8 +94,98 @@ pub fn pty_spawn(
         };
         let _ = app.emit("pty-exit", PtyExit { id: &id, code });
     });
+}
 
+/// Open a PTY of the given size, spawn `cmd` in it, register the session under
+/// `id`, and start the reader thread. Shared by `pty_spawn` and `pty_spawn_cmd`
+/// — the only difference between those commands is how `cmd` is built.
+fn spawn_in_pty(
+    app: AppHandle,
+    state: &State<'_, PtyState>,
+    id: String,
+    cmd: CommandBuilder,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if sessions.contains_key(&id) {
+        return Err(format!("session {id} already exists"));
+    }
+
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| e.to_string())?;
+
+    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    drop(pair.slave);
+
+    let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+
+    sessions.insert(
+        id.clone(),
+        PtySession {
+            writer,
+            master: pair.master,
+            child,
+        },
+    );
+    drop(sessions);
+
+    spawn_pty_reader(app, Arc::clone(&state.0), id, reader);
     Ok(())
+}
+
+/// Spawn an interactive `claude` session in a PTY rooted at `cwd`.
+/// `prompt` (optional) becomes the initial question. Errors are surfaced as
+/// strings so the frontend can show them inline.
+#[tauri::command]
+pub fn pty_spawn(
+    app: AppHandle,
+    state: State<'_, PtyState>,
+    id: String,
+    cwd: String,
+    prompt: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    // Login shell resolves PATH; the prompt rides in an env var so no shell
+    // quoting of user input is ever needed. Sessions launch through `dgc`
+    // (graperoot dual-graph launcher: scans the project, then starts claude
+    // with the MCP context server attached) when installed, falling back to
+    // plain `claude`. Model pinned to Sonnet 4.6 — interactive sessions bill
+    // against the user's plan, and Sonnet is the right cost/quality tier for
+    // repo Q&A.
+    const MODEL: &str = "--model=claude-sonnet-4-6";
+    let has_prompt = prompt.as_deref().is_some_and(|p| !p.trim().is_empty());
+    let script = if has_prompt {
+        format!(
+            "if command -v dgc >/dev/null 2>&1; then exec dgc . \"$CORURO_PROMPT\" {MODEL}; \
+             else exec claude {MODEL} \"$CORURO_PROMPT\"; fi"
+        )
+    } else {
+        format!(
+            "if command -v dgc >/dev/null 2>&1; then exec dgc . {MODEL}; \
+             else exec claude {MODEL}; fi"
+        )
+    };
+    let mut cmd = CommandBuilder::new("/bin/zsh");
+    cmd.args(["-lc", &script]);
+    cmd.cwd(&cwd);
+    cmd.env("TERM", "xterm-256color");
+    if has_prompt {
+        if let Some(p) = &prompt {
+            cmd.env("CORURO_PROMPT", p);
+        }
+    }
+
+    spawn_in_pty(app, &state, id, cmd, cols, rows)
 }
 
 /// Forward keystrokes from xterm.js to the PTY.
@@ -206,6 +230,20 @@ pub fn pty_kill(state: State<'_, PtyState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Map a validated `repo_type` to its hardcoded run command. Pure + tested so
+/// the command table can't silently drift and unknown types are always
+/// rejected — this is the guarantee that no user-supplied string enters the
+/// shell script.
+fn run_script_for(repo_type: &str) -> Result<&'static str, String> {
+    match repo_type {
+        "Tauri" => Ok("npm run tauri dev"),
+        "NextJs" | "NodeJs" => Ok("npm run dev"),
+        "Cargo" => Ok("cargo run"),
+        "Make" => Ok("make"),
+        other => Err(format!("unknown repo_type: {other}")),
+    }
+}
+
 /// Spawn a project run/build command (dev server, cargo run, etc.) in a PTY.
 /// Takes repo_type (validated enum string) and maps it to a HARDCODED shell
 /// command — no user-supplied strings ever enter the shell script.
@@ -219,96 +257,34 @@ pub fn pty_spawn_cmd(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    // Map repo_type to a COMPILE-TIME constant shell script. Never interpolate.
-    let script: &'static str = match repo_type.as_str() {
-        "Tauri" => "npm run tauri dev",
-        "NextJs" => "npm run dev",
-        "NodeJs" => "npm run dev",
-        "Cargo" => "cargo run",
-        "Make" => "make",
-        _ => return Err(format!("unknown repo_type: {repo_type}")),
-    };
-
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if sessions.contains_key(&id) {
-        return Err(format!("session {id} already exists"));
-    }
-
-    let pty_system = native_pty_system();
-    let pair = pty_system
-        .openpty(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| e.to_string())?;
+    // The script is a &'static str from the match — never user input.
+    let script = run_script_for(&repo_type)?;
 
     // Use login shell so PATH includes npm/cargo/make regardless of GUI launch context.
-    // The script string is a &'static str from the match above — never user input.
     let mut cmd = CommandBuilder::new("/bin/zsh");
     cmd.args(["-lc", script]);
     cmd.cwd(&cwd);
     cmd.env("TERM", "xterm-256color");
 
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
-    drop(pair.slave);
+    spawn_in_pty(app, &state, id, cmd, cols, rows)
+}
 
-    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+#[cfg(test)]
+mod pty_tests {
+    use super::*;
 
-    sessions.insert(
-        id.clone(),
-        PtySession {
-            writer,
-            master: pair.master,
-            child,
-        },
-    );
-    drop(sessions);
+    #[test]
+    fn known_repo_types_map_to_their_commands() {
+        assert_eq!(run_script_for("Tauri").unwrap(), "npm run tauri dev");
+        assert_eq!(run_script_for("NextJs").unwrap(), "npm run dev");
+        assert_eq!(run_script_for("NodeJs").unwrap(), "npm run dev");
+        assert_eq!(run_script_for("Cargo").unwrap(), "cargo run");
+        assert_eq!(run_script_for("Make").unwrap(), "make");
+    }
 
-    // Reader thread: identical to pty_spawn — stream PTY output via pty-output events.
-    let sessions_arc = Arc::clone(&state.0);
-    std::thread::spawn(move || {
-        let mut buf = [0u8; 8192];
-        let mut carry: Vec<u8> = Vec::new();
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    carry.extend_from_slice(&buf[..n]);
-                    let valid_up_to = match std::str::from_utf8(&carry) {
-                        Ok(_) => carry.len(),
-                        Err(e) => e.valid_up_to(),
-                    };
-                    if valid_up_to > 0 {
-                        let text = unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) };
-                        let _ = app.emit(
-                            "pty-output",
-                            PtyOutput {
-                                id: &id,
-                                data: text,
-                            },
-                        );
-                        carry.drain(..valid_up_to);
-                    }
-                    if carry.len() > 4 {
-                        carry.clear();
-                    }
-                }
-            }
-        }
-        let code = {
-            let mut sessions = match sessions_arc.lock() {
-                Ok(s) => s,
-                Err(p) => p.into_inner(),
-            };
-            sessions
-                .remove(&id)
-                .and_then(|mut s| s.child.wait().ok().map(|st| st.exit_code()))
-        };
-        let _ = app.emit("pty-exit", PtyExit { id: &id, code });
-    });
-
-    Ok(())
+    #[test]
+    fn unknown_repo_type_is_rejected() {
+        assert!(run_script_for("Haskell").is_err());
+        assert!(run_script_for("").is_err());
+    }
 }
