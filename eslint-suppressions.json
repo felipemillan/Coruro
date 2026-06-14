@@ -8,16 +8,13 @@
     }
   },
   "src/components/AskTab.tsx": {
-    "complexity": {
-      "count": 1
-    },
     "react-hooks/set-state-in-effect": {
       "count": 4
     }
   },
   "src/components/CommandCenterTab.tsx": {
     "complexity": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/CommandPalette.tsx": {
@@ -37,21 +34,10 @@
   },
   "src/components/RepoDetail.tsx": {
     "complexity": {
-      "count": 2
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 3
-    },
-    "react-hooks/static-components": {
-      "count": 3
-    }
-  },
-  "src/components/Settings.tsx": {
-    "complexity": {
       "count": 1
     },
     "react-hooks/set-state-in-effect": {
-      "count": 1
+      "count": 3
     }
   },
   "src/components/TopActionBar.tsx": {
@@ -74,17 +60,6 @@
       "count": 1
     }
   },
-  "src/store/useBoardStore.ts": {
-    "complexity": {
-      "count": 3
-    },
-    "max-depth": {
-      "count": 2
-    },
-    "prefer-const": {
-      "count": 1
-    }
-  },
   "src/store/useClaudeStore.ts": {
     "complexity": {
       "count": 2
@@ -101,20 +76,6 @@
   "src/utils/claudeHealthContext.ts": {
     "complexity": {
       "count": 1
-    }
-  },
-  "src/utils/claudeScanner.ts": {
-    "complexity": {
-      "count": 5
-    },
-    "max-depth": {
-      "count": 5
-    },
-    "no-irregular-whitespace": {
-      "count": 1
-    },
-    "no-useless-assignment": {
-      "count": 2
     }
   },
   "src/utils/filterSort.ts": {
