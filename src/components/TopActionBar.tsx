@@ -14,7 +14,7 @@
  * This bar is the always-visible mouse path; Cmd+K remains the keyboard path.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Star, Search } from 'lucide-react';
 import { useClaudeStore } from '../store/useClaudeStore';
 import type {
@@ -104,7 +104,7 @@ export interface TopActionBarProps {
   disabled?: boolean;
 }
 
-type GroupKey = 'skills' | 'agents' | 'commands' | 'mcp' | 'plugins';
+type GroupKey = 'favorites' | 'skills' | 'agents' | 'commands' | 'mcp' | 'plugins';
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -115,6 +115,7 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites());
+  const expanderRef = useRef<HTMLButtonElement>(null);
 
   // Scan once if the inventory hasn't been loaded yet.
   useEffect(() => {
@@ -255,21 +256,9 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
     <div className="shrink-0 border-b border-warm-gray bg-cream/60">
       {/* Quick row + pills */}
       <div className="flex items-center gap-2 px-4 py-1.5 flex-wrap">
-        {/* Favorites + built-in quick commands */}
+        {/* Favorites entry point + built-in quick commands */}
         <div className="flex items-center gap-1">
-          {favorites.map((f) => (
-            <button
-              key={f.text}
-              type="button"
-              disabled={disabled}
-              onClick={() => insert(f.text)}
-              title={`Insert: ${f.text.trim()}`}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-sage bg-sage/10 hover:bg-sage/20 rounded-full transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
-            >
-              <Star size={10} strokeWidth={2} className="fill-sage text-sage" />
-              {f.label}
-            </button>
-          ))}
+          {pill('Favorites', favorites.length, 'favorites')}
           {BUILTIN_QUICK.map((b) => (
             <button
               key={b.text}
@@ -313,10 +302,12 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
             />
           </div>
           <button
+            ref={expanderRef}
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Collapse actions' : 'Expand all actions'}
             aria-expanded={open}
+            aria-controls="topbar-drawer"
             className="flex items-center gap-0.5 px-2 py-1 text-[11px] text-navy-light/60 hover:text-navy hover:bg-warm-gray/70 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
           >
             <ChevronDown
@@ -331,7 +322,18 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
 
       {/* ── Drawer ─────────────────────────────────────────────────────────── */}
       {open && (
-        <div className="max-h-[42vh] overflow-y-auto border-t border-warm-gray/60 bg-cream px-4 pb-3 pt-0">
+        <div
+          id="topbar-drawer"
+          role="region"
+          aria-label="Claude capabilities"
+          className="max-h-[42vh] overflow-y-auto border-t border-warm-gray/60 bg-cream px-4 pb-3 pt-0"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setOpen(false);
+              expanderRef.current?.focus();
+            }
+          }}
+        >
           {disabled && (
             <p className="mb-2 text-[11px] text-terracotta/80 italic">
               Start a session (New) to insert into the prompt.
@@ -343,6 +345,51 @@ export function TopActionBar({ onInsert, disabled = false }: TopActionBarProps) 
             </p>
           ) : (
             <div className="flex gap-4 items-start">
+              {/* ── FAVORITES zone ──────────────────────────────────────────── */}
+              {groupCol(
+                'favorites',
+                'Favorites',
+                favorites.length,
+                favorites.length === 0 ? (
+                  <p className="text-[11px] text-navy-light/40 italic px-1 py-2">
+                    No favorites yet. Tap the star to pin.
+                  </p>
+                ) : (
+                  favorites.map((f) => (
+                    <div
+                      key={f.text}
+                      className="group relative flex items-start gap-1.5 rounded-lg border border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5 transition-colors"
+                    >
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => insert(f.text)}
+                        title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
+                        className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
+                      >
+                        <span className="text-[12px] font-semibold text-navy truncate block">{f.label}</span>
+                        <div className="text-[10px] font-mono text-navy-light/45 truncate">{f.text.trim()}</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleFav(f.label, f.text)}
+                        aria-label={`Unpin ${f.label}`}
+                        className="shrink-0 p-1 mt-1 mr-0.5 transition-opacity cursor-pointer focus-visible:outline-none"
+                      >
+                        <Star
+                          size={12}
+                          strokeWidth={2}
+                          className="fill-sage text-sage"
+                        />
+                      </button>
+                    </div>
+                  ))
+                ),
+              )}
+
+              {/* divider */}
+              <div className="w-px self-stretch bg-warm-gray shrink-0" />
+
               {/* ── SOURCES zone (providers — filter / context) ─────────────── */}
               <div className="flex gap-3 shrink-0 w-[300px]">
                 {groupCol(
