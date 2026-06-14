@@ -46,6 +46,15 @@ import { fetchUserLogin } from '../utils/githubUser';
 import { fetchUserEvents } from '../utils/githubEvents';
 import { fetchCIOutcomes, formatCILine } from '../utils/githubCI';
 import { fetchPRDetails, formatPRLine } from '../utils/githubPRDetails';
+import {
+  validateSettings,
+  validateBoard,
+  validateRepoMetadata,
+  validateGhCache,
+  validateAiCache,
+  validateDayNotes,
+  validateChatSessions,
+} from '../utils/appStateValidation';
 
 /** Filename written under the user's home directory. */
 const STATE_FILE = '.repo_dashboard_state.json';
@@ -229,169 +238,18 @@ function validateAppState(raw: unknown): AppState {
   if (typeof raw !== 'object' || raw === null) return base;
   const parsed = raw as Record<string, unknown>;
 
-  // settings: only keep correctly-typed primitives, else default.
-  const settings = base.settings;
-  const rawSettings = parsed.settings;
-  if (typeof rawSettings === 'object' && rawSettings !== null) {
-    const s = rawSettings as Record<string, unknown>;
-    if (typeof s.rootDirectory === 'string') settings.rootDirectory = s.rootDirectory;
-    if (typeof s.hasToken === 'boolean') settings.hasToken = s.hasToken;
-    if (typeof s.debugBannerEnabled === 'boolean')
-      settings.debugBannerEnabled = s.debugBannerEnabled;
-    if (typeof s.editorCommand === 'string' && s.editorCommand.length > 0)
-      settings.editorCommand = s.editorCommand;
-    if (typeof s.editorApp === 'string' && s.editorApp.length > 0) settings.editorApp = s.editorApp;
-    if (typeof s.terminalApp === 'string' && s.terminalApp.length > 0)
-      settings.terminalApp = s.terminalApp;
-    if (
-      typeof s.refreshIntervalMin === 'number' &&
-      Number.isFinite(s.refreshIntervalMin) &&
-      s.refreshIntervalMin >= 0
-    ) {
-      settings.refreshIntervalMin = s.refreshIntervalMin;
-    }
-    if (typeof s.autoNotesEnabled === 'boolean') settings.autoNotesEnabled = s.autoNotesEnabled;
-    if (
-      typeof s.autoNotesIntervalMin === 'number' &&
-      Number.isFinite(s.autoNotesIntervalMin) &&
-      s.autoNotesIntervalMin > 0
-    ) {
-      settings.autoNotesIntervalMin = s.autoNotesIntervalMin;
-    }
-  }
-
-  // board: every column must be a string[]; coerce anything else to [].
-  const board = base.board;
-  const rawBoard = parsed.board;
-  if (typeof rawBoard === 'object' && rawBoard !== null) {
-    const b = rawBoard as Record<string, unknown>;
-    for (const col of COLUMN_IDS) {
-      const arr = b[col];
-      if (Array.isArray(arr)) {
-        board[col] = arr.filter((p): p is string => typeof p === 'string');
-      }
-    }
-  }
-
-  // repoMetadata: keep only entries shaped { notes: string }.
-  const repoMetadata = base.repoMetadata;
-  const rawMeta = parsed.repoMetadata;
-  if (typeof rawMeta === 'object' && rawMeta !== null) {
-    for (const [key, value] of Object.entries(rawMeta as Record<string, unknown>)) {
-      if (typeof value === 'object' && value !== null) {
-        const notes = (value as Record<string, unknown>).notes;
-        repoMetadata[key] = { notes: typeof notes === 'string' ? notes : '' };
-      }
-    }
-  }
-
-  // ghCache: keep only entries shaped { gh: object, fetchedAt: string }.
-  // The nested gh is trusted as-is (it is recomputed on every refresh anyway);
-  // a malformed entry is simply dropped rather than crashing hydration.
-  const ghCache = base.ghCache;
-  const rawCache = parsed.ghCache;
-  if (typeof rawCache === 'object' && rawCache !== null) {
-    for (const [key, value] of Object.entries(rawCache as Record<string, unknown>)) {
-      if (typeof value === 'object' && value !== null) {
-        const entry = value as Record<string, unknown>;
-        if (
-          typeof entry.gh === 'object' &&
-          entry.gh !== null &&
-          typeof entry.fetchedAt === 'string'
-        ) {
-          ghCache[key] = { gh: entry.gh as RepoGitHub, fetchedAt: entry.fetchedAt };
-        }
-      }
-    }
-  }
-
-  // aiCache: keep only well-shaped entries; drop anything malformed.
-  const aiCache = base.aiCache;
-  const rawAi = (parsed as { aiCache?: unknown }).aiCache;
-  if (rawAi && typeof rawAi === 'object') {
-    for (const [key, entry] of Object.entries(rawAi as Record<string, unknown>)) {
-      const e = entry as Partial<Record<string, unknown>>;
-      if (
-        e &&
-        typeof e.summary === 'string' &&
-        Array.isArray(e.tags) &&
-        typeof e.inputHash === 'string' &&
-        typeof e.analyzedAt === 'string'
-      ) {
-        aiCache[key] = {
-          summary: e.summary,
-          tags: e.tags as string[],
-          model: typeof e.model === 'string' ? e.model : 'unknown',
-          analyzedAt: e.analyzedAt,
-          inputHash: e.inputHash,
-        };
-      }
-    }
-  }
-
-  // dayNotes: keep only well-shaped notes in the array; drop anything malformed.
-  const dayNotes = base.dayNotes;
-  const rawDayNotes = (parsed as { dayNotes?: unknown }).dayNotes;
-  if (rawDayNotes && typeof rawDayNotes === 'object') {
-    const dn = rawDayNotes as Record<string, unknown>;
-    if (Array.isArray(dn.notes)) {
-      dayNotes.notes = dn.notes.filter((note): note is any => {
-        return (
-          typeof note === 'object' &&
-          note !== null &&
-          typeof (note as any).id === 'string' &&
-          typeof (note as any).generatedAt === 'string' &&
-          typeof (note as any).windowStart === 'string' &&
-          typeof (note as any).windowEnd === 'string' &&
-          typeof (note as any).body === 'string' &&
-          Array.isArray((note as any).repoRefs) &&
-          typeof (note as any).model === 'string' &&
-          ((note as any).trigger === 'manual' ||
-            (note as any).trigger === 'auto' ||
-            (note as any).trigger === 'user')
-        );
-      });
-    }
-  }
-
-  // chatSessions: keep only well-shaped sessions; drop anything malformed.
-  // B2 reconciliation: a persisted `status:'running'` is a lie after restart —
-  // the PTY process is gone (pty.rs map is empty on boot). Force every loaded
-  // session to 'ended' so the UI never renders a live affordance for a dead
-  // session. Restored sessions are read-only history.
-  const chatSessions = base.chatSessions;
-  const rawSessions = (parsed as { chatSessions?: unknown }).chatSessions;
-  if (rawSessions && typeof rawSessions === 'object') {
-    const cs = rawSessions as Record<string, unknown>;
-    if (Array.isArray(cs.sessions)) {
-      chatSessions.sessions = cs.sessions
-        .filter((s): s is Record<string, unknown> => {
-          return (
-            typeof s === 'object' &&
-            s !== null &&
-            typeof (s as Record<string, unknown>).id === 'string' &&
-            typeof (s as Record<string, unknown>).repoPath === 'string' &&
-            typeof (s as Record<string, unknown>).repoName === 'string' &&
-            typeof (s as Record<string, unknown>).title === 'string' &&
-            typeof (s as Record<string, unknown>).startedAt === 'number'
-          );
-        })
-        .map(
-          (s): ChatSession => ({
-            id: s.id as string,
-            repoPath: s.repoPath as string,
-            repoName: s.repoName as string,
-            title: s.title as string,
-            startedAt: s.startedAt as number,
-            // Never trust a persisted 'running' — reconcile to 'ended' on load.
-            status: 'ended',
-            exitCode: typeof s.exitCode === 'number' ? (s.exitCode as number) : null,
-          }),
-        );
-    }
-  }
-
-  return { settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions };
+  // Each slice is validated by a pure, independently-tested validator
+  // (src/utils/appStateValidation.ts). A malformed slice degrades to its
+  // default rather than crashing hydration.
+  return {
+    settings: validateSettings(parsed.settings, base.settings),
+    board: validateBoard(parsed.board, base.board),
+    repoMetadata: validateRepoMetadata(parsed.repoMetadata, base.repoMetadata),
+    ghCache: validateGhCache(parsed.ghCache, base.ghCache),
+    aiCache: validateAiCache(parsed.aiCache, base.aiCache),
+    dayNotes: validateDayNotes(parsed.dayNotes, base.dayNotes),
+    chatSessions: validateChatSessions(parsed.chatSessions, base.chatSessions),
+  };
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({

@@ -75,14 +75,11 @@
     }
   },
   "src/store/useBoardStore.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 11
-    },
     "complexity": {
-      "count": 5
+      "count": 3
     },
     "max-depth": {
-      "count": 3
+      "count": 2
     },
     "prefer-const": {
       "count": 1
