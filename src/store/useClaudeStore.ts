@@ -17,6 +17,7 @@ import { scanClaude as scanClaudeFs } from '../utils/claudeScanner';
 import { buildClaudeHealthDigest } from '../utils/claudeHealthContext';
 import { buildEnrichmentItems } from '../utils/claudeEnrich';
 import { buildCurateFindings, buildCuratePayload } from '../utils/claudeCurate';
+import { capItemsToContextBudget } from '../utils/aiContext';
 
 /** Freshness window: skip rescan if inventory is younger than this. */
 const SCAN_FRESHNESS_MS = 60_000;
@@ -135,7 +136,10 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
 
     set({ aiSummaryLoading: true, aiUnavailableReason: null });
     try {
-      const digest: AiDayNotesRepo[] = buildClaudeHealthDigest(inventory);
+      const digest: AiDayNotesRepo[] = capItemsToContextBudget(
+        buildClaudeHealthDigest(inventory),
+        (repos) => JSON.stringify({ mode: 'day_notes', repos }),
+      );
       const raw = await invoke<string>('ai_day_notes', { repos: digest });
       const parsed = JSON.parse(raw) as {
         ok: boolean;
@@ -193,7 +197,10 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
     });
     try {
       for (let i = 0; i < newItems.length; i += CHUNK) {
-        const chunk = newItems.slice(i, i + CHUNK);
+        const chunk = capItemsToContextBudget(newItems.slice(i, i + CHUNK), (items) =>
+          JSON.stringify({ mode: 'enrich', items }),
+        );
+        if (chunk.length === 0) continue;
         let parsed: ClaudeEnrichResponse;
         try {
           const raw = await invoke<string>('ai_enrich', { items: chunk });
@@ -257,8 +264,11 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
     set({ curateLoading: true, curateUnavailableReason: null });
     try {
       const payload = buildCuratePayload(findings);
+      const cappedFindings = capItemsToContextBudget(payload.findings, (f) =>
+        JSON.stringify({ mode: 'curate', findings: f, summary: payload.summary }),
+      );
       const raw = await invoke<string>('ai_curate', {
-        findings: payload.findings,
+        findings: cappedFindings,
         summary: payload.summary,
       });
       const parsed = JSON.parse(raw) as ClaudeCurateResponse;

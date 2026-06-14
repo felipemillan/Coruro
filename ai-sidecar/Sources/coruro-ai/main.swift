@@ -1,3 +1,4 @@
+import CoruroAICore
 import Foundation
 import FoundationModels
 
@@ -260,6 +261,12 @@ if modeProbe?.mode == "day_notes" {
         exit(0)
     }
 
+    // ── Context budget (invariant #5): reject before invoking the model ──
+    if exceedsContextBudget(line) {
+        emitDayNotes(DayNotesResponse(ok: false, body: nil, model: nil, error: "contextOverflow"))
+        exit(0)
+    }
+
     // ── Availability ──
     switch SystemLanguageModel.default.availability {
     case .available:
@@ -299,6 +306,12 @@ if modeProbe?.mode == "day_notes" {
 if modeProbe?.mode == "enrich" {
     guard let req = try? JSONDecoder().decode(EnrichRequest.self, from: input) else {
         emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "badInput"))
+        exit(0)
+    }
+
+    // ── Context budget (invariant #5): reject before invoking the model ──
+    if exceedsContextBudget(line) {
+        emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "contextOverflow"))
         exit(0)
     }
 
@@ -365,6 +378,12 @@ if modeProbe?.mode == "curate" {
         exit(0)
     }
 
+    // ── Context budget (invariant #5): reject before invoking the model ──
+    if exceedsContextBudget(line) {
+        emitCurate(CurateResponse(ok: false, body: nil, model: nil, error: "contextOverflow"))
+        exit(0)
+    }
+
     // ── Availability ──
     switch SystemLanguageModel.default.availability {
     case .available:
@@ -405,6 +424,12 @@ if modeProbe?.mode == "curate" {
 // ── Default: repo analysis mode ──
 guard let req = try? JSONDecoder().decode(AiRequest.self, from: input) else {
     emit(AiResponse(ok: false, summary: nil, tags: nil, model: nil, error: "badInput", reason: "could not decode request"))
+    exit(0)
+}
+
+// ── Context budget (invariant #5): reject before invoking the model ──
+if exceedsContextBudget(line) {
+    emit(AiResponse(ok: false, summary: nil, tags: nil, model: nil, error: "contextOverflow", reason: "payload exceeds context budget"))
     exit(0)
 }
 

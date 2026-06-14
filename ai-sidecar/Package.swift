@@ -5,6 +5,16 @@ let package = Package(
     name: "coruro-ai",
     platforms: [.macOS("26.0")],
     targets: [
-        .executableTarget(name: "coruro-ai", path: "Sources/coruro-ai")
+        .target(name: "CoruroAICore", path: "Sources/CoruroAICore"),
+        .executableTarget(
+            name: "coruro-ai",
+            dependencies: ["CoruroAICore"],
+            path: "Sources/coruro-ai"
+        ),
+        .testTarget(
+            name: "CoruroAICoreTests",
+            dependencies: ["CoruroAICore"],
+            path: "Tests/CoruroAICoreTests"
+        ),
     ]
 )

@@ -11,6 +11,50 @@ import type { AiContext, Repo } from '../types';
 /** Conservative payload ceiling (~3.5 chars/token → well under 4096 tokens). */
 export const MAX_PAYLOAD_CHARS = 6000;
 
+/**
+ * Shared model context-window budget (Coruro invariant #5). Mirrors the Swift
+ * `maxContextTokens` backstop in the sidecar; the TS side trims every AI payload
+ * to this budget so normal use never trips the sidecar's contextOverflow path.
+ */
+export const MAX_CONTEXT_TOKENS = 4096;
+
+/**
+ * Conservative chars→tokens estimate, matching the sidecar's estimator: ASCII
+ * counts ~0.25 tokens/char (~4 chars/token), every non-ASCII code unit a full
+ * token (CJK/emoji are far more token-dense). Over-counting caps payloads
+ * earlier rather than risking an overflow at the model boundary.
+ */
+export function estimatePayloadTokens(text: string): number {
+  let tokens = 0;
+  for (let i = 0; i < text.length; i++) {
+    tokens += text.charCodeAt(i) < 128 ? 0.25 : 1;
+  }
+  return Math.ceil(tokens);
+}
+
+/** True when a serialized payload would exceed the model context window. */
+export function exceedsContextBudget(text: string, maxTokens = MAX_CONTEXT_TOKENS): boolean {
+  return estimatePayloadTokens(text) > maxTokens;
+}
+
+/**
+ * Drop trailing items until the serialized list fits the token budget. Used by
+ * every multi-item AI payload (day notes, enrichment, curation) so none can
+ * exceed the sidecar's 4096-token window. `serialize` should mirror the actual
+ * request shape sent to the sidecar so the estimate matches what the model sees.
+ */
+export function capItemsToContextBudget<T>(
+  items: T[],
+  serialize: (items: T[]) => string,
+  maxTokens = MAX_CONTEXT_TOKENS,
+): T[] {
+  let capped = items;
+  while (capped.length > 0 && exceedsContextBudget(serialize(capped), maxTokens)) {
+    capped = capped.slice(0, capped.length - 1);
+  }
+  return capped;
+}
+
 interface RawParts {
   repoName: string;
   description: string | null;
