@@ -6,30 +6,9 @@
 //
 // Portalled to <body> so the header's backdrop-blur can't clip it.
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import {
-  X,
-  FileText,
-  Folder,
-  FolderOpen,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Trash2,
-  Star,
-  GitPullRequest,
-  GitCommit,
-  CircleDot,
-  ExternalLink,
-  Tag,
-  Eye,
-  GitBranch,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import {
   getReadme,
   getMarkdownTree,
@@ -38,37 +17,20 @@ import {
   type FileTreeResult,
   type TreeNode,
 } from '../utils/repoDetail';
-import {
-  readTimeline,
-  writeTimeline,
-  migrateLegacy,
-  makeNote,
-  TYPE_LABEL,
-} from '../utils/notesTimeline';
-import { NOTE_TYPES, type Repo, type NotesTimeline, type NoteType } from '../types';
+import { readTimeline, writeTimeline, migrateLegacy, makeNote } from '../utils/notesTimeline';
+import { type Repo, type NotesTimeline, type NoteType } from '../types';
 import { safeOpenUrl } from '../utils/openUrl';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from '../store/useBoardStore';
 import { parseRemote } from '../utils/github';
 import { fetchActivity, type GhActivity } from '../utils/githubActivity';
 
-/** Compact relative age like "3d"/"5h"/"2w" from an ISO timestamp; '' when empty/bad. */
-function relativeAge(iso: string): string {
-  if (iso === '') return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const sec = Math.max(0, (Date.now() - then) / 1000);
-  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
-  if (sec < 604800) return `${Math.floor(sec / 86400)}d`;
-  if (sec < 2629800) return `${Math.floor(sec / 604800)}w`;
-  return `${Math.floor(sec / 2629800)}mo`;
-}
-
-/** Format a GitHub repo size (KB) as "N KB" or "N.N MB". */
-function formatSize(kb: number): string {
-  return kb < 1024 ? `${kb} KB` : `${(kb / 1024).toFixed(1)} MB`;
-}
+import { TreeRow } from './repoDetail/TreeRow';
+import { ActivityPane } from './repoDetail/ActivityPane';
+import { GhOverviewBand } from './repoDetail/GhOverviewBand';
+import { BranchesPanel } from './repoDetail/BranchesPanel';
+import { PreviewPane } from './repoDetail/PreviewPane';
+import { NotesTimeline as NotesTimelinePanel } from './repoDetail/NotesTimeline';
 
 interface RepoDetailProps {
   repo: Repo;
@@ -80,259 +42,6 @@ function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `n-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
-
-// ---------------------------------------------------------------------------
-// Recursive tree row — directories toggle, files select.
-// ---------------------------------------------------------------------------
-
-function TreeRow({
-  node,
-  depth,
-  expanded,
-  toggle,
-  selectedPath,
-  onSelect,
-}: {
-  node: TreeNode;
-  depth: number;
-  expanded: Set<string>;
-  toggle: (path: string) => void;
-  selectedPath: string | null;
-  onSelect: (node: TreeNode) => void;
-}) {
-  const isOpen = expanded.has(node.path);
-  const pad = { paddingLeft: `${depth * 14 + 8}px` };
-
-  if (!node.isDir) {
-    const active = selectedPath === node.path;
-    return (
-      <button
-        type="button"
-        onClick={() => onSelect(node)}
-        className={`flex items-center gap-1.5 w-full py-0.5 text-[12px] font-mono truncate text-left transition-colors cursor-pointer rounded-lg ${
-          active ? 'bg-sage/20 text-navy' : 'text-navy-light hover:bg-warm-gray'
-        }`}
-        style={pad}
-        title={node.path}
-      >
-        <FileText size={12} strokeWidth={1.5} className="shrink-0 text-navy-light/50" />
-        <span className="truncate">{node.name}</span>
-      </button>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => toggle(node.path)}
-        className="flex items-center gap-1 w-full py-0.5 text-[12px] text-navy font-mono hover:bg-warm-gray transition-colors cursor-pointer truncate rounded-lg"
-        style={pad}
-        title={node.path}
-      >
-        {isOpen ? (
-          <ChevronDown size={12} strokeWidth={1.5} className="shrink-0" />
-        ) : (
-          <ChevronRight size={12} strokeWidth={1.5} className="shrink-0" />
-        )}
-        {isOpen ? (
-          <FolderOpen size={12} strokeWidth={1.5} className="shrink-0 text-sage" />
-        ) : (
-          <Folder size={12} strokeWidth={1.5} className="shrink-0 text-sage" />
-        )}
-        <span className="truncate">{node.name}</span>
-      </button>
-      {isOpen &&
-        node.children?.map((child) => (
-          <TreeRow
-            key={child.path}
-            node={child}
-            depth={depth + 1}
-            expanded={expanded}
-            toggle={toggle}
-            selectedPath={selectedPath}
-            onSelect={onSelect}
-          />
-        ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Activity pane — open PRs, recent commits, recent issues (lazy-loaded).
-// ---------------------------------------------------------------------------
-
-function ActivityPane({
-  activity,
-  loading,
-  error,
-  hasRemote,
-  onOpen,
-}: {
-  activity: GhActivity | null;
-  loading: boolean;
-  error: string | null;
-  hasRemote: boolean;
-  onOpen: (url: string) => void;
-}) {
-  if (!hasRemote) {
-    return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No github.com remote.</p>;
-  }
-  if (loading) return <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading activity…</p>;
-  if (error !== null)
-    return <p className="px-3 py-2 text-[12px] text-terracotta font-mono">{error}</p>;
-  if (activity === null) return null;
-
-  const Row = ({ url, children }: { url: string; children: React.ReactNode }) => (
-    <button
-      type="button"
-      onClick={() => onOpen(url)}
-      className="flex items-start gap-1.5 w-full px-3 py-1.5 text-left text-[12px] text-navy-light hover:bg-warm-gray transition-colors cursor-pointer"
-      title={url}
-    >
-      <ExternalLink size={10} strokeWidth={1.5} className="shrink-0 mt-0.5 text-navy-light/40" />
-      <span className="truncate">{children}</span>
-    </button>
-  );
-
-  const Heading = ({ children }: { children: React.ReactNode }) => (
-    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-navy-light/50 select-none">
-      {children}
-    </div>
-  );
-
-  const empty =
-    activity.prs.length === 0 && activity.commits.length === 0 && activity.issues.length === 0;
-  if (empty)
-    return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No recent activity.</p>;
-
-  return (
-    <div className="flex flex-col gap-2 pb-2">
-      {activity.prs.length > 0 && (
-        <section>
-          <Heading>
-            <GitPullRequest size={10} strokeWidth={1.5} className="inline mr-1" />
-            Open PRs
-          </Heading>
-          {activity.prs.map((p) => (
-            <Row key={p.number} url={p.url}>
-              <span className="font-mono text-navy-light/50">#{p.number}</span> {p.title}
-              {p.draft && <span className="ml-1 text-[10px] text-navy-light/40">(draft)</span>}
-            </Row>
-          ))}
-        </section>
-      )}
-      {activity.commits.length > 0 && (
-        <section>
-          <Heading>
-            <GitCommit size={10} strokeWidth={1.5} className="inline mr-1" />
-            Recent commits
-          </Heading>
-          {activity.commits.map((c) => (
-            <Row key={c.sha} url={c.url}>
-              {c.message} <span className="text-navy-light/40">· {c.author}</span>
-            </Row>
-          ))}
-        </section>
-      )}
-      {activity.issues.length > 0 && (
-        <section>
-          <Heading>
-            <CircleDot size={10} strokeWidth={1.5} className="inline mr-1" />
-            Recent issues
-          </Heading>
-          {activity.issues.map((i) => (
-            <Row key={i.number} url={i.url}>
-              <span className="font-mono text-navy-light/50">#{i.number}</span> {i.title}
-            </Row>
-          ))}
-        </section>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// AI Summary pane — on-device summary + tags for this repo.
-// ---------------------------------------------------------------------------
-
-function AiSummaryPane({
-  summary,
-  tags,
-  model,
-  analyzedAt,
-  analyzing,
-  unavailableReason,
-  onReanalyze,
-}: {
-  summary: string | undefined;
-  tags: string[];
-  model: string | null;
-  analyzedAt: string | null;
-  analyzing: boolean;
-  unavailableReason: string | null;
-  onReanalyze: () => void;
-}) {
-  return (
-    <div className="p-6 max-w-[820px]">
-      {analyzing ? (
-        <p className="flex items-center gap-2 text-[13px] text-navy-light">
-          <Sparkles size={14} strokeWidth={1.75} className="text-sage animate-pulse" />
-          Analyzing on-device…
-        </p>
-      ) : summary ? (
-        <div className="flex flex-col gap-4">
-          <p className="text-[15px] leading-relaxed text-navy">{summary}</p>
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {tags.map((t) => (
-                <span
-                  key={t}
-                  className="px-2 py-0.5 bg-sage/15 text-sage text-[11px] font-mono rounded-full"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center gap-3 text-[11px] text-navy-light/50 pt-1">
-            {model && <span className="font-mono">{model}</span>}
-            {analyzedAt && relativeAge(analyzedAt) && (
-              <span title={analyzedAt}>analyzed {relativeAge(analyzedAt)} ago</span>
-            )}
-            <button
-              type="button"
-              onClick={onReanalyze}
-              className="flex items-center gap-1 text-navy-light hover:text-navy transition-colors cursor-pointer"
-            >
-              <RefreshCw size={11} strokeWidth={1.5} /> Re-analyze
-            </button>
-          </div>
-        </div>
-      ) : unavailableReason ? (
-        <p className="text-[13px] text-navy-light/60 italic">
-          Apple Intelligence unavailable ({unavailableReason}). On-device summaries are skipped on
-          this machine.
-        </p>
-      ) : (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-[13px] text-navy-light/50 italic">No AI summary yet for this repo.</p>
-          <button
-            type="button"
-            onClick={onReanalyze}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-cream bg-navy px-3 py-1.5 hover:bg-navy-light transition-colors cursor-pointer rounded-full"
-          >
-            <Sparkles size={13} strokeWidth={1.75} /> Analyze now
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main modal
-// ---------------------------------------------------------------------------
 
 export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   // Preview state
@@ -358,7 +67,6 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   const [timelineError, setTimelineError] = useState<string | null>(null);
   const [composerType, setComposerType] = useState<NoteType>('thought');
   const [composerBody, setComposerBody] = useState('');
-  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const toggle = useCallback((path: string) => {
     setExpanded((prev) => {
@@ -448,11 +156,6 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         });
       });
   }, []);
-
-  // Scroll the timeline to the newest note after it changes.
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [timeline]);
 
   // Persist a timeline change derived from the latest state (functional update),
   // then write to disk. Rolls back to the true prior value on write failure.
@@ -620,192 +323,17 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
           </button>
         </div>
 
-        {/* GitHub overview band — M3: rounded-xl surface */}
-        <div className="shrink-0 px-5 py-2.5 bg-cream/60 border-b border-warm-gray text-[12px] text-navy-light flex items-center gap-3 flex-wrap min-h-[40px] rounded-xl mx-2 mt-1.5 mb-0">
-          {repo.gh ? (
-            <>
-              {repo.gh.htmlUrl && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (repo.gh?.htmlUrl) void safeOpenUrl(repo.gh.htmlUrl);
-                  }}
-                  className="flex items-center gap-1 text-sage hover:underline cursor-pointer font-medium"
-                  title={repo.gh.htmlUrl}
-                >
-                  <ExternalLink size={13} strokeWidth={1.75} />
-                  GitHub
-                </button>
-              )}
-              {repo.gh.description && (
-                <span className="text-navy truncate max-w-[40%]">{repo.gh.description}</span>
-              )}
-              {repo.gh.language && <span className="font-mono">{repo.gh.language}</span>}
-              {repo.gh.license && <span className="font-mono">{repo.gh.license}</span>}
-              <span className="flex items-center gap-1">
-                <Star size={12} strokeWidth={1.75} />
-                {repo.gh.stars}
-              </span>
-              <span className="font-mono">⑂ {repo.gh.forks}</span>
-              <span title="Open issues">{repo.gh.openIssues} issues</span>
-              <span title="Open PRs">{repo.gh.prCount} PRs</span>
-              {repo.gh.ciStatus !== 'none' && (
-                <span
-                  className={
-                    repo.gh.ciStatus === 'success'
-                      ? 'text-sage flex items-center gap-1'
-                      : repo.gh.ciStatus === 'failure'
-                        ? 'text-terracotta flex items-center gap-1'
-                        : 'text-amber-500 flex items-center gap-1'
-                  }
-                >
-                  <CircleDot size={12} strokeWidth={2} />
-                  CI {repo.gh.ciStatus}
-                </span>
-              )}
-              {repo.gh.latestRelease && (
-                <span className="flex items-center gap-1 font-mono">
-                  <Tag size={12} strokeWidth={1.75} />
-                  {repo.gh.latestRelease.tag}
-                </span>
-              )}
-              {repo.gh.topics.length > 0 && (
-                <span className="flex items-center gap-1 flex-wrap">
-                  {repo.gh.topics.slice(0, 5).map((t) => (
-                    // Topic chips — M3: rounded-full
-                    <span
-                      key={t}
-                      className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </span>
-              )}
-              <span className="flex items-center gap-1" title="Watchers">
-                <Eye size={12} strokeWidth={1.75} />
-                {repo.gh.watchers}
-              </span>
-              {relativeAge(repo.gh.updatedAt) && (
-                <span title={`Updated ${repo.gh.updatedAt}`}>
-                  updated {relativeAge(repo.gh.updatedAt)}
-                </span>
-              )}
-              <span className="font-mono">{formatSize(repo.gh.size)}</span>
-              <span className="font-mono">branch: {repo.gh.defaultBranch}</span>
-              {/* Badge — M3: rounded-full */}
-              {repo.gh.disabled && (
-                <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light text-[10px] rounded-full">
-                  disabled
-                </span>
-              )}
-              {repo.gh.fork && repo.gh.parent && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (repo.gh?.parent) void safeOpenUrl(repo.gh.parent.url);
-                  }}
-                  className="text-sage hover:underline cursor-pointer"
-                  title="Open upstream repository"
-                >
-                  fork of {repo.gh.parent.fullName}
-                </button>
-              )}
-              {repo.gh.homepage && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (repo.gh?.homepage) void safeOpenUrl(repo.gh.homepage);
-                  }}
-                  className="flex items-center gap-1 text-sage hover:underline cursor-pointer"
-                  title={repo.gh.homepage}
-                >
-                  <ExternalLink size={12} strokeWidth={1.75} />
-                  homepage
-                </button>
-              )}
-              {(repo.gh.hasIssues || repo.gh.hasWiki || repo.gh.hasPages) && (
-                <span className="flex items-center gap-1">
-                  {/* Feature-presence chips — M3: rounded-full */}
-                  {repo.gh.hasIssues && (
-                    <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">
-                      issues
-                    </span>
-                  )}
-                  {repo.gh.hasWiki && (
-                    <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">
-                      wiki
-                    </span>
-                  )}
-                  {repo.gh.hasPages && (
-                    <span className="px-1.5 py-0.5 bg-sage/15 text-sage text-[10px] font-mono rounded-full">
-                      pages
-                    </span>
-                  )}
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="italic text-navy-light/50">
-              No GitHub data (local-only or no github.com remote).
-            </span>
-          )}
-        </div>
+        <GhOverviewBand repo={repo} />
 
-        {/* Branches panel — M3: rounded-xl surface */}
-        <div className="shrink-0 px-5 py-2 bg-warm-gray border-b border-warm-gray/60 flex items-start gap-3 rounded-xl mx-2 mt-1.5 mb-0">
-          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-            <GitBranch size={12} strokeWidth={1.5} className="text-navy-light/60" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
-              Branches
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-            {branches.length === 0 ? (
-              <span className="text-[11px] text-navy-light/40 italic">—</span>
-            ) : (
-              branches.map((b) => {
-                const isCurrent = b === repo.branch;
-                return (
-                  // Branch pills — M3: rounded-full
-                  <span
-                    key={b}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-mono rounded-full ${
-                      isCurrent ? 'bg-sage/20 text-navy font-semibold' : 'text-navy-light'
-                    }`}
-                  >
-                    {isCurrent && (
-                      <GitBranch size={10} strokeWidth={1.5} className="text-sage shrink-0" />
-                    )}
-                    {b}
-                    {isCurrent && (
-                      <span className="ml-0.5 text-[9px] uppercase tracking-wide text-sage/80 font-semibold">
-                        current
-                      </span>
-                    )}
-                  </span>
-                );
-              })
-            )}
-            {fetchError !== null && (
-              <span className="text-[11px] text-terracotta font-mono ml-1">{fetchError}</span>
-            )}
-          </div>
-          {/* Fetch button — M3: rounded-full filled/primary */}
-          <button
-            type="button"
-            onClick={() => {
-              void handleFetch();
-            }}
-            disabled={fetching}
-            aria-label="Fetch remote refs"
-            title="Fetch remote refs"
-            className="flex items-center gap-1 shrink-0 text-[11px] text-navy-light hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer rounded-full px-2 py-0.5"
-          >
-            <RefreshCw size={12} strokeWidth={1.5} className={fetching ? 'animate-spin' : ''} />
-            {fetching ? 'Fetching…' : 'Fetch'}
-          </button>
-        </div>
+        <BranchesPanel
+          branches={branches}
+          currentBranch={repo.branch}
+          fetching={fetching}
+          fetchError={fetchError}
+          onFetch={() => {
+            void handleFetch();
+          }}
+        />
 
         {/* Body: md tree / activity | (preview / timeline) */}
         <div className="flex flex-1 min-h-0 mt-1.5">
@@ -882,165 +410,37 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
 
           {/* Right: preview (top) + timeline (bottom) */}
           <section className="flex-1 flex flex-col min-h-0 mr-2 mb-2">
-            {/* Preview pane wrapper — M3: rounded-xl surface */}
-            <div className="flex-1 min-h-0 flex flex-col border border-warm-gray rounded-xl overflow-hidden mb-1.5">
-              {/* Preview tab bar: markdown doc (README/file) | AI Summary */}
-              <div className="shrink-0 flex items-center border-b border-warm-gray bg-cream/60">
-                <button
-                  type="button"
-                  onClick={() => setPreviewMode('doc')}
-                  className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                    previewMode === 'doc'
-                      ? 'text-navy bg-cream'
-                      : 'text-navy-light/60 hover:text-navy'
-                  }`}
-                >
-                  {selected ? 'Preview' : 'README'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewMode('ai')}
-                  className={`flex items-center gap-1 px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                    previewMode === 'ai'
-                      ? 'text-navy bg-cream'
-                      : 'text-navy-light/60 hover:text-navy'
-                  }`}
-                >
-                  <Sparkles
-                    size={11}
-                    strokeWidth={1.75}
-                    className={previewMode === 'ai' ? 'text-sage' : ''}
-                  />
-                  AI Summary
-                </button>
-                {previewMode === 'doc' && (
-                  <span className="ml-auto px-4 text-[10px] font-mono text-navy-light/40 truncate select-none">
-                    {previewTitle}
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 overflow-auto min-h-0">
-                {previewMode === 'ai' ? (
-                  <AiSummaryPane
-                    summary={repo.aiSummary ?? aiEntry?.summary}
-                    tags={repo.aiTags ?? aiEntry?.tags ?? []}
-                    model={aiEntry?.model ?? null}
-                    analyzedAt={aiEntry?.analyzedAt ?? null}
-                    analyzing={analyzing}
-                    unavailableReason={aiUnavailableReason}
-                    onReanalyze={() => void enrichAiOne(repo.path)}
-                  />
-                ) : loading ? (
-                  <p className="p-6 text-[13px] text-navy-light/50">Loading…</p>
-                ) : error !== null ? (
-                  <p className="p-6 text-[13px] text-terracotta font-mono">{error}</p>
-                ) : previewContent !== null ? (
-                  <div className="markdown-body p-6 max-w-[820px]">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewContent}</ReactMarkdown>
-                  </div>
-                ) : selected && previewBody === null ? (
-                  <p className="p-6 text-[13px] text-navy-light/50">Loading file…</p>
-                ) : (
-                  <p className="p-6 text-[13px] text-navy-light/50 italic">
-                    No README found. Pick a markdown file on the left.
-                  </p>
-                )}
-              </div>
-            </div>
+            <PreviewPane
+              previewMode={previewMode}
+              onSetPreviewMode={setPreviewMode}
+              previewTitle={previewTitle}
+              previewContent={previewContent}
+              loading={loading}
+              error={error}
+              hasSelectedFile={selected !== null}
+              fileBodyLoading={selected !== null && previewBody === null}
+              repo={repo}
+              ai={{
+                summary: repo.aiSummary ?? aiEntry?.summary,
+                tags: repo.aiTags ?? aiEntry?.tags ?? [],
+                model: aiEntry?.model ?? null,
+                analyzedAt: aiEntry?.analyzedAt ?? null,
+                analyzing,
+                unavailableReason: aiUnavailableReason,
+                onReanalyze: () => void enrichAiOne(repo.path),
+              }}
+            />
 
-            {/* Notes timeline container — M3: rounded-xl surface */}
-            <div className="h-[38%] shrink-0 flex flex-col min-h-0 bg-cream/40 border border-warm-gray rounded-xl overflow-hidden">
-              <div className="shrink-0 px-5 py-2 flex items-center justify-between border-b border-warm-gray">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light/60 select-none">
-                  Notes timeline
-                </span>
-                <span className="text-[10px] font-mono text-navy-light/40">coruro_notes.json</span>
-              </div>
-
-              {/* Notes list (oldest-first, newest at bottom) */}
-              <div ref={scrollRef} className="flex-1 overflow-auto px-5 py-3 space-y-2 min-h-0">
-                {timelineError !== null ? (
-                  <p className="text-[12px] text-terracotta font-mono">
-                    Could not load notes: {timelineError}
-                  </p>
-                ) : !timeline || timeline.notes.length === 0 ? (
-                  <p className="text-[12px] text-navy-light/40 italic">
-                    No notes yet. Add a thought, idea, todo, bug, or question below.
-                  </p>
-                ) : (
-                  timeline.notes.map((n) => (
-                    // Note card — M3: rounded-xl
-                    <div
-                      key={n.id}
-                      className="group bg-cream border border-navy/10 px-3 py-2 text-[13px] text-navy rounded-xl"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        {/* Type-label chip — M3: rounded-full */}
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-sage px-1.5 py-0.5 bg-sage/10 rounded-full">
-                          {TYPE_LABEL[n.type]}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-navy-light/40">
-                            {n.createdAt.slice(0, 16).replace('T', ' ')}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => deleteNote(n.id)}
-                            aria-label="Delete note"
-                            className="opacity-0 group-hover:opacity-100 text-navy-light/40 hover:text-terracotta transition cursor-pointer"
-                          >
-                            <Trash2 size={12} strokeWidth={1.5} />
-                          </button>
-                        </div>
-                      </div>
-                      <p className="whitespace-pre-wrap leading-relaxed">{n.body}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Composer */}
-              <div className="shrink-0 border-t border-warm-gray px-5 py-2 flex items-end gap-2">
-                {/* Note type selector — M3: rounded-lg */}
-                <select
-                  value={composerType}
-                  onChange={(e) => setComposerType(e.target.value as NoteType)}
-                  aria-label="Note type"
-                  className="text-[12px] font-mono bg-cream border border-navy/10 px-2 py-1.5 focus:outline-none focus:border-sage/60 cursor-pointer rounded-lg"
-                >
-                  {NOTE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {TYPE_LABEL[t]}
-                    </option>
-                  ))}
-                </select>
-                {/* Note body textarea — M3: rounded-lg */}
-                <textarea
-                  value={composerBody}
-                  onChange={(e) => setComposerBody(e.target.value)}
-                  onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                      e.preventDefault();
-                      addNote();
-                    }
-                  }}
-                  placeholder="New note… (⌘/Ctrl+Enter to add)"
-                  rows={2}
-                  className="flex-1 resize-none text-[13px] text-navy font-mono leading-relaxed bg-cream border border-navy/10 px-3 py-2 placeholder:text-navy/30 focus:outline-none focus:border-sage/60 transition-colors rounded-lg"
-                  aria-label="New note body"
-                />
-                {/* Add note button — M3: rounded-full filled/primary */}
-                <button
-                  type="button"
-                  onClick={addNote}
-                  disabled={composerBody.trim() === ''}
-                  className="flex items-center gap-1 text-[12px] font-semibold text-cream bg-navy px-3 py-2 hover:bg-navy-light disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0 rounded-full"
-                >
-                  <Plus size={13} strokeWidth={2} />
-                  New note
-                </button>
-              </div>
-            </div>
+            <NotesTimelinePanel
+              timeline={timeline}
+              timelineError={timelineError}
+              composerType={composerType}
+              composerBody={composerBody}
+              onComposerTypeChange={setComposerType}
+              onComposerBodyChange={setComposerBody}
+              onAddNote={addNote}
+              onDeleteNote={deleteNote}
+            />
           </section>
         </div>
       </div>
