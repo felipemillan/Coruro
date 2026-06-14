@@ -31,6 +31,7 @@ import {
   type AiCacheEntry,
   type AiResult,
   type DayNote,
+  type ChatSession,
   COLUMN_IDS,
   createEmptyAppState,
 } from '../types';
@@ -143,6 +144,13 @@ interface BoardStore extends AppState {
   deleteDayNote: (id: string) => void;
   /** Append a human-written DayNote (trigger 'user') built from the given body. */
   addUserNote: (body: string) => void;
+
+  /** Append an ASK chat session (metadata only) and persist. */
+  addChatSession: (session: ChatSession) => void;
+  /** Update one session's status + exitCode (e.g. on PTY exit) and persist. */
+  updateChatSessionStatus: (id: string, status: ChatSession['status'], exitCode: number | null) => void;
+  /** Hard-delete one chat session by id and persist. */
+  deleteChatSession: (id: string) => void;
   /** Replace a day-note's body, stamp editedAt, recompute repoRefs, persist. */
   updateDayNote: (id: string, body: string) => void;
   /** Toggle auto-note generation on/off and persist. */
@@ -186,6 +194,7 @@ function serialise(state: AppState): string {
     ghCache: state.ghCache,
     aiCache: state.aiCache,
     dayNotes: state.dayNotes,
+    chatSessions: state.chatSessions,
   };
   return JSON.stringify(snapshot, null, 2);
 }
@@ -312,7 +321,39 @@ function validateAppState(raw: unknown): AppState {
     }
   }
 
-  return { settings, board, repoMetadata, ghCache, aiCache, dayNotes };
+  // chatSessions: keep only well-shaped sessions; drop anything malformed.
+  // B2 reconciliation: a persisted `status:'running'` is a lie after restart —
+  // the PTY process is gone (pty.rs map is empty on boot). Force every loaded
+  // session to 'ended' so the UI never renders a live affordance for a dead
+  // session. Restored sessions are read-only history.
+  const chatSessions = base.chatSessions;
+  const rawSessions = (parsed as { chatSessions?: unknown }).chatSessions;
+  if (rawSessions && typeof rawSessions === 'object') {
+    const cs = rawSessions as Record<string, unknown>;
+    if (Array.isArray(cs.sessions)) {
+      chatSessions.sessions = cs.sessions
+        .filter((s): s is Record<string, unknown> => {
+          return typeof s === 'object' && s !== null &&
+            typeof (s as Record<string, unknown>).id === 'string' &&
+            typeof (s as Record<string, unknown>).repoPath === 'string' &&
+            typeof (s as Record<string, unknown>).repoName === 'string' &&
+            typeof (s as Record<string, unknown>).title === 'string' &&
+            typeof (s as Record<string, unknown>).startedAt === 'number';
+        })
+        .map((s): ChatSession => ({
+          id: s.id as string,
+          repoPath: s.repoPath as string,
+          repoName: s.repoName as string,
+          title: s.title as string,
+          startedAt: s.startedAt as number,
+          // Never trust a persisted 'running' — reconcile to 'ended' on load.
+          status: 'ended',
+          exitCode: typeof s.exitCode === 'number' ? (s.exitCode as number) : null,
+        }));
+    }
+  }
+
+  return { settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions };
 }
 
 export const useBoardStore = create<BoardStore>((set, get) => ({
@@ -343,6 +384,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           ghCache: state.ghCache,
           aiCache: state.aiCache,
           dayNotes: state.dayNotes,
+          chatSessions: state.chatSessions,
           loaded: true,
         });
       } else {
@@ -363,8 +405,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     if (!get().loaded) return Promise.resolve();
     // Serialise the snapshot now (synchronously), but commit the disk write
     // through writeChain so concurrent saves never interleave partial writes.
-    const { settings, board, repoMetadata, ghCache, aiCache, dayNotes } = get();
-    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache, dayNotes });
+    const { settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions } = get();
+    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions });
     writeChain = writeChain.then(() =>
       writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),
     );
@@ -769,6 +811,35 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   deleteDayNote: (id) => {
     set((s) => ({
       dayNotes: { ...s.dayNotes, notes: s.dayNotes.notes.filter((n) => n.id !== id) },
+    }));
+    void get().save();
+  },
+
+  addChatSession: (session) => {
+    set((s) => ({
+      chatSessions: { ...s.chatSessions, sessions: [...s.chatSessions.sessions, session] },
+    }));
+    void get().save();
+  },
+
+  updateChatSessionStatus: (id, status, exitCode) => {
+    set((s) => ({
+      chatSessions: {
+        ...s.chatSessions,
+        sessions: s.chatSessions.sessions.map((sess) =>
+          sess.id === id ? { ...sess, status, exitCode } : sess,
+        ),
+      },
+    }));
+    void get().save();
+  },
+
+  deleteChatSession: (id) => {
+    set((s) => ({
+      chatSessions: {
+        ...s.chatSessions,
+        sessions: s.chatSessions.sessions.filter((sess) => sess.id !== id),
+      },
     }));
     void get().save();
   },

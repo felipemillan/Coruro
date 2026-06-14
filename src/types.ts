@@ -121,6 +121,8 @@ export interface AppState {
   aiCache: AiCache;
   /** Persisted day notes from AI summarization service. */
   dayNotes: DayNotesState;
+  /** Persisted ASK-tab chat sessions (metadata only; transcripts never stored). */
+  chatSessions: ChatSessionsState;
 }
 
 /** Latest CI (GitHub Actions) conclusion for the default branch. */
@@ -205,6 +207,29 @@ export interface DayNotesState {
   notes: DayNote[];
 }
 
+/**
+ * One ASK-tab chat session (Claude Code PTY). Metadata only — the terminal
+ * transcript/scrollback is NEVER persisted (it can be large and may contain
+ * sensitive conversation content). A restored session is read-only history:
+ * its PTY process is gone after restart, so `status` is always reconciled to
+ * 'ended' on load (see validateAppState).
+ */
+export interface ChatSession {
+  id: string;
+  repoPath: string;
+  repoName: string;
+  /** Empty for sessions started with no prompt; the UI regenerates a label from startedAt. */
+  title: string;
+  startedAt: number;
+  status: 'running' | 'ended';
+  exitCode: number | null;
+}
+
+/** Persisted collection of ASK chat sessions (metadata only). */
+export interface ChatSessionsState {
+  sessions: ChatSession[];
+}
+
 /** Factory for a fresh, empty app state matching PRD §6 (minus raw token). */
 export function createEmptyAppState(): AppState {
   return {
@@ -230,6 +255,7 @@ export function createEmptyAppState(): AppState {
     ghCache: {},
     aiCache: {},
     dayNotes: { notes: [] },
+    chatSessions: { sessions: [] },
   };
 }
 
