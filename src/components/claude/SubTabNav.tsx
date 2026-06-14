@@ -2,7 +2,14 @@
 // Renders five sub-tabs (Overview / MCP / Skills / Agents / Sessions) with icon,
 // label, and an optional count badge. Controlled component; callers own the state.
 
-import { LayoutDashboard, Server, Wrench, BrainCircuit, FolderGit2, ListChecks } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Server,
+  Wrench,
+  BrainCircuit,
+  FolderGit2,
+  ListChecks,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -10,7 +17,13 @@ import type { LucideIcon } from 'lucide-react';
 // ---------------------------------------------------------------------------
 
 /** The five sub-sections of the Claude Command Center. */
-export type ClaudeSubTab = 'overview' | 'mcp' | 'skills' | 'agents' | 'sessions' | 'recommendations';
+export type ClaudeSubTab =
+  | 'overview'
+  | 'mcp'
+  | 'skills'
+  | 'agents'
+  | 'sessions'
+  | 'recommendations';
 
 export interface SubTabNavProps {
   /** Currently active sub-tab. */
@@ -32,12 +45,12 @@ interface TabDescriptor {
 }
 
 const TABS: TabDescriptor[] = [
-  { id: 'overview',  label: 'Overview',  Icon: LayoutDashboard },
-  { id: 'mcp',       label: 'MCP',       Icon: Server           },
-  { id: 'skills',    label: 'Skills',    Icon: Wrench           },
-  { id: 'agents',    label: 'Agents',    Icon: BrainCircuit     },
-  { id: 'sessions',  label: 'Sessions',  Icon: FolderGit2       },
-  { id: 'recommendations', label: 'Curate', Icon: ListChecks    },
+  { id: 'overview', label: 'Overview', Icon: LayoutDashboard },
+  { id: 'mcp', label: 'MCP', Icon: Server },
+  { id: 'skills', label: 'Skills', Icon: Wrench },
+  { id: 'agents', label: 'Agents', Icon: BrainCircuit },
+  { id: 'sessions', label: 'Sessions', Icon: FolderGit2 },
+  { id: 'recommendations', label: 'Curate', Icon: ListChecks },
 ];
 
 // ---------------------------------------------------------------------------
@@ -84,18 +97,13 @@ export function SubTabNav({ active, onChange, counts = {} }: SubTabNavProps) {
                 : 'border-transparent text-navy-light/60 hover:text-navy hover:border-warm-gray',
             ].join(' ')}
           >
-            <Icon
-              size={12}
-              strokeWidth={isActive ? 2 : 1.75}
-              aria-hidden="true"
-            />
+            <Icon size={12} strokeWidth={isActive ? 2 : 1.75} aria-hidden="true" />
             <span>{label}</span>
             {count !== undefined && (
               <span
-                className={[
-                  'tabular-nums',
-                  isActive ? 'text-navy/60' : 'text-navy-light/40',
-                ].join(' ')}
+                className={['tabular-nums', isActive ? 'text-navy/60' : 'text-navy-light/40'].join(
+                  ' ',
+                )}
               >
                 ({count})
               </span>

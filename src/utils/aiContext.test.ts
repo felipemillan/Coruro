@@ -21,8 +21,12 @@ describe('assembleContext', () => {
 
   it('truncates overly long commit subjects to 100 chars', () => {
     const ctx = assembleContext({
-      repoName: 'r', description: null, languages: [],
-      recentCommits: ['y'.repeat(200)], topEntries: [], readme: null,
+      repoName: 'r',
+      description: null,
+      languages: [],
+      recentCommits: ['y'.repeat(200)],
+      topEntries: [],
+      readme: null,
     });
     expect(ctx.recentCommits[0].length).toBeLessThanOrEqual(100);
   });
@@ -30,9 +34,30 @@ describe('assembleContext', () => {
 
 describe('inputHash', () => {
   it('is stable for identical input and changes when input changes', () => {
-    const a = assembleContext({ repoName: 'r', description: 'd', languages: ['Rust'], recentCommits: ['c'], topEntries: ['src'], readme: null });
-    const b = assembleContext({ repoName: 'r', description: 'd', languages: ['Rust'], recentCommits: ['c'], topEntries: ['src'], readme: null });
-    const c = assembleContext({ repoName: 'r', description: 'd2', languages: ['Rust'], recentCommits: ['c'], topEntries: ['src'], readme: null });
+    const a = assembleContext({
+      repoName: 'r',
+      description: 'd',
+      languages: ['Rust'],
+      recentCommits: ['c'],
+      topEntries: ['src'],
+      readme: null,
+    });
+    const b = assembleContext({
+      repoName: 'r',
+      description: 'd',
+      languages: ['Rust'],
+      recentCommits: ['c'],
+      topEntries: ['src'],
+      readme: null,
+    });
+    const c = assembleContext({
+      repoName: 'r',
+      description: 'd2',
+      languages: ['Rust'],
+      recentCommits: ['c'],
+      topEntries: ['src'],
+      readme: null,
+    });
     expect(inputHash(a)).toBe(inputHash(b));
     expect(inputHash(a)).not.toBe(inputHash(c));
   });

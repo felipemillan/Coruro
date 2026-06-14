@@ -46,7 +46,15 @@ const MAX_ENTRIES = 5000;
 const MAX_DEPTH = 8;
 
 /** Directories never worth walking — heavy, noisy, or VCS internals. */
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'target', '.next', '.cache']);
+const IGNORED_DIRS = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'target',
+  '.next',
+  '.cache',
+]);
 
 /**
  * Find and read the repo's README. Returns null when none of the candidate

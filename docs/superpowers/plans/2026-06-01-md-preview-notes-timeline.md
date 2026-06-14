@@ -16,15 +16,15 @@
 
 Per-task model chosen by complexity / blast radius. Rule: cascading contracts and stateful/UI logic → higher tier; mechanical, exact-spec work → lower tier.
 
-| Task | Model | Why |
-|------|-------|-----|
-| 1. vitest setup | **haiku 4.5** | Mechanical config + dep install. Zero ambiguity. |
-| 2. `types.ts` contracts | **haiku 4.5** | Small, exact, copy from spec. (Shared, but trivial and fully specified below.) |
-| 3. `notesTimeline.ts` pure fns + tests | **sonnet 4.6** | Real logic (render/migrate/parse/factory), but well-specified with tests. |
-| 4. `notesTimeline.ts` I/O | **sonnet 4.6** | fs wiring + dual-file write. Self-contained, spec exact. |
-| 5. `repoDetail.ts` md tree + reader + tests | **sonnet 4.6** | Recursive prune logic + thin fs reader. |
-| 6. `RepoDetail.tsx` rework | **opus 4.8** | Stateful UI, split layout, migration-on-load, error handling, edit/delete. High blast radius. |
-| 7. Integration verify | **opus 4.8** | Whole-picture: launch app, drive it, screenshot, confirm end-to-end. |
+| Task                                        | Model          | Why                                                                                           |
+| ------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------- |
+| 1. vitest setup                             | **haiku 4.5**  | Mechanical config + dep install. Zero ambiguity.                                              |
+| 2. `types.ts` contracts                     | **haiku 4.5**  | Small, exact, copy from spec. (Shared, but trivial and fully specified below.)                |
+| 3. `notesTimeline.ts` pure fns + tests      | **sonnet 4.6** | Real logic (render/migrate/parse/factory), but well-specified with tests.                     |
+| 4. `notesTimeline.ts` I/O                   | **sonnet 4.6** | fs wiring + dual-file write. Self-contained, spec exact.                                      |
+| 5. `repoDetail.ts` md tree + reader + tests | **sonnet 4.6** | Recursive prune logic + thin fs reader.                                                       |
+| 6. `RepoDetail.tsx` rework                  | **opus 4.8**   | Stateful UI, split layout, migration-on-load, error handling, edit/delete. High blast radius. |
+| 7. Integration verify                       | **opus 4.8**   | Whole-picture: launch app, drive it, screenshot, confirm end-to-end.                          |
 
 Tasks 3, 4, 5 touch disjoint files and can run concurrently after Task 2. Task 6 depends on 2–5. Task 7 depends on 6.
 
@@ -32,20 +32,21 @@ Tasks 3, 4, 5 touch disjoint files and can run concurrently after Task 2. Task 6
 
 ## File Structure
 
-- `package.json` — add `vitest` dev dep + `test` script. *(Task 1)*
-- `vitest.config.ts` — **create**, node environment for pure-logic tests. *(Task 1)*
-- `src/types.ts` — **modify**: add `NoteType`, `NOTE_TYPES`, `TimelineNote`, `NotesTimeline`. *(Task 2)*
-- `src/utils/notesTimeline.ts` — **create**: pure (render/migrate/parse/factory) + I/O (read/write/migrate). *(Tasks 3–4)*
-- `src/utils/notesTimeline.test.ts` — **create**: vitest for the pure functions. *(Task 3)*
-- `src/utils/repoDetail.ts` — **modify**: add `pruneToMarkdown`, `getMarkdownTree`, `getMarkdownFile`. *(Task 5)*
-- `src/utils/repoDetail.test.ts` — **create**: vitest for `pruneToMarkdown`. *(Task 5)*
-- `src/components/RepoDetail.tsx` — **modify**: md-only tree, click-to-preview, split right pane, notes timeline. *(Task 6)*
+- `package.json` — add `vitest` dev dep + `test` script. _(Task 1)_
+- `vitest.config.ts` — **create**, node environment for pure-logic tests. _(Task 1)_
+- `src/types.ts` — **modify**: add `NoteType`, `NOTE_TYPES`, `TimelineNote`, `NotesTimeline`. _(Task 2)_
+- `src/utils/notesTimeline.ts` — **create**: pure (render/migrate/parse/factory) + I/O (read/write/migrate). _(Tasks 3–4)_
+- `src/utils/notesTimeline.test.ts` — **create**: vitest for the pure functions. _(Task 3)_
+- `src/utils/repoDetail.ts` — **modify**: add `pruneToMarkdown`, `getMarkdownTree`, `getMarkdownFile`. _(Task 5)_
+- `src/utils/repoDetail.test.ts` — **create**: vitest for `pruneToMarkdown`. _(Task 5)_
+- `src/components/RepoDetail.tsx` — **modify**: md-only tree, click-to-preview, split right pane, notes timeline. _(Task 6)_
 
 ---
 
-## Task 1: vitest setup  ·  **haiku 4.5**
+## Task 1: vitest setup · **haiku 4.5**
 
 **Files:**
+
 - Modify: `package.json`
 - Create: `vitest.config.ts`
 
@@ -104,9 +105,10 @@ git commit -m "test: add vitest for pure-logic unit tests"
 
 ---
 
-## Task 2: Type contracts  ·  **haiku 4.5**
+## Task 2: Type contracts · **haiku 4.5**
 
 **Files:**
+
 - Modify: `src/types.ts` (append after the existing `RepoMetadata` type)
 
 - [ ] **Step 1: Add the note types**
@@ -155,9 +157,10 @@ git commit -m "feat(types): add NoteType, TimelineNote, NotesTimeline contracts"
 
 ---
 
-## Task 3: notesTimeline pure functions + tests  ·  **sonnet 4.6**
+## Task 3: notesTimeline pure functions + tests · **sonnet 4.6**
 
 **Files:**
+
 - Create: `src/utils/notesTimeline.ts`
 - Create: `src/utils/notesTimeline.test.ts`
 
@@ -167,12 +170,7 @@ Create `src/utils/notesTimeline.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'vitest';
-import {
-  makeNote,
-  renderTimelineMarkdown,
-  seedFromLegacy,
-  parseTimeline,
-} from './notesTimeline';
+import { makeNote, renderTimelineMarkdown, seedFromLegacy, parseTimeline } from './notesTimeline';
 import type { NotesTimeline } from '../types';
 
 describe('makeNote', () => {
@@ -190,9 +188,7 @@ describe('makeNote', () => {
 describe('renderTimelineMarkdown', () => {
   test('empty timeline → placeholder', () => {
     const t: NotesTimeline = { version: 1, notes: [] };
-    expect(renderTimelineMarkdown(t, 'demo')).toBe(
-      '# Notes — demo\n\n_No notes yet._\n',
-    );
+    expect(renderTimelineMarkdown(t, 'demo')).toBe('# Notes — demo\n\n_No notes yet._\n');
   });
 
   test('renders sections oldest-first with type label + date', () => {
@@ -216,7 +212,9 @@ describe('seedFromLegacy', () => {
     const t = seedFromLegacy('old notes\n', 'id-9', '2026-06-01T10:00:00.000Z');
     expect(t).toEqual({
       version: 1,
-      notes: [{ id: 'id-9', type: 'thought', body: 'old notes', createdAt: '2026-06-01T10:00:00.000Z' }],
+      notes: [
+        { id: 'id-9', type: 'thought', body: 'old notes', createdAt: '2026-06-01T10:00:00.000Z' },
+      ],
     });
   });
 });
@@ -332,9 +330,10 @@ git commit -m "feat(notes): pure timeline render/seed/parse functions + tests"
 
 ---
 
-## Task 4: notesTimeline I/O wrappers  ·  **sonnet 4.6**
+## Task 4: notesTimeline I/O wrappers · **sonnet 4.6**
 
 **Files:**
+
 - Modify: `src/utils/notesTimeline.ts` (replace the `// --- I/O wrappers ... ---` marker)
 
 These hit `@tauri-apps/plugin-fs`, so they are verified by running the app in Task 7, not by vitest.
@@ -409,9 +408,10 @@ git commit -m "feat(notes): read/write/migrate fs wrappers for timeline + md exp
 
 ---
 
-## Task 5: Markdown tree + file reader  ·  **sonnet 4.6**
+## Task 5: Markdown tree + file reader · **sonnet 4.6**
 
 **Files:**
+
 - Modify: `src/utils/repoDetail.ts` (append exports)
 - Create: `src/utils/repoDetail.test.ts`
 
@@ -426,7 +426,10 @@ import type { TreeNode } from './repoDetail';
 
 const f = (name: string, path: string): TreeNode => ({ name, path, isDir: false });
 const d = (name: string, path: string, children: TreeNode[]): TreeNode => ({
-  name, path, isDir: true, children,
+  name,
+  path,
+  isDir: true,
+  children,
 });
 
 describe('pruneToMarkdown', () => {
@@ -515,9 +518,10 @@ git commit -m "feat(detail): markdown-only tree prune + single-file reader + tes
 
 ---
 
-## Task 6: RepoDetail rework  ·  **opus 4.8**
+## Task 6: RepoDetail rework · **opus 4.8**
 
 **Files:**
+
 - Modify: `src/components/RepoDetail.tsx` (full rewrite of the body; keep the `TreeRow` component and imports it relies on)
 
 This is the high-blast-radius UI task: md-only clickable tree, split right pane (preview / timeline), migration-on-load, add/edit/delete notes, error handling. Verified by running the app in Task 7.
@@ -789,9 +793,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
   );
 
   // What the preview pane renders: selected file, else README.
-  const previewContent = selected
-    ? previewBody
-    : (readme?.content ?? null);
+  const previewContent = selected ? previewBody : (readme?.content ?? null);
   const previewTitle = selected ? selected.name : (readme?.name ?? 'README');
 
   return createPortal(
@@ -1002,7 +1004,7 @@ git commit -m "feat(detail): md preview pane + typed notes timeline UI"
 
 ---
 
-## Task 7: Integration verify  ·  **opus 4.8**
+## Task 7: Integration verify · **opus 4.8**
 
 **Files:** none (verification only)
 

@@ -20,7 +20,10 @@ function cleanMarkdown(body: string): string {
       if (/^\s*[-*+]\s*$/.test(line)) return false;
       // Collapse consecutive blank lines: keep only if previous non-blank wasn't also blank
       if (line.trim() === '') {
-        const prev = lines.slice(0, i).reverse().find((l) => l.trim() !== '');
+        const prev = lines
+          .slice(0, i)
+          .reverse()
+          .find((l) => l.trim() !== '');
         return prev !== undefined;
       }
       return true;
@@ -32,31 +35,61 @@ function cleanMarkdown(body: string): string {
 function makeComponents(repos: Repo[], onRepoClick: (repo: Repo) => void): Components {
   return {
     p({ children }) {
-      return <p className="mb-2 last:mb-0 leading-relaxed text-navy/90">{injectMentions(children, repos, onRepoClick)}</p>;
+      return (
+        <p className="mb-2 last:mb-0 leading-relaxed text-navy/90">
+          {injectMentions(children, repos, onRepoClick)}
+        </p>
+      );
     },
     li({ children }) {
-      return <li className="mb-0.5 leading-snug">{injectMentions(children, repos, onRepoClick)}</li>;
+      return (
+        <li className="mb-0.5 leading-snug">{injectMentions(children, repos, onRepoClick)}</li>
+      );
     },
     // h1: card title — bold, full separator
     h1({ children }) {
-      return <h1 className="text-base font-bold text-navy mt-4 mb-2 pb-1 border-b border-warm-gray/50 first:mt-0">{children}</h1>;
+      return (
+        <h1 className="text-base font-bold text-navy mt-4 mb-2 pb-1 border-b border-warm-gray/50 first:mt-0">
+          {children}
+        </h1>
+      );
     },
     // h2: repo section — medium weight + bottom rule
     h2({ children }) {
-      return <h2 className="text-sm font-semibold text-navy mt-4 mb-1.5 pb-0.5 border-b border-warm-gray/30 first:mt-0">{children}</h2>;
+      return (
+        <h2 className="text-sm font-semibold text-navy mt-4 mb-1.5 pb-0.5 border-b border-warm-gray/30 first:mt-0">
+          {children}
+        </h2>
+      );
     },
     // h3: sub-section — sage left accent, small caps feel
     h3({ children }) {
-      return <h3 className="text-xs font-semibold text-navy/70 mt-3 mb-1 pl-2 border-l-2 border-sage/60 first:mt-0">{children}</h3>;
+      return (
+        <h3 className="text-xs font-semibold text-navy/70 mt-3 mb-1 pl-2 border-l-2 border-sage/60 first:mt-0">
+          {children}
+        </h3>
+      );
     },
     ul({ children }) {
-      return <ul className="list-disc list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">{children}</ul>;
+      return (
+        <ul className="list-disc list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">
+          {children}
+        </ul>
+      );
     },
     ol({ children }) {
-      return <ol className="list-decimal list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">{children}</ol>;
+      return (
+        <ol className="list-decimal list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">
+          {children}
+        </ol>
+      );
     },
     code({ children }) {
-      return <code className="font-mono text-xs bg-navy/6 border border-navy/10 px-1 py-0.5 rounded">{children}</code>;
+      return (
+        <code className="font-mono text-xs bg-navy/6 border border-navy/10 px-1 py-0.5 rounded">
+          {children}
+        </code>
+      );
     },
     strong({ children }) {
       return <strong className="font-semibold text-navy">{children}</strong>;
@@ -70,7 +103,7 @@ function makeComponents(repos: Repo[], onRepoClick: (repo: Repo) => void): Compo
 function injectMentions(
   children: React.ReactNode,
   repos: Repo[],
-  onRepoClick: (repo: Repo) => void
+  onRepoClick: (repo: Repo) => void,
 ): React.ReactNode {
   if (typeof children !== 'string') return children;
   const parts = children.split(/(@[a-zA-Z0-9_/-]+)/g);
@@ -90,7 +123,11 @@ function injectMentions(
           </button>
         );
       }
-      return <span key={i} className="font-mono text-warm-gray text-xs">{part}</span>;
+      return (
+        <span key={i} className="font-mono text-warm-gray text-xs">
+          {part}
+        </span>
+      );
     }
     return part;
   });
@@ -214,9 +251,7 @@ export function NotesTab() {
           <span className="text-xs text-navy-light">minutes</span>
         </div>
         {/* Inline validation error */}
-        {intervalError && (
-          <p className="text-xs text-red-600">{intervalError}</p>
-        )}
+        {intervalError && <p className="text-xs text-red-600">{intervalError}</p>}
       </div>
 
       {/* Composer: human-written notes (trigger 'user') */}
@@ -290,9 +325,7 @@ export function NotesTab() {
               })}
             </span>
             {/* Subtle hint when the note body was edited after creation */}
-            {note.editedAt && (
-              <span className="text-xs text-navy-light/60 italic">(edited)</span>
-            )}
+            {note.editedAt && <span className="text-xs text-navy-light/60 italic">(edited)</span>}
             <span
               className={
                 note.trigger === 'user'

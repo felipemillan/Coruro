@@ -10,10 +10,14 @@ interface SyncBadgesProps {
 
 function ciColor(status: string): string | null {
   switch (status) {
-    case 'success': return 'text-sage';
-    case 'failure': return 'text-terracotta';
-    case 'pending': return 'text-amber-500';
-    default: return null;
+    case 'success':
+      return 'text-sage';
+    case 'failure':
+      return 'text-terracotta';
+    case 'pending':
+      return 'text-amber-500';
+    default:
+      return null;
   }
 }
 
@@ -33,12 +37,14 @@ export function SyncBadges({ sync }: SyncBadgesProps) {
 
       {sync.ahead > 0 && (
         <span className="flex items-center gap-0.5 text-sage" title="Commits ahead">
-          <ArrowUp size={11} strokeWidth={2} />{sync.ahead}
+          <ArrowUp size={11} strokeWidth={2} />
+          {sync.ahead}
         </span>
       )}
       {sync.behind > 0 && (
         <span className="flex items-center gap-0.5 text-amber-500" title="Commits behind">
-          <ArrowDown size={11} strokeWidth={2} />{sync.behind}
+          <ArrowDown size={11} strokeWidth={2} />
+          {sync.behind}
         </span>
       )}
 

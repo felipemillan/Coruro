@@ -19,6 +19,7 @@ Surface the remaining useful fields from the single `GET /repos/{owner}/{repo}` 
 ## Data model — `src/types.ts`
 
 `RepoGitHub` gains:
+
 ```ts
   watchers: number;          // subscribers_count
   updatedAt: string;         // updated_at (ISO 8601)
@@ -31,6 +32,7 @@ Surface the remaining useful fields from the single `GET /repos/{owner}/{repo}` 
   hasPages: boolean;
   size: number;              // repo size in KB (as GitHub reports)
 ```
+
 Existing fields unchanged: `stars, forks, isPrivate, archived, openIssues, prCount, ciStatus, latestRelease, description, topics, language, license, defaultBranch, pushedAt`.
 
 ## `src/utils/github.ts`
@@ -51,6 +53,7 @@ Existing fields unchanged: `stars, forks, isPrivate, archived, openIssues, prCou
 ## `src/components/RepoCard.tsx`
 
 In the GitHub badges row (only when `repo.gh`), add:
+
 - **Staleness:** `updated {relativeAge(gh.pushedAt)}`; color via a `staleColor(pushedAt)` helper — sage if `<30d`, `text-navy-light` if `30–90d`, `text-amber-500` if `>90d`. Hidden when `pushedAt` is empty/unparseable.
 - **fork** tag (`bg-navy/10 text-navy-light`) when `gh.fork`.
 - **watchers:** `<Eye/> {gh.watchers}` when `> 0`.
@@ -61,6 +64,7 @@ Reuse the existing `relativeAge` helper.
 ## `src/components/RepoDetail.tsx` — overview band
 
 Append to the `repo.gh` branch of the overview band:
+
 - watchers (`<Eye/> {watchers}`), `updated {relativeAge(updatedAt)}`, `size` formatted (`{size} KB` when `<1024`, else `{(size/1024).toFixed(1)} MB`), `branch: {defaultBranch}`.
 - `homepage` → clickable link (opens via shell `open`).
 - `fork of {parent.fullName}` → clickable link to `parent.url` when `fork && parent`.

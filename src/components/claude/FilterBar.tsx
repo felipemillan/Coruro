@@ -73,7 +73,6 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div className="flex items-center gap-3 flex-wrap">
-
       {/* ── Search box — mirrors Toolbar search input ── */}
       <div className="relative flex items-center">
         {/* sr-only label for screen readers */}

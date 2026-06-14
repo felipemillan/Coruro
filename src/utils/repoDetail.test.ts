@@ -4,7 +4,10 @@ import type { TreeNode } from './repoDetail';
 
 const f = (name: string, path: string): TreeNode => ({ name, path, isDir: false });
 const d = (name: string, path: string, children: TreeNode[]): TreeNode => ({
-  name, path, isDir: true, children,
+  name,
+  path,
+  isDir: true,
+  children,
 });
 
 describe('pruneToMarkdown', () => {

@@ -14,19 +14,19 @@
 
 ## Model Assignment
 
-| Task | Model | Why |
-|------|-------|-----|
-| 1. `types.ts` extend `RepoGitHub` | **haiku 4.5** | Mechanical field additions. |
-| 2. `github.ts` mapper + fetchRepoCard + test | **sonnet 4.6** | Pure mapper logic + test update. |
-| 3. `RepoCard.tsx` new badges | **sonnet 4.6** | Presentational + a staleness helper. |
-| 4. `RepoDetail.tsx` overview additions | **sonnet 4.6** | Additive overview-band JSX. |
-| 5. Integration verify | **opus 4.8** | Whole-picture, live drive. |
+| Task                                         | Model          | Why                                  |
+| -------------------------------------------- | -------------- | ------------------------------------ |
+| 1. `types.ts` extend `RepoGitHub`            | **haiku 4.5**  | Mechanical field additions.          |
+| 2. `github.ts` mapper + fetchRepoCard + test | **sonnet 4.6** | Pure mapper logic + test update.     |
+| 3. `RepoCard.tsx` new badges                 | **sonnet 4.6** | Presentational + a staleness helper. |
+| 4. `RepoDetail.tsx` overview additions       | **sonnet 4.6** | Additive overview-band JSX.          |
+| 5. Integration verify                        | **opus 4.8**   | Whole-picture, live drive.           |
 
 Sequential: 1 → 2 → {3,4} → 5.
 
 ---
 
-## Task 1: Extend RepoGitHub  ·  **haiku 4.5**
+## Task 1: Extend RepoGitHub · **haiku 4.5**
 
 **Files:** Modify `src/types.ts`
 
@@ -63,7 +63,7 @@ git commit -m "feat(types): extend RepoGitHub with watchers/fork/parent/homepage
 
 ---
 
-## Task 2: Map + fetch new fields  ·  **sonnet 4.6**
+## Task 2: Map + fetch new fields · **sonnet 4.6**
 
 **Files:** Modify `src/utils/github.ts`, Modify `src/utils/github.test.ts`
 
@@ -75,22 +75,50 @@ In `src/utils/github.test.ts`, replace the existing `describe('mapRepoMeta', …
 describe('mapRepoMeta', () => {
   test('maps fields with defaults', () => {
     const json = {
-      stargazers_count: 12, forks_count: 3, private: true, archived: false,
-      description: 'hi', topics: ['a', 'b'], language: 'TypeScript',
-      license: { spdx_id: 'MIT' }, default_branch: 'main',
-      pushed_at: '2026-06-01T00:00:00Z', open_issues_count: 7,
-      subscribers_count: 5, updated_at: '2026-05-30T00:00:00Z', disabled: false,
-      fork: true, parent: { full_name: 'up/stream', html_url: 'https://github.com/up/stream' },
-      homepage: 'https://x.dev', has_issues: true, has_wiki: false, has_pages: true, size: 2048,
+      stargazers_count: 12,
+      forks_count: 3,
+      private: true,
+      archived: false,
+      description: 'hi',
+      topics: ['a', 'b'],
+      language: 'TypeScript',
+      license: { spdx_id: 'MIT' },
+      default_branch: 'main',
+      pushed_at: '2026-06-01T00:00:00Z',
+      open_issues_count: 7,
+      subscribers_count: 5,
+      updated_at: '2026-05-30T00:00:00Z',
+      disabled: false,
+      fork: true,
+      parent: { full_name: 'up/stream', html_url: 'https://github.com/up/stream' },
+      homepage: 'https://x.dev',
+      has_issues: true,
+      has_wiki: false,
+      has_pages: true,
+      size: 2048,
     };
     expect(mapRepoMeta(json)).toEqual({
-      stars: 12, forks: 3, isPrivate: true, archived: false,
-      description: 'hi', topics: ['a', 'b'], language: 'TypeScript',
-      license: 'MIT', defaultBranch: 'main',
-      pushedAt: '2026-06-01T00:00:00Z', openIssuesRaw: 7,
-      watchers: 5, updatedAt: '2026-05-30T00:00:00Z', disabled: false,
-      fork: true, parent: { fullName: 'up/stream', url: 'https://github.com/up/stream' },
-      homepage: 'https://x.dev', hasIssues: true, hasWiki: false, hasPages: true, size: 2048,
+      stars: 12,
+      forks: 3,
+      isPrivate: true,
+      archived: false,
+      description: 'hi',
+      topics: ['a', 'b'],
+      language: 'TypeScript',
+      license: 'MIT',
+      defaultBranch: 'main',
+      pushedAt: '2026-06-01T00:00:00Z',
+      openIssuesRaw: 7,
+      watchers: 5,
+      updatedAt: '2026-05-30T00:00:00Z',
+      disabled: false,
+      fork: true,
+      parent: { fullName: 'up/stream', url: 'https://github.com/up/stream' },
+      homepage: 'https://x.dev',
+      hasIssues: true,
+      hasWiki: false,
+      hasPages: true,
+      size: 2048,
     });
   });
   test('NOASSERTION license → null; missing fields → defaults', () => {
@@ -141,18 +169,21 @@ Add these fields to the `RepoMetaSlice` interface (after `openIssuesRaw: number;
 In `mapRepoMeta`, add the parent parse before the `return`, and the new fields to the returned object:
 
 ```ts
-  const parentObj = o.parent;
-  const parent =
-    typeof parentObj === 'object' && parentObj !== null && typeof (parentObj as Record<string, unknown>).full_name === 'string'
-      ? {
-          fullName: (parentObj as Record<string, unknown>).full_name as string,
-          url: typeof (parentObj as Record<string, unknown>).html_url === 'string'
+const parentObj = o.parent;
+const parent =
+  typeof parentObj === 'object' &&
+  parentObj !== null &&
+  typeof (parentObj as Record<string, unknown>).full_name === 'string'
+    ? {
+        fullName: (parentObj as Record<string, unknown>).full_name as string,
+        url:
+          typeof (parentObj as Record<string, unknown>).html_url === 'string'
             ? ((parentObj as Record<string, unknown>).html_url as string)
             : '',
-        }
-      : null;
-  const homepageRaw = o.homepage;
-  const homepage = typeof homepageRaw === 'string' && homepageRaw.length > 0 ? homepageRaw : null;
+      }
+    : null;
+const homepageRaw = o.homepage;
+const homepage = typeof homepageRaw === 'string' && homepageRaw.length > 0 ? homepageRaw : null;
 ```
 
 Then add to the returned object (alongside the existing fields):
@@ -201,7 +232,7 @@ git commit -m "feat(github): map watchers/fork/parent/homepage/flags/size from /
 
 ---
 
-## Task 3: Card badges  ·  **sonnet 4.6**
+## Task 3: Card badges · **sonnet 4.6**
 
 **Files:** Modify `src/components/RepoCard.tsx`
 
@@ -209,10 +240,13 @@ git commit -m "feat(github): map watchers/fork/parent/homepage/flags/size from /
 
 Add `Eye` and `ExternalLink` to the lucide-react import (currently `Code2, FolderOpen, FileText, Star, CircleDot, Tag`).
 Add after the existing imports:
+
 ```ts
 import { open as openExternal } from '@tauri-apps/plugin-shell';
 ```
+
 Add this helper next to `ciColor`:
+
 ```ts
 /** Tailwind text color for staleness based on an ISO push date. */
 function staleColor(iso: string): string {
@@ -230,32 +264,40 @@ function staleColor(iso: string): string {
 In the `{gh && ( … )}` badges row, after the `latestRelease` span (before the row's closing `</div>`), add:
 
 ```tsx
-          {relativeAge(gh.pushedAt) && (
-            <span className={staleColor(gh.pushedAt)} title={`Last push ${gh.pushedAt}`}>
-              updated {relativeAge(gh.pushedAt)}
-            </span>
-          )}
-          {gh.fork && (
-            <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">
-              fork
-            </span>
-          )}
-          {gh.watchers > 0 && (
-            <span className="flex items-center gap-0.5" title="Watchers">
-              <Eye size={11} strokeWidth={1.75} /> {gh.watchers}
-            </span>
-          )}
-          {gh.homepage && (
-            <button
-              type="button"
-              onClick={() => { if (gh.homepage) void openExternal(gh.homepage); }}
-              className="flex items-center gap-0.5 text-navy-light hover:text-sage transition-colors cursor-pointer"
-              title={`Homepage: ${gh.homepage}`}
-              aria-label="Open homepage"
-            >
-              <ExternalLink size={11} strokeWidth={1.75} /> site
-            </button>
-          )}
+{
+  relativeAge(gh.pushedAt) && (
+    <span className={staleColor(gh.pushedAt)} title={`Last push ${gh.pushedAt}`}>
+      updated {relativeAge(gh.pushedAt)}
+    </span>
+  );
+}
+{
+  gh.fork && (
+    <span className="px-1.5 py-0.5 bg-navy/10 text-navy-light font-medium leading-none">fork</span>
+  );
+}
+{
+  gh.watchers > 0 && (
+    <span className="flex items-center gap-0.5" title="Watchers">
+      <Eye size={11} strokeWidth={1.75} /> {gh.watchers}
+    </span>
+  );
+}
+{
+  gh.homepage && (
+    <button
+      type="button"
+      onClick={() => {
+        if (gh.homepage) void openExternal(gh.homepage);
+      }}
+      className="flex items-center gap-0.5 text-navy-light hover:text-sage transition-colors cursor-pointer"
+      title={`Homepage: ${gh.homepage}`}
+      aria-label="Open homepage"
+    >
+      <ExternalLink size={11} strokeWidth={1.75} /> site
+    </button>
+  );
+}
 ```
 
 - [ ] **Step 3: Typecheck + build**
@@ -272,7 +314,7 @@ git commit -m "feat(card): staleness + fork + watchers + homepage badges"
 
 ---
 
-## Task 4: Overview band additions  ·  **sonnet 4.6**
+## Task 4: Overview band additions · **sonnet 4.6**
 
 **Files:** Modify `src/components/RepoDetail.tsx`
 
@@ -283,6 +325,7 @@ Add `Eye` to the existing lucide-react import list in `RepoDetail.tsx`.
 - [ ] **Step 2: Add a local `relativeAge` + `formatSize` helper**
 
 Add near the top of the file (module scope, after imports, before `TreeRow`):
+
 ```ts
 /** Compact relative age like "3d"/"5h"/"2w" from an ISO timestamp; '' when empty/bad. */
 function relativeAge(iso: string): string {
@@ -358,7 +401,7 @@ git commit -m "feat(detail): overview band shows watchers/size/branch/fork/homep
 
 ---
 
-## Task 5: Integration verify  ·  **opus 4.8**
+## Task 5: Integration verify · **opus 4.8**
 
 **Files:** none
 

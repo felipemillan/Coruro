@@ -94,7 +94,13 @@ export interface AiResult {
   summary?: string;
   tags?: string[];
   model?: string;
-  error?: 'unavailable' | 'contextOverflow' | 'generation' | 'badInput' | 'timeout' | 'sidecar_missing';
+  error?:
+    | 'unavailable'
+    | 'contextOverflow'
+    | 'generation'
+    | 'badInput'
+    | 'timeout'
+    | 'sidecar_missing';
   reason?: string;
 }
 
@@ -104,7 +110,7 @@ export interface AiCacheEntry {
   tags: string[];
   model: string;
   analyzedAt: string; // ISO 8601
-  inputHash: string;  // hash of the assembled context — drives freshness
+  inputHash: string; // hash of the assembled context — drives freshness
 }
 
 /** Persisted AI cache, keyed by repo absolute path. */

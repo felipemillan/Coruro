@@ -250,7 +250,9 @@ export default function App() {
                 type="button"
                 onClick={() => setActiveTab('notes')}
                 className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                  activeTab === 'notes' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                  activeTab === 'notes'
+                    ? 'text-navy bg-cream'
+                    : 'text-navy-light/60 hover:text-navy'
                 }`}
               >
                 Notes
@@ -259,7 +261,9 @@ export default function App() {
                 type="button"
                 onClick={() => setActiveTab('board')}
                 className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                  activeTab === 'board' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                  activeTab === 'board'
+                    ? 'text-navy bg-cream'
+                    : 'text-navy-light/60 hover:text-navy'
                 }`}
               >
                 Board
@@ -277,7 +281,9 @@ export default function App() {
                 type="button"
                 onClick={() => setActiveTab('claude')}
                 className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                  activeTab === 'claude' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+                  activeTab === 'claude'
+                    ? 'text-navy bg-cream'
+                    : 'text-navy-light/60 hover:text-navy'
                 }`}
               >
                 Claude
@@ -295,11 +301,7 @@ export default function App() {
                 <CommandCenterTab />
               ) : null}
               {askVisited && (
-                <div
-                  className={
-                    activeTab === 'ask' ? 'flex flex-col flex-1 min-h-0' : 'hidden'
-                  }
-                >
+                <div className={activeTab === 'ask' ? 'flex flex-col flex-1 min-h-0' : 'hidden'}>
                   <AskTab />
                 </div>
               )}

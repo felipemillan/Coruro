@@ -207,9 +207,7 @@ export function SkillCard({ skill, onOpen }: SkillCardProps) {
 
       {/* Real frontmatter description */}
       {skill.description !== null && (
-        <p className="text-xs text-navy-light leading-snug">
-          {skill.description}
-        </p>
+        <p className="text-xs text-navy-light leading-snug">{skill.description}</p>
       )}
     </article>
   );
@@ -253,9 +251,7 @@ export function AgentCard({ agent, onOpen }: AgentCardProps) {
 
       {/* Real frontmatter description */}
       {agent.description !== null && (
-        <p className="text-xs text-navy-light leading-snug">
-          {agent.description}
-        </p>
+        <p className="text-xs text-navy-light leading-snug">{agent.description}</p>
       )}
     </article>
   );

@@ -1,4 +1,5 @@
 <!-- dgc-policy-v11 -->
+
 # Dual-Graph Context Policy
 
 This project uses a local dual-graph MCP server for efficient context retrieval.
@@ -59,6 +60,7 @@ Live dashboard URL is printed at startup next to "Token usage".
 Whenever you make a decision, identify a task, note a next step, fact, or blocker during a conversation, call `graph_add_memory`.
 
 **To add an entry:**
+
 ```
 graph_add_memory(type="decision|task|next|fact|blocker", content="one sentence max 15 words", tags=["topic"], files=["relevant/file.ts"])
 ```
@@ -66,6 +68,7 @@ graph_add_memory(type="decision|task|next|fact|blocker", content="one sentence m
 **Do NOT write context-store.json directly** — always use `graph_add_memory`. It applies pruning and keeps the store healthy.
 
 **Rules:**
+
 - Only log things worth remembering across sessions (not every minor detail)
 - `content` must be under 15 words
 - `files` lists the files this decision/task relates to (can be empty)
@@ -74,6 +77,7 @@ graph_add_memory(type="decision|task|next|fact|blocker", content="one sentence m
 ## Session End
 
 When the user signals they are done (e.g. "bye", "done", "wrap up", "end session"), proactively update `CONTEXT.md` in the project root with:
+
 - **Current Task**: one sentence on what was being worked on
 - **Key Decisions**: bullet list, max 3 items
 - **Next Steps**: bullet list, max 3 items

@@ -14,17 +14,17 @@
 
 ## Model Assignment
 
-| Task | Model | Why |
-|------|-------|-----|
-| 1. `types.ts` contracts | **haiku 4.5** | Small, exact, copy from spec. |
-| 2. `scanner.ts` remoteUrl | **haiku 4.5** | One field added to an existing Promise.all. |
-| 3. `githubClient.ts` (ETag core) | **sonnet 4.6** | Real logic (conditional cache), exact spec. |
-| 4. `github.ts` mappers + fetchRepoCard + tests | **sonnet 4.6** | Pure mappers (TDD) + compose fetch. |
-| 5. `githubActivity.ts` mappers + fetch + tests | **sonnet 4.6** | Pure mappers (TDD) + compose fetch. |
-| 6. store enrichment wiring | **opus 4.8** | Token, concurrency pool, scan race, integration. |
-| 7. `RepoCard.tsx` badges | **sonnet 4.6** | Presentational, clear spec. |
-| 8. `RepoDetail.tsx` overview + tabs + activity | **opus 4.8** | Stateful UI, lazy load, layout, high blast radius. |
-| 9. Integration verify (run app) | **opus 4.8** | Whole-picture, live drive. |
+| Task                                           | Model          | Why                                                |
+| ---------------------------------------------- | -------------- | -------------------------------------------------- |
+| 1. `types.ts` contracts                        | **haiku 4.5**  | Small, exact, copy from spec.                      |
+| 2. `scanner.ts` remoteUrl                      | **haiku 4.5**  | One field added to an existing Promise.all.        |
+| 3. `githubClient.ts` (ETag core)               | **sonnet 4.6** | Real logic (conditional cache), exact spec.        |
+| 4. `github.ts` mappers + fetchRepoCard + tests | **sonnet 4.6** | Pure mappers (TDD) + compose fetch.                |
+| 5. `githubActivity.ts` mappers + fetch + tests | **sonnet 4.6** | Pure mappers (TDD) + compose fetch.                |
+| 6. store enrichment wiring                     | **opus 4.8**   | Token, concurrency pool, scan race, integration.   |
+| 7. `RepoCard.tsx` badges                       | **sonnet 4.6** | Presentational, clear spec.                        |
+| 8. `RepoDetail.tsx` overview + tabs + activity | **opus 4.8**   | Stateful UI, lazy load, layout, high blast radius. |
+| 9. Integration verify (run app)                | **opus 4.8**   | Whole-picture, live drive.                         |
 
 Tasks 3, 4, 5 touch disjoint files — parallelizable after Task 1 (Task 4 & 5 import from Task 3's `githubClient`, so 3 → {4,5}). Task 6 depends on 1,2,4. Task 7 depends on 1. Task 8 depends on 1,5. Task 9 last.
 
@@ -32,20 +32,20 @@ Tasks 3, 4, 5 touch disjoint files — parallelizable after Task 1 (Task 4 & 5 i
 
 ## File Structure
 
-- `src/types.ts` — **modify**: `CiStatus`, `RepoGitHub`, `Repo.remoteUrl`, `Repo.gh`. *(Task 1)*
-- `src/utils/scanner.ts` — **modify**: capture `remoteUrl` in `scanRepos`. *(Task 2)*
-- `src/utils/githubClient.ts` — **create**: `ghJson` + ETag cache. *(Task 3)*
-- `src/utils/github.ts` — **modify**: keep `parseRemote`, add mappers + `fetchRepoCard`, remove `fetchOpenPrCount`. *(Task 4)*
-- `src/utils/github.test.ts` — **create**: `parseRemote` + mapper tests. *(Task 4)*
-- `src/utils/githubActivity.ts` — **create**: activity types, mappers, `fetchActivity`. *(Task 5)*
-- `src/utils/githubActivity.test.ts` — **create**: mapper tests. *(Task 5)*
-- `src/store/useBoardStore.ts` — **modify**: `enrichGitHub` action + call from `scanAndDistribute`. *(Task 6)*
-- `src/components/RepoCard.tsx` — **modify**: badges from `repo.gh`. *(Task 7)*
-- `src/components/RepoDetail.tsx` — **modify**: overview band + Files|Activity tabs. *(Task 8)*
+- `src/types.ts` — **modify**: `CiStatus`, `RepoGitHub`, `Repo.remoteUrl`, `Repo.gh`. _(Task 1)_
+- `src/utils/scanner.ts` — **modify**: capture `remoteUrl` in `scanRepos`. _(Task 2)_
+- `src/utils/githubClient.ts` — **create**: `ghJson` + ETag cache. _(Task 3)_
+- `src/utils/github.ts` — **modify**: keep `parseRemote`, add mappers + `fetchRepoCard`, remove `fetchOpenPrCount`. _(Task 4)_
+- `src/utils/github.test.ts` — **create**: `parseRemote` + mapper tests. _(Task 4)_
+- `src/utils/githubActivity.ts` — **create**: activity types, mappers, `fetchActivity`. _(Task 5)_
+- `src/utils/githubActivity.test.ts` — **create**: mapper tests. _(Task 5)_
+- `src/store/useBoardStore.ts` — **modify**: `enrichGitHub` action + call from `scanAndDistribute`. _(Task 6)_
+- `src/components/RepoCard.tsx` — **modify**: badges from `repo.gh`. _(Task 7)_
+- `src/components/RepoDetail.tsx` — **modify**: overview band + Files|Activity tabs. _(Task 8)_
 
 ---
 
-## Task 1: Type contracts  ·  **haiku 4.5**
+## Task 1: Type contracts · **haiku 4.5**
 
 **Files:** Modify `src/types.ts`
 
@@ -101,7 +101,7 @@ git commit -m "feat(types): add CiStatus, RepoGitHub, Repo.remoteUrl/gh"
 
 ---
 
-## Task 2: Capture remote URL in scanner  ·  **haiku 4.5**
+## Task 2: Capture remote URL in scanner · **haiku 4.5**
 
 **Files:** Modify `src/utils/scanner.ts`
 
@@ -110,37 +110,34 @@ git commit -m "feat(types): add CiStatus, RepoGitHub, Repo.remoteUrl/gh"
 In `src/utils/scanRepos`'s map callback, replace this block:
 
 ```ts
-        const [branch, dirty] = await Promise.all([
-          getBranch(subdirPath),
-          getDirty(subdirPath),
-        ]);
+const [branch, dirty] = await Promise.all([getBranch(subdirPath), getDirty(subdirPath)]);
 
-        return {
-          name: entry.name,
-          path: subdirPath,
-          branch,
-          dirty,
-          prCount: 0,
-        };
+return {
+  name: entry.name,
+  path: subdirPath,
+  branch,
+  dirty,
+  prCount: 0,
+};
 ```
 
 with:
 
 ```ts
-        const [branch, dirty, remoteUrl] = await Promise.all([
-          getBranch(subdirPath),
-          getDirty(subdirPath),
-          getRemoteUrl(subdirPath),
-        ]);
+const [branch, dirty, remoteUrl] = await Promise.all([
+  getBranch(subdirPath),
+  getDirty(subdirPath),
+  getRemoteUrl(subdirPath),
+]);
 
-        return {
-          name: entry.name,
-          path: subdirPath,
-          branch,
-          dirty,
-          prCount: 0,
-          remoteUrl,
-        };
+return {
+  name: entry.name,
+  path: subdirPath,
+  branch,
+  dirty,
+  prCount: 0,
+  remoteUrl,
+};
 ```
 
 (`getRemoteUrl` is already defined and exported in this file — no new import.)
@@ -159,7 +156,7 @@ git commit -m "feat(scanner): capture origin remoteUrl per repo"
 
 ---
 
-## Task 3: GitHub client with ETag cache  ·  **sonnet 4.6**
+## Task 3: GitHub client with ETag cache · **sonnet 4.6**
 
 **Files:** Create `src/utils/githubClient.ts`
 
@@ -248,7 +245,7 @@ git commit -m "feat(github): ghJson client with in-memory ETag cache"
 
 ---
 
-## Task 4: Card fetch — mappers + fetchRepoCard + tests  ·  **sonnet 4.6**
+## Task 4: Card fetch — mappers + fetchRepoCard + tests · **sonnet 4.6**
 
 **Files:** Modify `src/utils/github.ts`, Create `src/utils/github.test.ts`
 
@@ -265,13 +262,19 @@ describe('parseRemote', () => {
     expect(parseRemote('git@github.com:owner/repo.git')).toEqual({ owner: 'owner', repo: 'repo' });
   });
   test('https with .git', () => {
-    expect(parseRemote('https://github.com/owner/repo.git')).toEqual({ owner: 'owner', repo: 'repo' });
+    expect(parseRemote('https://github.com/owner/repo.git')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
+    });
   });
   test('https no .git, trailing slash', () => {
     expect(parseRemote('https://github.com/owner/repo/')).toEqual({ owner: 'owner', repo: 'repo' });
   });
   test('https with userinfo', () => {
-    expect(parseRemote('https://user:pat@github.com/owner/repo.git')).toEqual({ owner: 'owner', repo: 'repo' });
+    expect(parseRemote('https://user:pat@github.com/owner/repo.git')).toEqual({
+      owner: 'owner',
+      repo: 'repo',
+    });
   });
   test('non-github returns null', () => {
     expect(parseRemote('https://gitlab.com/owner/repo.git')).toBeNull();
@@ -281,16 +284,30 @@ describe('parseRemote', () => {
 describe('mapRepoMeta', () => {
   test('maps fields with defaults', () => {
     const json = {
-      stargazers_count: 12, forks_count: 3, private: true, archived: false,
-      description: 'hi', topics: ['a', 'b'], language: 'TypeScript',
-      license: { spdx_id: 'MIT' }, default_branch: 'main',
-      pushed_at: '2026-06-01T00:00:00Z', open_issues_count: 7,
+      stargazers_count: 12,
+      forks_count: 3,
+      private: true,
+      archived: false,
+      description: 'hi',
+      topics: ['a', 'b'],
+      language: 'TypeScript',
+      license: { spdx_id: 'MIT' },
+      default_branch: 'main',
+      pushed_at: '2026-06-01T00:00:00Z',
+      open_issues_count: 7,
     };
     expect(mapRepoMeta(json)).toEqual({
-      stars: 12, forks: 3, isPrivate: true, archived: false,
-      description: 'hi', topics: ['a', 'b'], language: 'TypeScript',
-      license: 'MIT', defaultBranch: 'main',
-      pushedAt: '2026-06-01T00:00:00Z', openIssuesRaw: 7,
+      stars: 12,
+      forks: 3,
+      isPrivate: true,
+      archived: false,
+      description: 'hi',
+      topics: ['a', 'b'],
+      language: 'TypeScript',
+      license: 'MIT',
+      defaultBranch: 'main',
+      pushedAt: '2026-06-01T00:00:00Z',
+      openIssuesRaw: 7,
     });
   });
   test('NOASSERTION license → null; missing fields → defaults', () => {
@@ -307,14 +324,18 @@ describe('mapRepoMeta', () => {
 
 describe('mapCiStatus', () => {
   test('success conclusion', () => {
-    expect(mapCiStatus({ workflow_runs: [{ conclusion: 'success', status: 'completed' }] })).toBe('success');
+    expect(mapCiStatus({ workflow_runs: [{ conclusion: 'success', status: 'completed' }] })).toBe(
+      'success',
+    );
   });
   test('failure conclusions', () => {
     expect(mapCiStatus({ workflow_runs: [{ conclusion: 'failure' }] })).toBe('failure');
     expect(mapCiStatus({ workflow_runs: [{ conclusion: 'timed_out' }] })).toBe('failure');
   });
   test('in-progress → pending', () => {
-    expect(mapCiStatus({ workflow_runs: [{ conclusion: null, status: 'in_progress' }] })).toBe('pending');
+    expect(mapCiStatus({ workflow_runs: [{ conclusion: null, status: 'in_progress' }] })).toBe(
+      'pending',
+    );
   });
   test('no runs → none', () => {
     expect(mapCiStatus({ workflow_runs: [] })).toBe('none');
@@ -324,8 +345,10 @@ describe('mapCiStatus', () => {
 
 describe('mapRelease', () => {
   test('maps tag + date', () => {
-    expect(mapRelease({ tag_name: 'v1.2', published_at: '2026-05-01T00:00:00Z' }))
-      .toEqual({ tag: 'v1.2', publishedAt: '2026-05-01T00:00:00Z' });
+    expect(mapRelease({ tag_name: 'v1.2', published_at: '2026-05-01T00:00:00Z' })).toEqual({
+      tag: 'v1.2',
+      publishedAt: '2026-05-01T00:00:00Z',
+    });
   });
   test('missing tag → null', () => {
     expect(mapRelease({})).toBeNull();
@@ -377,7 +400,9 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
   const o = (typeof json === 'object' && json !== null ? json : {}) as Record<string, unknown>;
   const licObj = o.license;
   const spdx =
-    typeof licObj === 'object' && licObj !== null && typeof (licObj as Record<string, unknown>).spdx_id === 'string'
+    typeof licObj === 'object' &&
+    licObj !== null &&
+    typeof (licObj as Record<string, unknown>).spdx_id === 'string'
       ? ((licObj as Record<string, unknown>).spdx_id as string)
       : null;
   return {
@@ -386,7 +411,9 @@ export function mapRepoMeta(json: unknown): RepoMetaSlice {
     isPrivate: o.private === true,
     archived: o.archived === true,
     description: typeof o.description === 'string' ? o.description : null,
-    topics: Array.isArray(o.topics) ? o.topics.filter((t): t is string => typeof t === 'string') : [],
+    topics: Array.isArray(o.topics)
+      ? o.topics.filter((t): t is string => typeof t === 'string')
+      : [],
     language: typeof o.language === 'string' ? o.language : null,
     license: spdx === 'NOASSERTION' ? null : spdx,
     defaultBranch: typeof o.default_branch === 'string' ? o.default_branch : '',
@@ -400,7 +427,10 @@ export function mapCiStatus(json: unknown): CiStatus {
   const o = (typeof json === 'object' && json !== null ? json : {}) as Record<string, unknown>;
   const runs = o.workflow_runs;
   if (!Array.isArray(runs) || runs.length === 0) return 'none';
-  const run = (typeof runs[0] === 'object' && runs[0] !== null ? runs[0] : {}) as Record<string, unknown>;
+  const run = (typeof runs[0] === 'object' && runs[0] !== null ? runs[0] : {}) as Record<
+    string,
+    unknown
+  >;
   const conclusion = run.conclusion;
   const status = run.status;
   if (conclusion === 'success') return 'success';
@@ -414,7 +444,10 @@ export function mapCiStatus(json: unknown): CiStatus {
   }
   if (
     conclusion === null &&
-    (status === 'in_progress' || status === 'queued' || status === 'waiting' || status === 'pending')
+    (status === 'in_progress' ||
+      status === 'queued' ||
+      status === 'waiting' ||
+      status === 'pending')
   ) {
     return 'pending';
   }
@@ -479,7 +512,7 @@ git commit -m "feat(github): repo-card mappers + fetchRepoCard + parseRemote tes
 
 ---
 
-## Task 5: Activity fetch — mappers + fetchActivity + tests  ·  **sonnet 4.6**
+## Task 5: Activity fetch — mappers + fetchActivity + tests · **sonnet 4.6**
 
 **Files:** Create `src/utils/githubActivity.ts`, Create `src/utils/githubActivity.test.ts`
 
@@ -492,7 +525,9 @@ import { mapPulls, mapCommits, mapIssues } from './githubActivity';
 describe('mapPulls', () => {
   test('maps pulls', () => {
     const json = [{ number: 5, title: 'Fix', draft: true, user: { login: 'me' }, html_url: 'u' }];
-    expect(mapPulls(json)).toEqual([{ number: 5, title: 'Fix', draft: true, author: 'me', url: 'u' }]);
+    expect(mapPulls(json)).toEqual([
+      { number: 5, title: 'Fix', draft: true, author: 'me', url: 'u' },
+    ]);
   });
   test('non-array → []', () => {
     expect(mapPulls(null)).toEqual([]);
@@ -501,8 +536,16 @@ describe('mapPulls', () => {
 
 describe('mapCommits', () => {
   test('first message line + author', () => {
-    const json = [{ sha: 'abc', html_url: 'u', commit: { message: 'subject\n\nbody', author: { name: 'A', date: 'd' } } }];
-    expect(mapCommits(json)).toEqual([{ sha: 'abc', message: 'subject', author: 'A', date: 'd', url: 'u' }]);
+    const json = [
+      {
+        sha: 'abc',
+        html_url: 'u',
+        commit: { message: 'subject\n\nbody', author: { name: 'A', date: 'd' } },
+      },
+    ];
+    expect(mapCommits(json)).toEqual([
+      { sha: 'abc', message: 'subject', author: 'A', date: 'd', url: 'u' },
+    ]);
   });
   test('non-array → []', () => {
     expect(mapCommits(undefined)).toEqual([]);
@@ -515,7 +558,9 @@ describe('mapIssues', () => {
       { number: 1, title: 'Bug', labels: [{ name: 'bug' }, 'plain'], html_url: 'u1' },
       { number: 2, title: 'A PR', html_url: 'u2', pull_request: { url: 'x' } },
     ];
-    expect(mapIssues(json)).toEqual([{ number: 1, title: 'Bug', labels: ['bug', 'plain'], url: 'u1' }]);
+    expect(mapIssues(json)).toEqual([
+      { number: 1, title: 'Bug', labels: ['bug', 'plain'], url: 'u1' },
+    ]);
   });
   test('non-array → []', () => {
     expect(mapIssues({})).toEqual([]);
@@ -569,7 +614,10 @@ export function mapPulls(json: unknown): GhPull[] {
   if (!Array.isArray(json)) return [];
   return json.map((p) => {
     const o = (typeof p === 'object' && p !== null ? p : {}) as Record<string, unknown>;
-    const user = (typeof o.user === 'object' && o.user !== null ? o.user : {}) as Record<string, unknown>;
+    const user = (typeof o.user === 'object' && o.user !== null ? o.user : {}) as Record<
+      string,
+      unknown
+    >;
     return {
       number: typeof o.number === 'number' ? o.number : 0,
       title: typeof o.title === 'string' ? o.title : '',
@@ -585,8 +633,13 @@ export function mapCommits(json: unknown): GhCommit[] {
   if (!Array.isArray(json)) return [];
   return json.map((c) => {
     const o = (typeof c === 'object' && c !== null ? c : {}) as Record<string, unknown>;
-    const commit = (typeof o.commit === 'object' && o.commit !== null ? o.commit : {}) as Record<string, unknown>;
-    const author = (typeof commit.author === 'object' && commit.author !== null ? commit.author : {}) as Record<string, unknown>;
+    const commit = (typeof o.commit === 'object' && o.commit !== null ? o.commit : {}) as Record<
+      string,
+      unknown
+    >;
+    const author = (
+      typeof commit.author === 'object' && commit.author !== null ? commit.author : {}
+    ) as Record<string, unknown>;
     const message = typeof commit.message === 'string' ? commit.message.split('\n')[0] : '';
     return {
       sha: typeof o.sha === 'string' ? o.sha : '',
@@ -661,7 +714,7 @@ git commit -m "feat(github): activity mappers + fetchActivity + tests"
 
 ---
 
-## Task 6: Store GitHub enrichment  ·  **opus 4.8**
+## Task 6: Store GitHub enrichment · **opus 4.8**
 
 **Files:** Modify `src/store/useBoardStore.ts`
 
@@ -670,30 +723,36 @@ Verified by running the app (Task 9).
 - [ ] **Step 1: Add imports**
 
 In `src/store/useBoardStore.ts`, the existing import of scanner is:
+
 ```ts
 import { scanRepos } from '../utils/scanner';
 ```
+
 Add right after it:
+
 ```ts
 import { parseRemote, fetchRepoCard } from '../utils/github';
 import type { RepoGitHub } from '../types';
 ```
+
 (`RepoGitHub` can be merged into the existing `../types` import instead — either is fine; keep `import type`.)
 
 - [ ] **Step 2: Declare the action in the `BoardStore` interface**
 
 Add to the `BoardStore` interface (near `scanAndDistribute`):
+
 ```ts
-  /**
-   * Enrich the current runtime repos with GitHub data (badges/overview).
-   * Runtime-only; never persisted. Safe to fire-and-forget after a scan.
-   */
-  enrichGitHub: () => Promise<void>;
+/**
+ * Enrich the current runtime repos with GitHub data (badges/overview).
+ * Runtime-only; never persisted. Safe to fire-and-forget after a scan.
+ */
+enrichGitHub: () => Promise<void>;
 ```
 
 - [ ] **Step 3: Implement `enrichGitHub` in the store object**
 
 Add this method to the store (e.g. right after `scanAndDistribute`):
+
 ```ts
   enrichGitHub: async () => {
     const targets = get().repos.filter(
@@ -735,10 +794,11 @@ Add this method to the store (e.g. right after `scanAndDistribute`):
 - [ ] **Step 4: Call enrichment at the end of `scanAndDistribute`**
 
 In `scanAndDistribute`, the final line is `await get().save();`. Add immediately after it:
+
 ```ts
-    // Fire-and-forget GitHub enrichment: the board renders now; badges fill in
-    // when the fetches resolve. Failures degrade to gh:null per repo.
-    void get().enrichGitHub();
+// Fire-and-forget GitHub enrichment: the board renders now; badges fill in
+// when the fetches resolve. Failures degrade to gh:null per repo.
+void get().enrichGitHub();
 ```
 
 - [ ] **Step 5: Typecheck + existing tests still green**
@@ -755,7 +815,7 @@ git commit -m "feat(store): GitHub enrichment pass after scan (bounded concurren
 
 ---
 
-## Task 7: Card badges  ·  **sonnet 4.6**
+## Task 7: Card badges · **sonnet 4.6**
 
 **Files:** Modify `src/components/RepoCard.tsx`
 
@@ -800,10 +860,14 @@ function relativeAge(iso: string): string {
 /** Tailwind text color for a CI dot. Returns null when no CI to show. */
 function ciColor(status: CiStatus): string | null {
   switch (status) {
-    case 'success': return 'text-sage';
-    case 'failure': return 'text-terracotta';
-    case 'pending': return 'text-amber-500';
-    case 'none': return null;
+    case 'success':
+      return 'text-sage';
+    case 'failure':
+      return 'text-terracotta';
+    case 'pending':
+      return 'text-amber-500';
+    case 'none':
+      return null;
   }
 }
 
@@ -841,10 +905,7 @@ export function RepoCard({ repo }: RepoCardProps) {
     >
       {/* ── Header row: name + action buttons ── */}
       <div className="flex items-start justify-between gap-2">
-        <h3
-          className="text-navy font-semibold text-sm leading-tight break-all"
-          title={repo.path}
-        >
+        <h3 className="text-navy font-semibold text-sm leading-tight break-all" title={repo.path}>
           {repo.name}
         </h3>
 
@@ -861,7 +922,9 @@ export function RepoCard({ repo }: RepoCardProps) {
 
           <button
             type="button"
-            onClick={() => { void openInEditor(); }}
+            onClick={() => {
+              void openInEditor();
+            }}
             className="p-1 text-navy-light hover:text-sage transition-colors"
             title={`Open in editor (${editorCommand || editorApp})`}
             aria-label="Open in editor"
@@ -871,7 +934,9 @@ export function RepoCard({ repo }: RepoCardProps) {
 
           <button
             type="button"
-            onClick={() => { void revealInFinder(); }}
+            onClick={() => {
+              void revealInFinder();
+            }}
             className="p-1 text-navy-light hover:text-sage transition-colors"
             title="Reveal in Finder"
             aria-label="Reveal in Finder"
@@ -888,9 +953,7 @@ export function RepoCard({ repo }: RepoCardProps) {
         </p>
       )}
 
-      {detailOpen && (
-        <RepoDetail repo={repo} onClose={() => setDetailOpen(false)} />
-      )}
+      {detailOpen && <RepoDetail repo={repo} onClose={() => setDetailOpen(false)} />}
 
       {/* ── Meta row: branch + dirty badge ── */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -945,10 +1008,14 @@ export function RepoCard({ repo }: RepoCardProps) {
             </span>
           )}
           {gh.latestRelease && (
-            <span className="flex items-center gap-1 font-mono" title={`Latest release ${gh.latestRelease.tag}`}>
+            <span
+              className="flex items-center gap-1 font-mono"
+              title={`Latest release ${gh.latestRelease.tag}`}
+            >
               <Tag size={11} strokeWidth={1.75} />
               {gh.latestRelease.tag}
-              {relativeAge(gh.latestRelease.publishedAt) && ` · ${relativeAge(gh.latestRelease.publishedAt)}`}
+              {relativeAge(gh.latestRelease.publishedAt) &&
+                ` · ${relativeAge(gh.latestRelease.publishedAt)}`}
             </span>
           )}
         </div>
@@ -972,7 +1039,7 @@ git commit -m "feat(card): GitHub badges (CI, PRs, issues, stars, release, flags
 
 ---
 
-## Task 8: Modal overview band + Files|Activity tabs  ·  **opus 4.8**
+## Task 8: Modal overview band + Files|Activity tabs · **opus 4.8**
 
 **Files:** Modify `src/components/RepoDetail.tsx`
 
@@ -983,71 +1050,78 @@ Verified by running the app (Task 9). Integrate the following edits into the exi
 Add to the lucide import list (alongside the existing icons): `GitPullRequest`, `GitCommit`, `CircleDot`, `ExternalLink`, `Tag`.
 
 Add these imports after the existing `notesTimeline` import block:
+
 ```ts
 import { open as openExternal } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
 import { parseRemote } from '../utils/github';
 import { fetchActivity, type GhActivity } from '../utils/githubActivity';
 ```
+
 Add `CiStatus` to the existing `../types` import.
 
 - [ ] **Step 2: Add tab + activity state (inside the component, with the other useState hooks)**
 
 ```ts
-  const [tab, setTab] = useState<'files' | 'activity'>('files');
-  const [activity, setActivity] = useState<GhActivity | null>(null);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityError, setActivityError] = useState<string | null>(null);
+const [tab, setTab] = useState<'files' | 'activity'>('files');
+const [activity, setActivity] = useState<GhActivity | null>(null);
+const [activityLoading, setActivityLoading] = useState(false);
+const [activityError, setActivityError] = useState<string | null>(null);
 ```
 
 - [ ] **Step 3: Add a lazy activity loader effect (after the existing effects)**
 
 ```ts
-  // Lazily fetch PRs/commits/issues the first time the Activity tab opens.
-  useEffect(() => {
-    if (tab !== 'activity' || activity !== null || activityLoading) return;
-    const coords = repo.remoteUrl ? parseRemote(repo.remoteUrl) : null;
-    if (coords === null) {
-      setActivity({ prs: [], commits: [], issues: [] });
-      return;
+// Lazily fetch PRs/commits/issues the first time the Activity tab opens.
+useEffect(() => {
+  if (tab !== 'activity' || activity !== null || activityLoading) return;
+  const coords = repo.remoteUrl ? parseRemote(repo.remoteUrl) : null;
+  if (coords === null) {
+    setActivity({ prs: [], commits: [], issues: [] });
+    return;
+  }
+  let cancelled = false;
+  setActivityLoading(true);
+  setActivityError(null);
+  (async () => {
+    try {
+      const token = await invoke<string | null>('get_token').catch(() => null);
+      const result = await fetchActivity(coords, token ?? undefined);
+      if (!cancelled) setActivity(result);
+    } catch (e: unknown) {
+      if (!cancelled) setActivityError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (!cancelled) setActivityLoading(false);
     }
-    let cancelled = false;
-    setActivityLoading(true);
-    setActivityError(null);
-    (async () => {
-      try {
-        const token = await invoke<string | null>('get_token').catch(() => null);
-        const result = await fetchActivity(coords, token ?? undefined);
-        if (!cancelled) setActivity(result);
-      } catch (e: unknown) {
-        if (!cancelled) setActivityError(e instanceof Error ? e.message : String(e));
-      } finally {
-        if (!cancelled) setActivityLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [tab, activity, activityLoading, repo.remoteUrl]);
+  })();
+  return () => {
+    cancelled = true;
+  };
+}, [tab, activity, activityLoading, repo.remoteUrl]);
 
-  // Reset tab + activity when switching repos.
-  useEffect(() => {
-    setTab('files');
-    setActivity(null);
-    setActivityError(null);
-  }, [repo.path]);
+// Reset tab + activity when switching repos.
+useEffect(() => {
+  setTab('files');
+  setActivity(null);
+  setActivityError(null);
+}, [repo.path]);
 
-  const openUrl = useCallback((url: string) => {
-    if (url) void openExternal(url);
-  }, []);
+const openUrl = useCallback((url: string) => {
+  if (url) void openExternal(url);
+}, []);
 ```
 
 - [ ] **Step 4: Insert the overview band between the modal header and the body row**
 
 Find this exact anchor (the modal header's closing `</div>` followed by the body comment):
+
 ```tsx
         {/* Body: md tree | (preview / timeline) */}
         <div className="flex flex-1 min-h-0">
 ```
+
 Replace it with the overview band + the same body opener:
+
 ```tsx
         {/* GitHub overview band */}
         <div className="shrink-0 px-5 py-2.5 bg-cream/60 border-b border-warm-gray text-[12px] text-navy-light flex items-center gap-3 flex-wrap min-h-[40px]">
@@ -1096,74 +1170,84 @@ Replace it with the overview band + the same body opener:
         {/* Body: md tree / activity | (preview / timeline) */}
         <div className="flex flex-1 min-h-0">
 ```
+
 (Requires `Star` in the lucide import — add it.)
 
 - [ ] **Step 5: Replace the left `<aside>` (tree pane) with a tabbed Files/Activity pane**
 
 Find the entire existing `<aside …> … </aside>` block (the markdown tree pane, header "Markdown" + the tree list) and replace it with:
-```tsx
-          {/* Left pane: Files | Activity tabs */}
-          <aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0">
-            {/* Tab bar */}
-            <div className="shrink-0 flex border-b border-warm-gray">
-              <button
-                type="button"
-                onClick={() => setTab('files')}
-                className={`flex-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                  tab === 'files' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
-                }`}
-              >
-                Files{tree && <span className="ml-1.5 font-mono normal-case tracking-normal text-navy-light/40">{tree.total}{tree.truncated ? '+' : ''}</span>}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('activity')}
-                className={`flex-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
-                  tab === 'activity' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
-                }`}
-              >
-                Activity
-              </button>
-            </div>
 
-            {/* Tab body */}
-            <div className="flex-1 overflow-auto py-1 min-h-0">
-              {tab === 'files' ? (
-                loading ? (
-                  <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading…</p>
-                ) : tree && tree.root.length > 0 ? (
-                  <>
-                    {tree.root.map((node) => (
-                      <TreeRow
-                        key={node.path}
-                        node={node}
-                        depth={0}
-                        expanded={expanded}
-                        toggle={toggle}
-                        selectedPath={selected?.path ?? null}
-                        onSelect={onSelect}
-                      />
-                    ))}
-                    {tree.truncated && (
-                      <p className="px-3 py-2 mt-1 text-[11px] text-terracotta">
-                        Tree truncated at the entry cap — large repo.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No markdown files.</p>
-                )
-              ) : (
-                <ActivityPane
-                  activity={activity}
-                  loading={activityLoading}
-                  error={activityError}
-                  hasRemote={repo.remoteUrl ? parseRemote(repo.remoteUrl) !== null : false}
-                  onOpen={openUrl}
-                />
-              )}
-            </div>
-          </aside>
+```tsx
+{
+  /* Left pane: Files | Activity tabs */
+}
+<aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0">
+  {/* Tab bar */}
+  <div className="shrink-0 flex border-b border-warm-gray">
+    <button
+      type="button"
+      onClick={() => setTab('files')}
+      className={`flex-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+        tab === 'files' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+      }`}
+    >
+      Files
+      {tree && (
+        <span className="ml-1.5 font-mono normal-case tracking-normal text-navy-light/40">
+          {tree.total}
+          {tree.truncated ? '+' : ''}
+        </span>
+      )}
+    </button>
+    <button
+      type="button"
+      onClick={() => setTab('activity')}
+      className={`flex-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+        tab === 'activity' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
+      }`}
+    >
+      Activity
+    </button>
+  </div>
+
+  {/* Tab body */}
+  <div className="flex-1 overflow-auto py-1 min-h-0">
+    {tab === 'files' ? (
+      loading ? (
+        <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading…</p>
+      ) : tree && tree.root.length > 0 ? (
+        <>
+          {tree.root.map((node) => (
+            <TreeRow
+              key={node.path}
+              node={node}
+              depth={0}
+              expanded={expanded}
+              toggle={toggle}
+              selectedPath={selected?.path ?? null}
+              onSelect={onSelect}
+            />
+          ))}
+          {tree.truncated && (
+            <p className="px-3 py-2 mt-1 text-[11px] text-terracotta">
+              Tree truncated at the entry cap — large repo.
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No markdown files.</p>
+      )
+    ) : (
+      <ActivityPane
+        activity={activity}
+        loading={activityLoading}
+        error={activityError}
+        hasRemote={repo.remoteUrl ? parseRemote(repo.remoteUrl) !== null : false}
+        onOpen={openUrl}
+      />
+    )}
+  </div>
+</aside>;
 ```
 
 - [ ] **Step 6: Add the `ActivityPane` sub-component (above the main `RepoDetail` component, near `TreeRow`)**
@@ -1186,7 +1270,8 @@ function ActivityPane({
     return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No github.com remote.</p>;
   }
   if (loading) return <p className="px-3 py-2 text-[12px] text-navy-light/50">Loading activity…</p>;
-  if (error !== null) return <p className="px-3 py-2 text-[12px] text-terracotta font-mono">{error}</p>;
+  if (error !== null)
+    return <p className="px-3 py-2 text-[12px] text-terracotta font-mono">{error}</p>;
   if (activity === null) return null;
 
   const Row = ({ url, children }: { url: string; children: React.ReactNode }) => (
@@ -1207,14 +1292,19 @@ function ActivityPane({
     </div>
   );
 
-  const empty = activity.prs.length === 0 && activity.commits.length === 0 && activity.issues.length === 0;
-  if (empty) return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No recent activity.</p>;
+  const empty =
+    activity.prs.length === 0 && activity.commits.length === 0 && activity.issues.length === 0;
+  if (empty)
+    return <p className="px-3 py-2 text-[12px] text-navy-light/50 italic">No recent activity.</p>;
 
   return (
     <div className="flex flex-col gap-2 pb-2">
       {activity.prs.length > 0 && (
         <section>
-          <Heading><GitPullRequest size={10} strokeWidth={1.5} className="inline mr-1" />Open PRs</Heading>
+          <Heading>
+            <GitPullRequest size={10} strokeWidth={1.5} className="inline mr-1" />
+            Open PRs
+          </Heading>
           {activity.prs.map((p) => (
             <Row key={p.number} url={p.url}>
               <span className="font-mono text-navy-light/50">#{p.number}</span> {p.title}
@@ -1225,7 +1315,10 @@ function ActivityPane({
       )}
       {activity.commits.length > 0 && (
         <section>
-          <Heading><GitCommit size={10} strokeWidth={1.5} className="inline mr-1" />Recent commits</Heading>
+          <Heading>
+            <GitCommit size={10} strokeWidth={1.5} className="inline mr-1" />
+            Recent commits
+          </Heading>
           {activity.commits.map((c) => (
             <Row key={c.sha} url={c.url}>
               {c.message} <span className="text-navy-light/40">· {c.author}</span>
@@ -1235,7 +1328,10 @@ function ActivityPane({
       )}
       {activity.issues.length > 0 && (
         <section>
-          <Heading><CircleDot size={10} strokeWidth={1.5} className="inline mr-1" />Recent issues</Heading>
+          <Heading>
+            <CircleDot size={10} strokeWidth={1.5} className="inline mr-1" />
+            Recent issues
+          </Heading>
           {activity.issues.map((i) => (
             <Row key={i.number} url={i.url}>
               <span className="font-mono text-navy-light/50">#{i.number}</span> {i.title}
@@ -1262,7 +1358,7 @@ git commit -m "feat(detail): GitHub overview band + Files|Activity tabs"
 
 ---
 
-## Task 9: Integration verify  ·  **opus 4.8**
+## Task 9: Integration verify · **opus 4.8**
 
 **Files:** none (verification only)
 
@@ -1299,6 +1395,7 @@ Rescan a second time. Enrichment should feel instant for unchanged repos (ETag 3
 - [ ] **Step 7: Commit any fixes**
 
 If Steps 1–6 surfaced bugs, fix the smallest change, re-run Step 1, and commit:
+
 ```bash
 git add -A
 git commit -m "fix(github): address integration findings"

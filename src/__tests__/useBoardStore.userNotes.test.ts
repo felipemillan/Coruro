@@ -282,8 +282,26 @@ describe('updateDayNote', () => {
     useBoardStore.setState({
       dayNotes: {
         notes: [
-          { id: 'n1', generatedAt: new Date().toISOString(), windowStart: '', windowEnd: '', body: 'A', repoRefs: [], model: 'm', trigger: 'manual' },
-          { id: 'n2', generatedAt: new Date().toISOString(), windowStart: '', windowEnd: '', body: 'B', repoRefs: [], model: 'm', trigger: 'auto' },
+          {
+            id: 'n1',
+            generatedAt: new Date().toISOString(),
+            windowStart: '',
+            windowEnd: '',
+            body: 'A',
+            repoRefs: [],
+            model: 'm',
+            trigger: 'manual',
+          },
+          {
+            id: 'n2',
+            generatedAt: new Date().toISOString(),
+            windowStart: '',
+            windowEnd: '',
+            body: 'B',
+            repoRefs: [],
+            model: 'm',
+            trigger: 'auto',
+          },
         ],
       },
     });
@@ -323,7 +341,9 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
     expect(repoEntry).toBeDefined();
     // The AI payload is number-free by design (the model parrots digits):
     // it gets the qualitative digest, while exact stats go into the report body.
-    expect(repoEntry!.commits.some((line) => line.includes('uncommitted work in progress'))).toBe(true);
+    expect(repoEntry!.commits.some((line) => line.includes('uncommitted work in progress'))).toBe(
+      true,
+    );
     expect(repoEntry!.commits.some((line) => /\d/.test(line))).toBe(false);
     // The composed note body carries the exact numbers.
     const notes = useBoardStore.getState().dayNotes.notes;
@@ -361,9 +381,11 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
     // activeRepoData and ai_day_notes must be invoked.
     useBoardStore.setState({ repos: [makeRepo('dirty-only', '/dirty-only/repo')] });
 
-    const aiDayNotesSpy = vi.fn().mockResolvedValue(
-      JSON.stringify({ ok: true, body: 'Uncommitted work summary.', model: 'test' })
-    );
+    const aiDayNotesSpy = vi
+      .fn()
+      .mockResolvedValue(
+        JSON.stringify({ ok: true, body: 'Uncommitted work summary.', model: 'test' }),
+      );
 
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'get_token') return Promise.resolve(null);
@@ -398,9 +420,7 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
     });
 
     // Must not throw
-    await expect(
-      useBoardStore.getState().generateDayNotes('manual')
-    ).resolves.not.toThrow();
+    await expect(useBoardStore.getState().generateDayNotes('manual')).resolves.not.toThrow();
 
     // generatingNotes must reset to false (finally block)
     expect(useBoardStore.getState().generatingNotes).toBe(false);

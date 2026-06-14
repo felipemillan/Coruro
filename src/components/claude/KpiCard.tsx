@@ -60,13 +60,7 @@ const hoverBorder: Record<KpiAccent, string> = {
  * // Active / total with a proportional progress bar
  * <KpiCard label="Plugins" value={3} total={8} accent="tertiary" />
  */
-export function KpiCard({
-  label,
-  value,
-  total,
-  caption,
-  accent = 'sage',
-}: KpiCardProps) {
+export function KpiCard({ label, value, total, caption, accent = 'sage' }: KpiCardProps) {
   // Guard divide-by-zero: if total is 0 the bar stays at 0%.
   const pct = total !== undefined && total > 0 ? Math.min((value / total) * 100, 100) : 0;
   // When total is provided, show the fraction; otherwise show caption (if any).
@@ -87,9 +81,7 @@ export function KpiCard({
 
       {/* Value row */}
       <div className="flex items-baseline gap-1.5 mb-2">
-        <span className="text-2xl font-bold text-navy tabular-nums leading-none">
-          {value}
-        </span>
+        <span className="text-2xl font-bold text-navy tabular-nums leading-none">{value}</span>
 
         {hasTotal && (
           <span className="text-[11px] text-navy-light tabular-nums leading-none">

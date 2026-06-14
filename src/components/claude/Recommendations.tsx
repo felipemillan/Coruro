@@ -140,7 +140,8 @@ export function Recommendations({
           disabled={loading}
           className="flex items-center gap-1 px-2 py-1 rounded-lg border border-warm-gray bg-cream/60 text-navy-light hover:bg-cream hover:text-navy transition-colors cursor-pointer text-[11px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
         >
-          <RefreshCw size={12} strokeWidth={2} className={loading ? 'animate-spin' : ''} /> Re-curate
+          <RefreshCw size={12} strokeWidth={2} className={loading ? 'animate-spin' : ''} />{' '}
+          Re-curate
         </button>
       </div>
 

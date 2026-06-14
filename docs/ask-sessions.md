@@ -34,7 +34,7 @@ Three user-facing fixes to the **Ask** tab:
 - **Delete:** the row was a `<button>`; refactored to a container with sibling
   **select** + **delete** buttons (no nested interactives — valid HTML / AT-safe).
 - **Undo toast** (~6s, `aria-live=polite`, no focus steal). **Kill is deferred** to
-  toast expiry, so a *running* PTY survives the undo window and Undo can restore the
+  toast expiry, so a _running_ PTY survives the undo window and Undo can restore the
   live session. On expiry, ordered teardown: `pty_kill` → quick-action timers →
   event listeners → buffer → store removal → clear active + `term.reset()`. A late
   `pty-exit` for a deleted id is a harmless no-op.

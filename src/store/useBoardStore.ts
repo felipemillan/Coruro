@@ -15,12 +15,7 @@
 //  - updateNotes() debounces disk writes by 500ms so typing doesn't thrash IO.
 
 import { create } from 'zustand';
-import {
-  readTextFile,
-  writeTextFile,
-  exists,
-  BaseDirectory,
-} from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile, exists, BaseDirectory } from '@tauri-apps/plugin-fs';
 import { invoke } from '@tauri-apps/api/core';
 import {
   type AppState,
@@ -40,7 +35,12 @@ import { parseRemote, fetchRepoCard } from '../utils/github';
 import { readRepoNotes, writeRepoNotes } from '../utils/notesFile';
 import { buildAiContext, inputHash } from '../utils/aiContext';
 import { formatRepoContext, capContextLines } from '../utils/dayNotesContext';
-import { parseDirtyStat, composeSessionReport, qualitativeDigest, type RepoActivity } from '../utils/sessionReport';
+import {
+  parseDirtyStat,
+  composeSessionReport,
+  qualitativeDigest,
+  type RepoActivity,
+} from '../utils/sessionReport';
 import type { EnrichedRepoEntry, CommitDetail } from '../utils/dayNotesContext';
 import { fetchUserLogin } from '../utils/githubUser';
 import { fetchUserEvents } from '../utils/githubEvents';
@@ -52,7 +52,10 @@ const STATE_FILE = '.repo_dashboard_state.json';
 
 /** Sentinel thrown inside fetchWithTimeout when the GitHub API returns 429. */
 class RateLimitError extends Error {
-  constructor() { super('GitHub API rate limit exceeded'); this.name = 'RateLimitError'; }
+  constructor() {
+    super('GitHub API rate limit exceeded');
+    this.name = 'RateLimitError';
+  }
 }
 
 /** Debounce window (ms) for persisting note edits. */
@@ -82,12 +85,7 @@ interface BoardStore extends AppState {
   /** Set the scanned root directory, persist, and let the caller trigger a scan. */
   setRootDirectory: (path: string) => Promise<void>;
   /** Move a repo card between/within columns, reordering, then persist. */
-  moveCard: (
-    repoPath: string,
-    from: ColumnId,
-    to: ColumnId,
-    index: number,
-  ) => void;
+  moveCard: (repoPath: string, from: ColumnId, to: ColumnId, index: number) => void;
   /** Update a repo's notes; persists after a 500ms debounce. */
   updateNotes: (repoPath: string, notes: string) => void;
   /** Replace the runtime repo list (from a scan). Not persisted. */
@@ -148,7 +146,11 @@ interface BoardStore extends AppState {
   /** Append an ASK chat session (metadata only) and persist. */
   addChatSession: (session: ChatSession) => void;
   /** Update one session's status + exitCode (e.g. on PTY exit) and persist. */
-  updateChatSessionStatus: (id: string, status: ChatSession['status'], exitCode: number | null) => void;
+  updateChatSessionStatus: (
+    id: string,
+    status: ChatSession['status'],
+    exitCode: number | null,
+  ) => void;
   /** Hard-delete one chat session by id and persist. */
   deleteChatSession: (id: string) => void;
   /** Replace a day-note's body, stamp editedAt, recompute repoRefs, persist. */
@@ -231,15 +233,26 @@ function validateAppState(raw: unknown): AppState {
     const s = rawSettings as Record<string, unknown>;
     if (typeof s.rootDirectory === 'string') settings.rootDirectory = s.rootDirectory;
     if (typeof s.hasToken === 'boolean') settings.hasToken = s.hasToken;
-    if (typeof s.debugBannerEnabled === 'boolean') settings.debugBannerEnabled = s.debugBannerEnabled;
-    if (typeof s.editorCommand === 'string' && s.editorCommand.length > 0) settings.editorCommand = s.editorCommand;
+    if (typeof s.debugBannerEnabled === 'boolean')
+      settings.debugBannerEnabled = s.debugBannerEnabled;
+    if (typeof s.editorCommand === 'string' && s.editorCommand.length > 0)
+      settings.editorCommand = s.editorCommand;
     if (typeof s.editorApp === 'string' && s.editorApp.length > 0) settings.editorApp = s.editorApp;
-    if (typeof s.terminalApp === 'string' && s.terminalApp.length > 0) settings.terminalApp = s.terminalApp;
-    if (typeof s.refreshIntervalMin === 'number' && Number.isFinite(s.refreshIntervalMin) && s.refreshIntervalMin >= 0) {
+    if (typeof s.terminalApp === 'string' && s.terminalApp.length > 0)
+      settings.terminalApp = s.terminalApp;
+    if (
+      typeof s.refreshIntervalMin === 'number' &&
+      Number.isFinite(s.refreshIntervalMin) &&
+      s.refreshIntervalMin >= 0
+    ) {
       settings.refreshIntervalMin = s.refreshIntervalMin;
     }
     if (typeof s.autoNotesEnabled === 'boolean') settings.autoNotesEnabled = s.autoNotesEnabled;
-    if (typeof s.autoNotesIntervalMin === 'number' && Number.isFinite(s.autoNotesIntervalMin) && s.autoNotesIntervalMin > 0) {
+    if (
+      typeof s.autoNotesIntervalMin === 'number' &&
+      Number.isFinite(s.autoNotesIntervalMin) &&
+      s.autoNotesIntervalMin > 0
+    ) {
       settings.autoNotesIntervalMin = s.autoNotesIntervalMin;
     }
   }
@@ -278,7 +291,11 @@ function validateAppState(raw: unknown): AppState {
     for (const [key, value] of Object.entries(rawCache as Record<string, unknown>)) {
       if (typeof value === 'object' && value !== null) {
         const entry = value as Record<string, unknown>;
-        if (typeof entry.gh === 'object' && entry.gh !== null && typeof entry.fetchedAt === 'string') {
+        if (
+          typeof entry.gh === 'object' &&
+          entry.gh !== null &&
+          typeof entry.fetchedAt === 'string'
+        ) {
           ghCache[key] = { gh: entry.gh as RepoGitHub, fetchedAt: entry.fetchedAt };
         }
       }
@@ -291,11 +308,19 @@ function validateAppState(raw: unknown): AppState {
   if (rawAi && typeof rawAi === 'object') {
     for (const [key, entry] of Object.entries(rawAi as Record<string, unknown>)) {
       const e = entry as Partial<Record<string, unknown>>;
-      if (e && typeof e.summary === 'string' && Array.isArray(e.tags) &&
-          typeof e.inputHash === 'string' && typeof e.analyzedAt === 'string') {
+      if (
+        e &&
+        typeof e.summary === 'string' &&
+        Array.isArray(e.tags) &&
+        typeof e.inputHash === 'string' &&
+        typeof e.analyzedAt === 'string'
+      ) {
         aiCache[key] = {
-          summary: e.summary, tags: (e.tags as string[]), model: typeof e.model === 'string' ? e.model : 'unknown',
-          analyzedAt: e.analyzedAt, inputHash: e.inputHash,
+          summary: e.summary,
+          tags: e.tags as string[],
+          model: typeof e.model === 'string' ? e.model : 'unknown',
+          analyzedAt: e.analyzedAt,
+          inputHash: e.inputHash,
         };
       }
     }
@@ -308,7 +333,9 @@ function validateAppState(raw: unknown): AppState {
     const dn = rawDayNotes as Record<string, unknown>;
     if (Array.isArray(dn.notes)) {
       dayNotes.notes = dn.notes.filter((note): note is any => {
-        return typeof note === 'object' && note !== null &&
+        return (
+          typeof note === 'object' &&
+          note !== null &&
           typeof (note as any).id === 'string' &&
           typeof (note as any).generatedAt === 'string' &&
           typeof (note as any).windowStart === 'string' &&
@@ -316,7 +343,10 @@ function validateAppState(raw: unknown): AppState {
           typeof (note as any).body === 'string' &&
           Array.isArray((note as any).repoRefs) &&
           typeof (note as any).model === 'string' &&
-          ((note as any).trigger === 'manual' || (note as any).trigger === 'auto' || (note as any).trigger === 'user');
+          ((note as any).trigger === 'manual' ||
+            (note as any).trigger === 'auto' ||
+            (note as any).trigger === 'user')
+        );
       });
     }
   }
@@ -333,23 +363,28 @@ function validateAppState(raw: unknown): AppState {
     if (Array.isArray(cs.sessions)) {
       chatSessions.sessions = cs.sessions
         .filter((s): s is Record<string, unknown> => {
-          return typeof s === 'object' && s !== null &&
+          return (
+            typeof s === 'object' &&
+            s !== null &&
             typeof (s as Record<string, unknown>).id === 'string' &&
             typeof (s as Record<string, unknown>).repoPath === 'string' &&
             typeof (s as Record<string, unknown>).repoName === 'string' &&
             typeof (s as Record<string, unknown>).title === 'string' &&
-            typeof (s as Record<string, unknown>).startedAt === 'number';
+            typeof (s as Record<string, unknown>).startedAt === 'number'
+          );
         })
-        .map((s): ChatSession => ({
-          id: s.id as string,
-          repoPath: s.repoPath as string,
-          repoName: s.repoName as string,
-          title: s.title as string,
-          startedAt: s.startedAt as number,
-          // Never trust a persisted 'running' — reconcile to 'ended' on load.
-          status: 'ended',
-          exitCode: typeof s.exitCode === 'number' ? (s.exitCode as number) : null,
-        }));
+        .map(
+          (s): ChatSession => ({
+            id: s.id as string,
+            repoPath: s.repoPath as string,
+            repoName: s.repoName as string,
+            title: s.title as string,
+            startedAt: s.startedAt as number,
+            // Never trust a persisted 'running' — reconcile to 'ended' on load.
+            status: 'ended',
+            exitCode: typeof s.exitCode === 'number' ? (s.exitCode as number) : null,
+          }),
+        );
     }
   }
 
@@ -406,7 +441,15 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     // Serialise the snapshot now (synchronously), but commit the disk write
     // through writeChain so concurrent saves never interleave partial writes.
     const { settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions } = get();
-    const payload = serialise({ settings, board, repoMetadata, ghCache, aiCache, dayNotes, chatSessions });
+    const payload = serialise({
+      settings,
+      board,
+      repoMetadata,
+      ghCache,
+      aiCache,
+      dayNotes,
+      chatSessions,
+    });
     writeChain = writeChain.then(() =>
       writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),
     );
@@ -629,7 +672,13 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     const CONCURRENCY = 8;
     const byPath = new Map<
       string,
-      { ahead: number | null; behind: number | null; commitCount: number; lastCommitAt: string | null; branchCount: number }
+      {
+        ahead: number | null;
+        behind: number | null;
+        commitCount: number;
+        lastCommitAt: string | null;
+        branchCount: number;
+      }
     >();
     let cursor = 0;
     const worker = async (): Promise<void> => {
@@ -654,7 +703,11 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           });
         } catch {
           byPath.set(repo.path, {
-            ahead: null, behind: null, commitCount: 0, lastCommitAt: null, branchCount: 0,
+            ahead: null,
+            behind: null,
+            commitCount: 0,
+            lastCommitAt: null,
+            branchCount: 0,
           });
         }
       }
@@ -723,19 +776,24 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         result = { ok: false, error: 'generation' };
       }
       set((s) => {
-        const next = new Set(s.analyzingPaths); next.delete(repo.path);
+        const next = new Set(s.analyzingPaths);
+        next.delete(repo.path);
         return { analyzingPaths: next };
       });
 
       if (result.ok && result.summary) {
         const entry: AiCacheEntry = {
-          summary: result.summary, tags: result.tags ?? [], model: result.model ?? 'unknown',
-          analyzedAt: new Date().toISOString(), inputHash: hash,
+          summary: result.summary,
+          tags: result.tags ?? [],
+          model: result.model ?? 'unknown',
+          analyzedAt: new Date().toISOString(),
+          inputHash: hash,
         };
         set((s) => ({
           aiCache: { ...s.aiCache, [repo.path]: entry },
           repos: s.repos.map((r) =>
-            r.path === repo.path ? { ...r, aiSummary: entry.summary, aiTags: entry.tags } : r),
+            r.path === repo.path ? { ...r, aiSummary: entry.summary, aiTags: entry.tags } : r,
+          ),
         }));
         void get().save();
       } else if (result.error === 'unavailable') {
@@ -758,15 +816,24 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
     } catch {
       result = { ok: false, error: 'generation' };
     }
-    set((s) => { const n = new Set(s.analyzingPaths); n.delete(path); return { analyzingPaths: n }; });
+    set((s) => {
+      const n = new Set(s.analyzingPaths);
+      n.delete(path);
+      return { analyzingPaths: n };
+    });
     if (result.ok && result.summary) {
       const entry: AiCacheEntry = {
-        summary: result.summary, tags: result.tags ?? [], model: result.model ?? 'unknown',
-        analyzedAt: new Date().toISOString(), inputHash: hash,
+        summary: result.summary,
+        tags: result.tags ?? [],
+        model: result.model ?? 'unknown',
+        analyzedAt: new Date().toISOString(),
+        inputHash: hash,
       };
       set((s) => ({
         aiCache: { ...s.aiCache, [path]: entry },
-        repos: s.repos.map((r) => (r.path === path ? { ...r, aiSummary: entry.summary, aiTags: entry.tags } : r)),
+        repos: s.repos.map((r) =>
+          r.path === path ? { ...r, aiSummary: entry.summary, aiTags: entry.tags } : r,
+        ),
       }));
       void get().save();
     } else if (result.error === 'unavailable') {
@@ -867,7 +934,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
         notes: s.dayNotes.notes.map((n) =>
           n.id === id
             ? { ...n, body, editedAt: new Date().toISOString(), repoRefs: extractRepoRefs(body) }
-            : n
+            : n,
         ),
       },
     }));
@@ -934,7 +1001,8 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       const token = await invoke<string | null>('get_token').catch(() => null);
 
       const login = token ? await fetchUserLogin(token).catch(() => null) : null;
-      const allEvents = (login && token) ? await fetchUserEvents(login, token, windowStart).catch(() => []) : [];
+      const allEvents =
+        login && token ? await fetchUserEvents(login, token, windowStart).catch(() => []) : [];
 
       const repos = get().repos;
       // SHA-based dedup set shared across repos to avoid cross-repo collisions
@@ -951,7 +1019,9 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
           // Uncommitted work summary (diff --stat vs HEAD + untracked count).
           // Backend returns '' on clean tree or any git failure — never throws.
-          const dirtyStat = await invoke<string>('git_dirty_stat', { path: r.path }).catch(() => '');
+          const dirtyStat = await invoke<string>('git_dirty_stat', { path: r.path }).catch(
+            () => '',
+          );
 
           // SHA-based dedup: filter out commits already seen from other repos
           localCommits = localCommits.filter((c) => {
@@ -971,7 +1041,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           const prLines: string[] = [];
           let ghCommitLines: string[] = [];
           const coords = r.remoteUrl ? parseRemote(r.remoteUrl) : null;
-          const ciRuns = (coords && token) ? await fetchCIOutcomes(coords.owner, coords.repo, token, windowStart).catch(() => []) : [];
+          const ciRuns =
+            coords && token
+              ? await fetchCIOutcomes(coords.owner, coords.repo, token, windowStart).catch(() => [])
+              : [];
           if (coords && token) {
             const headers: Record<string, string> = {
               Authorization: `token ${token}`,
@@ -1001,14 +1074,18 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
 
             const [commitsRes, prsRes] = await Promise.all([
               fetchWithTimeout(
-                `https://api.github.com/repos/${coords.owner}/${coords.repo}/commits?since=${windowStart}&per_page=20`
+                `https://api.github.com/repos/${coords.owner}/${coords.repo}/commits?since=${windowStart}&per_page=20`,
               ),
               fetchWithTimeout(
-                `https://api.github.com/repos/${coords.owner}/${coords.repo}/pulls?state=all&sort=updated&per_page=10`
+                `https://api.github.com/repos/${coords.owner}/${coords.repo}/pulls?state=all&sort=updated&per_page=10`,
               ),
             ]);
             if (commitsRes?.ok) {
-              const data = await commitsRes.json().catch(() => []) as Array<{ sha: string; commit: { message: string }; author?: { login?: string } }>;
+              const data = (await commitsRes.json().catch(() => [])) as Array<{
+                sha: string;
+                commit: { message: string };
+                author?: { login?: string };
+              }>;
               for (const c of data) {
                 // Skip commits already covered by the local numstat scan —
                 // --branches means nearly every pushed commit would duplicate.
@@ -1024,18 +1101,23 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
               }
             }
             if (prsRes?.ok) {
-              const prs = await prsRes.json().catch(() => []) as Array<{ number: number; title: string; state: string; updated_at: string }>;
+              const prs = (await prsRes.json().catch(() => [])) as Array<{
+                number: number;
+                title: string;
+                state: string;
+                updated_at: string;
+              }>;
               const recentPrs = prs.filter((pr) => pr.updated_at >= windowStart);
               // Fetch enriched PR details for top 3; fall back to plain title for the rest
               const prDetails = await Promise.all(
-                recentPrs.slice(0, 3).map((pr) =>
-                  fetchPRDetails(coords.owner, coords.repo, pr.number, token).catch(() => null)
-                )
+                recentPrs
+                  .slice(0, 3)
+                  .map((pr) =>
+                    fetchPRDetails(coords.owner, coords.repo, pr.number, token).catch(() => null),
+                  ),
               );
               prLines.push(
-                ...prDetails
-                  .filter(Boolean)
-                  .map((pr) => formatPRLine(pr!)),
+                ...prDetails.filter(Boolean).map((pr) => formatPRLine(pr!)),
                 ...recentPrs.slice(3).map((pr) => `[PR #${pr.number}] ${pr.title}`),
               );
             }
@@ -1102,7 +1184,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
           if (digest) aiLines.push(digest);
 
           return { name: r.name, commits: contextLines, activity, aiLines };
-        })
+        }),
       );
 
       // Only include repos that have activity in the window
@@ -1131,7 +1213,12 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
       let model = 'local-stats';
       try {
         const raw = await invoke<string>('ai_day_notes', { repos: cappedRepoData });
-        const parsed = JSON.parse(raw) as { ok: boolean; body?: string; model?: string; error?: string };
+        const parsed = JSON.parse(raw) as {
+          ok: boolean;
+          body?: string;
+          model?: string;
+          error?: string;
+        };
         if (parsed.ok && parsed.body) {
           execSummary = parsed.body.trim();
           model = parsed.model ?? 'apple/foundation-models';
@@ -1170,7 +1257,10 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   },
 
   setupAutoNotesTimer: ({ skipImmediateFire = false } = {}) => {
-    if (autoNotesTimerRef) { clearInterval(autoNotesTimerRef); autoNotesTimerRef = null; }
+    if (autoNotesTimerRef) {
+      clearInterval(autoNotesTimerRef);
+      autoNotesTimerRef = null;
+    }
     const { autoNotesEnabled, autoNotesIntervalMin } = get().settings;
     if (autoNotesEnabled && autoNotesIntervalMin > 0) {
       // Only fire immediately from the startup path (App.tsx). When called from

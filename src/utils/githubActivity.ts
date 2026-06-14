@@ -36,7 +36,10 @@ export function mapPulls(json: unknown): GhPull[] {
   if (!Array.isArray(json)) return [];
   return json.map((p) => {
     const o = (typeof p === 'object' && p !== null ? p : {}) as Record<string, unknown>;
-    const user = (typeof o.user === 'object' && o.user !== null ? o.user : {}) as Record<string, unknown>;
+    const user = (typeof o.user === 'object' && o.user !== null ? o.user : {}) as Record<
+      string,
+      unknown
+    >;
     return {
       number: typeof o.number === 'number' ? o.number : 0,
       title: typeof o.title === 'string' ? o.title : '',
@@ -52,8 +55,13 @@ export function mapCommits(json: unknown): GhCommit[] {
   if (!Array.isArray(json)) return [];
   return json.map((c) => {
     const o = (typeof c === 'object' && c !== null ? c : {}) as Record<string, unknown>;
-    const commit = (typeof o.commit === 'object' && o.commit !== null ? o.commit : {}) as Record<string, unknown>;
-    const author = (typeof commit.author === 'object' && commit.author !== null ? commit.author : {}) as Record<string, unknown>;
+    const commit = (typeof o.commit === 'object' && o.commit !== null ? o.commit : {}) as Record<
+      string,
+      unknown
+    >;
+    const author = (
+      typeof commit.author === 'object' && commit.author !== null ? commit.author : {}
+    ) as Record<string, unknown>;
     const message = typeof commit.message === 'string' ? commit.message.split('\n')[0] : '';
     return {
       sha: typeof o.sha === 'string' ? o.sha : '',

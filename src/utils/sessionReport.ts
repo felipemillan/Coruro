@@ -26,7 +26,10 @@ export type ActivityTier = 'high' | 'moderate' | 'low' | 'idle';
  *   "" (clean)
  */
 export function parseDirtyStat(stat: string): {
-  files: number; insertions: number; deletions: number; untracked: number;
+  files: number;
+  insertions: number;
+  deletions: number;
+  untracked: number;
 } {
   const num = (re: RegExp) => {
     const m = stat.match(re);
@@ -76,7 +79,8 @@ function describe(a: RepoActivity, tier: ActivityTier): string {
 /** "(X files changed, Y insertions(+), Z deletions(-), W untracked)" — zero parts omitted. */
 function statsLabel(a: RepoActivity): string {
   const parts: string[] = [];
-  if (a.filesChanged > 0) parts.push(`${a.filesChanged} file${a.filesChanged === 1 ? '' : 's'} changed`);
+  if (a.filesChanged > 0)
+    parts.push(`${a.filesChanged} file${a.filesChanged === 1 ? '' : 's'} changed`);
   if (a.insertions > 0) parts.push(`${a.insertions} insertion${a.insertions === 1 ? '' : 's'}(+)`);
   if (a.deletions > 0) parts.push(`${a.deletions} deletion${a.deletions === 1 ? '' : 's'}(-)`);
   if (a.untracked > 0) parts.push(`${a.untracked} untracked`);
@@ -92,11 +96,12 @@ export function qualitativeDigest(a: RepoActivity): string | null {
   const lines = a.insertions + a.deletions;
   const tier = classifyActivity(a);
   if (a.filesChanged > 0 || lines > 0) {
-    const kind = a.deletions > a.insertions * 2
-      ? 'mostly deletions and cleanup'
-      : a.insertions > a.deletions * 2
-        ? 'mostly new code'
-        : 'mixed edits';
+    const kind =
+      a.deletions > a.insertions * 2
+        ? 'mostly deletions and cleanup'
+        : a.insertions > a.deletions * 2
+          ? 'mostly new code'
+          : 'mixed edits';
     const size = tier === 'high' ? 'large' : tier === 'moderate' ? 'moderate' : 'small';
     return `${size} amount of uncommitted work in progress, ${kind}`;
   }
@@ -127,7 +132,9 @@ export function composeSessionReport(
   const totalDel = activities.reduce((n, a) => n + a.deletions, 0);
 
   const date = generatedAt.toLocaleDateString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 
   const md: string[] = [];
@@ -154,7 +161,7 @@ export function composeSessionReport(
   for (const tier of TIER_ORDER) {
     const list = byTier.get(tier);
     if (!list || list.length === 0) continue;
-    list.sort((x, y) => (y.insertions + y.deletions) - (x.insertions + x.deletions));
+    list.sort((x, y) => y.insertions + y.deletions - (x.insertions + x.deletions));
     md.push('');
     md.push(TIER_HEADERS[tier]);
     for (const a of list) {

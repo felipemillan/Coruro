@@ -37,9 +37,10 @@ export function formatRepoContext(entry: EnrichedRepoEntry): string[] {
   }
   const cappedCommits = entry.commits.slice(0, MAX_COMMITS_PER_REPO);
   for (const c of cappedCommits) {
-    const fileInfo = c.files.length > FOLDER_AGGREGATE_THRESHOLD
-      ? c.folders.slice(0, 2).join(', ') + '/ (+' + c.added + '/-' + c.deleted + ')'
-      : c.files.slice(0, MAX_FILES_PER_COMMIT).join(', ');
+    const fileInfo =
+      c.files.length > FOLDER_AGGREGATE_THRESHOLD
+        ? c.folders.slice(0, 2).join(', ') + '/ (+' + c.added + '/-' + c.deleted + ')'
+        : c.files.slice(0, MAX_FILES_PER_COMMIT).join(', ');
     lines.push(fileInfo ? c.subject + ' [' + fileInfo + ']' : c.subject);
   }
   lines.push(...entry.prs);
@@ -58,7 +59,10 @@ export interface RepoContextPayload {
  * Cap the formatted context lines (the exact payload the sidecar receives).
  * Proportionally trims each repo's lines, keeping at least 3 per repo.
  */
-export function capContextLines(repos: RepoContextPayload[], maxChars = 12000): RepoContextPayload[] {
+export function capContextLines(
+  repos: RepoContextPayload[],
+  maxChars = 12000,
+): RepoContextPayload[] {
   const total = repos.reduce((acc, r) => acc + r.commits.join('\n').length, 0);
   if (total <= maxChars) return repos;
   const ratio = maxChars / total;
@@ -68,10 +72,13 @@ export function capContextLines(repos: RepoContextPayload[], maxChars = 12000): 
   }));
 }
 
-export function capDayNotesContext(entries: EnrichedRepoEntry[], maxChars = 5000): EnrichedRepoEntry[] {
+export function capDayNotesContext(
+  entries: EnrichedRepoEntry[],
+  maxChars = 5000,
+): EnrichedRepoEntry[] {
   // Estimate against the formatted context lines (what actually reaches the sidecar),
   // not the raw EnrichedRepoEntry shape.
-  const formatted = entries.map(e => formatRepoContext(e));
+  const formatted = entries.map((e) => formatRepoContext(e));
   const rough = formatted.reduce((acc, lines) => acc + lines.join('\n').length, 0);
   if (rough <= maxChars) return entries;
   const ratio = maxChars / rough;

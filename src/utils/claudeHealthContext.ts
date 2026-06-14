@@ -117,7 +117,8 @@ export function buildClaudeHealthDigest(inv: ClaudeInventory): AiDayNotesRepo[] 
     const envKeys = inv.settings.envKeys;
     if (envKeys.length > 0) {
       const shown = envKeys.slice(0, ENV_NAMES_MAX).join(', ');
-      const overflow = envKeys.length > ENV_NAMES_MAX ? `, +${envKeys.length - ENV_NAMES_MAX} more` : '';
+      const overflow =
+        envKeys.length > ENV_NAMES_MAX ? `, +${envKeys.length - ENV_NAMES_MAX} more` : '';
       settingsLines.push(`env keys: ${shown}${overflow}`);
     }
     pushSection(sections, 'Settings', settingsLines);

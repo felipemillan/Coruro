@@ -70,7 +70,9 @@ export function AskTab() {
   const [question, setQuestion] = useState('');
   const [spawnError, setSpawnError] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [repoDetection, setRepoDetection] = useState<{ repoType: string; label: string } | null>(null);
+  const [repoDetection, setRepoDetection] = useState<{ repoType: string; label: string } | null>(
+    null,
+  );
   // Inline-delete undo toast: holds the pending-delete id + label, else null.
   const [deleteToast, setDeleteToast] = useState<{ id: string; label: string } | null>(null);
 
@@ -89,7 +91,9 @@ export function AskTab() {
   const quickActionTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>[]>>(new Map());
   // Sessions deleted but inside the undo window: stash the full session + its
   // expiry timer so Undo can restore the row (and keep a running PTY alive).
-  const pendingDeletesRef = useRef<Map<string, { session: ChatSession; timer: ReturnType<typeof setTimeout> }>>(new Map());
+  const pendingDeletesRef = useRef<
+    Map<string, { session: ChatSession; timer: ReturnType<typeof setTimeout> }>
+  >(new Map());
 
   useEffect(() => {
     if (repoPath === '' && sorted.length > 0) setRepoPath(sorted[0].path);
@@ -105,9 +109,12 @@ export function AskTab() {
 
   // Detect the project type whenever the selected repo changes (for the Run button).
   useEffect(() => {
-    if (repoPath === '' || repoPath === rootDirectory) { setRepoDetection(null); return; }
+    if (repoPath === '' || repoPath === rootDirectory) {
+      setRepoDetection(null);
+      return;
+    }
     invoke<{ repoType: string; label: string }>('detect_repo_type', { path: repoPath })
-      .then(d => setRepoDetection(d.repoType !== 'Unknown' ? d : null))
+      .then((d) => setRepoDetection(d.repoType !== 'Unknown' ? d : null))
       .catch(() => setRepoDetection(null));
   }, [repoPath, rootDirectory]);
 
@@ -193,114 +200,114 @@ export function AskTab() {
   // single positional arg with no room for a command in front.
   const start = useCallback(
     async (override?: { cwd: string; prompt: string }) => {
-    const effRepoPath = override?.cwd ?? repoPath;
-    const effQuestion = override?.prompt ?? question;
-    if (effRepoPath === '' || containerRef.current === null) return;
-    setSpawnError(null);
+      const effRepoPath = override?.cwd ?? repoPath;
+      const effQuestion = override?.prompt ?? question;
+      if (effRepoPath === '' || containerRef.current === null) return;
+      setSpawnError(null);
 
-    const id = crypto.randomUUID();
-    const title = effQuestion.trim();
-    const rName = getRepoName(effRepoPath);
+      const id = crypto.randomUUID();
+      const title = effQuestion.trim();
+      const rName = getRepoName(effRepoPath);
 
-    const session: ChatSession = {
-      id,
-      repoPath: effRepoPath,
-      repoName: rName,
-      title,
-      startedAt: Date.now(),
-      status: 'running',
-      exitCode: null,
-    };
-
-    addChatSession(session);
-    buffersRef.current.set(id, '');
-
-    // Point terminal at new session before subscribing so no bytes are missed.
-    const term = ensureTerminal()!;
-    term.reset();
-    displayedIdRef.current = id;
-    setActiveSessionId(id);
-
-    // Caveman sequencing: dgc prints SECONDS of scan/boot logs before claude
-    // actually starts, so we must NOT fire on first output — that lands the
-    // keystrokes in the dgc boot stream and they are lost. Instead gate on
-    // claude's own ready marker (its version banner / the `❯` input prompt) in
-    // the cumulative session buffer, then send `/caveman:caveman ultra`, then
-    // (after the skill has time to activate) the user prompt — if one was given.
-    // Timers are tracked so they can be cancelled on exit/unmount.
-    let cavemanFired = false;
-    const CLAUDE_READY = /Claude Code v|❯/; // banner or the ❯ input caret
-    const CAVEMAN_SETTLE_MS = 1200; // after claude is ready, before caveman
-    const CAVEMAN_TO_PROMPT_MS = 2800; // let the skill finish loading
-    const fireCavemanSequence = () => {
-      if (cavemanFired) return;
-      cavemanFired = true;
-      const timers: ReturnType<typeof setTimeout>[] = [];
-      // Settle after claude's input box appears, then send the caveman command
-      // (submitted), then the user prompt (submitted) when present.
-      timers.push(
-        setTimeout(() => {
-          void invoke('pty_write', { id, data: '/caveman:caveman ultra\r' }).catch(
-            () => undefined,
-          );
-          if (title !== '') {
-            timers.push(
-              setTimeout(() => {
-                void invoke('pty_write', { id, data: `${title}\r` }).catch(() => undefined);
-              }, CAVEMAN_TO_PROMPT_MS),
-            );
-          }
-        }, CAVEMAN_SETTLE_MS),
-      );
-      quickActionTimersRef.current.set(id, timers);
-    };
-
-    const unOut = await listen<PtyOutput>('pty-output', (e) => {
-      if (e.payload.id !== id) return;
-      const chunk = e.payload.data;
-      buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
-      if (displayedIdRef.current === id) term.write(chunk);
-      // Fire once claude itself is up (banner/❯ in the cumulative buffer),
-      // never on dgc's earlier boot logs.
-      if (CLAUDE_READY.test(buffersRef.current.get(id) ?? '')) {
-        fireCavemanSequence();
-      }
-    });
-
-    const unExit = await listen<PtyExit>('pty-exit', (e) => {
-      if (e.payload.id !== id) return;
-      // Session gone — drop any pending quick-action input timers.
-      quickActionTimersRef.current.get(id)?.forEach((t) => clearTimeout(t));
-      quickActionTimersRef.current.delete(id);
-      const msg = `\r\n\x1b[2m── session ended${e.payload.code !== null ? ` (exit ${e.payload.code})` : ''} ──\x1b[0m\r\n`;
-      buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + msg);
-      if (displayedIdRef.current === id) term.write(msg);
-      updateChatSessionStatus(id, 'ended', e.payload.code);
-    });
-
-    unlistenersRef.current.set(id, [unOut, unExit]);
-
-    try {
-      // All sessions boot at an empty prompt (no dgc arg) so we can prepend the
-      // caveman command over the PTY; the prompt (when present) is then sent via
-      // pty_write after the caveman skill activates.
-      await invoke('pty_spawn', {
+      const session: ChatSession = {
         id,
-        cwd: effRepoPath,
-        prompt: null,
-        cols: term.cols,
-        rows: term.rows,
+        repoPath: effRepoPath,
+        repoName: rName,
+        title,
+        startedAt: Date.now(),
+        status: 'running',
+        exitCode: null,
+      };
+
+      addChatSession(session);
+      buffersRef.current.set(id, '');
+
+      // Point terminal at new session before subscribing so no bytes are missed.
+      const term = ensureTerminal()!;
+      term.reset();
+      displayedIdRef.current = id;
+      setActiveSessionId(id);
+
+      // Caveman sequencing: dgc prints SECONDS of scan/boot logs before claude
+      // actually starts, so we must NOT fire on first output — that lands the
+      // keystrokes in the dgc boot stream and they are lost. Instead gate on
+      // claude's own ready marker (its version banner / the `❯` input prompt) in
+      // the cumulative session buffer, then send `/caveman:caveman ultra`, then
+      // (after the skill has time to activate) the user prompt — if one was given.
+      // Timers are tracked so they can be cancelled on exit/unmount.
+      let cavemanFired = false;
+      const CLAUDE_READY = /Claude Code v|❯/; // banner or the ❯ input caret
+      const CAVEMAN_SETTLE_MS = 1200; // after claude is ready, before caveman
+      const CAVEMAN_TO_PROMPT_MS = 2800; // let the skill finish loading
+      const fireCavemanSequence = () => {
+        if (cavemanFired) return;
+        cavemanFired = true;
+        const timers: ReturnType<typeof setTimeout>[] = [];
+        // Settle after claude's input box appears, then send the caveman command
+        // (submitted), then the user prompt (submitted) when present.
+        timers.push(
+          setTimeout(() => {
+            void invoke('pty_write', { id, data: '/caveman:caveman ultra\r' }).catch(
+              () => undefined,
+            );
+            if (title !== '') {
+              timers.push(
+                setTimeout(() => {
+                  void invoke('pty_write', { id, data: `${title}\r` }).catch(() => undefined);
+                }, CAVEMAN_TO_PROMPT_MS),
+              );
+            }
+          }, CAVEMAN_SETTLE_MS),
+        );
+        quickActionTimersRef.current.set(id, timers);
+      };
+
+      const unOut = await listen<PtyOutput>('pty-output', (e) => {
+        if (e.payload.id !== id) return;
+        const chunk = e.payload.data;
+        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
+        if (displayedIdRef.current === id) term.write(chunk);
+        // Fire once claude itself is up (banner/❯ in the cumulative buffer),
+        // never on dgc's earlier boot logs.
+        if (CLAUDE_READY.test(buffersRef.current.get(id) ?? '')) {
+          fireCavemanSequence();
+        }
       });
-      term.focus();
-      setQuestion('');
-    } catch (e: unknown) {
-      setSpawnError(e instanceof Error ? e.message : String(e));
-      updateChatSessionStatus(id, 'ended', -1);
-      unlistenersRef.current.get(id)?.forEach((u) => u());
-      unlistenersRef.current.delete(id);
-    }
-  },
-  [repoPath, question, getRepoName, ensureTerminal, addChatSession, updateChatSessionStatus],
+
+      const unExit = await listen<PtyExit>('pty-exit', (e) => {
+        if (e.payload.id !== id) return;
+        // Session gone — drop any pending quick-action input timers.
+        quickActionTimersRef.current.get(id)?.forEach((t) => clearTimeout(t));
+        quickActionTimersRef.current.delete(id);
+        const msg = `\r\n\x1b[2m── session ended${e.payload.code !== null ? ` (exit ${e.payload.code})` : ''} ──\x1b[0m\r\n`;
+        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + msg);
+        if (displayedIdRef.current === id) term.write(msg);
+        updateChatSessionStatus(id, 'ended', e.payload.code);
+      });
+
+      unlistenersRef.current.set(id, [unOut, unExit]);
+
+      try {
+        // All sessions boot at an empty prompt (no dgc arg) so we can prepend the
+        // caveman command over the PTY; the prompt (when present) is then sent via
+        // pty_write after the caveman skill activates.
+        await invoke('pty_spawn', {
+          id,
+          cwd: effRepoPath,
+          prompt: null,
+          cols: term.cols,
+          rows: term.rows,
+        });
+        term.focus();
+        setQuestion('');
+      } catch (e: unknown) {
+        setSpawnError(e instanceof Error ? e.message : String(e));
+        updateChatSessionStatus(id, 'ended', -1);
+        unlistenersRef.current.get(id)?.forEach((u) => u());
+        unlistenersRef.current.delete(id);
+      }
+    },
+    [repoPath, question, getRepoName, ensureTerminal, addChatSession, updateChatSessionStatus],
   );
 
   // Command Center quick-action: pre-fill cwd + prompt for the UI, then launch
@@ -448,16 +455,27 @@ export function AskTab() {
       unlistenersRef.current.get(id)?.forEach((u) => u());
       unlistenersRef.current.delete(id);
     }
-  }, [repoDetection, repoPath, getRepoName, ensureTerminal, switchToSession, addChatSession, updateChatSessionStatus]);
+  }, [
+    repoDetection,
+    repoPath,
+    getRepoName,
+    ensureTerminal,
+    switchToSession,
+    addChatSession,
+    updateChatSessionStatus,
+  ]);
 
   // Palette: send the selected invocation string to the active PTY session.
-  const handlePaletteSelect = useCallback((command: string) => {
-    setPaletteOpen(false);
-    const id = displayedIdRef.current;
-    if (id !== null) {
-      void invoke('pty_write', { id, data: command + '\r' }).catch(() => undefined);
-    }
-  }, [setPaletteOpen]);
+  const handlePaletteSelect = useCallback(
+    (command: string) => {
+      setPaletteOpen(false);
+      const id = displayedIdRef.current;
+      if (id !== null) {
+        void invoke('pty_write', { id, data: command + '\r' }).catch(() => undefined);
+      }
+    },
+    [setPaletteOpen],
+  );
 
   // Insert text onto the active session's prompt line WITHOUT submitting (no \r),
   // so the user can edit or append args before pressing Enter themselves.
@@ -518,201 +536,204 @@ export function AskTab() {
 
   return (
     <>
-    <CommandPalette
-      open={paletteOpen}
-      onClose={() => setPaletteOpen(false)}
-      repoPath={repoPath}
-      onSelect={handlePaletteSelect}
-    />
-    <div className="flex flex-1 min-h-0">
-      {/* ── Sidebar ─────────────────────────────────── */}
-      <nav aria-label="Sessions" className="w-52 shrink-0 border-r border-warm-gray flex flex-col bg-cream/30 overflow-y-auto">
-        <div className="px-3 py-2.5 border-b border-warm-gray/60">
-          <span className="text-[10px] font-semibold text-navy-light/50 uppercase tracking-widest">
-            Sessions
-          </span>
-        </div>
-        {sessions.length === 0 ? (
-          <p className="px-3 py-4 text-[11px] text-navy-light/40 italic leading-relaxed">
-            No sessions yet.
-            <br />
-            Pick a repo and tap New.
-          </p>
-        ) : (
-          <div className="py-1 flex-1">
-            {Array.from(grouped.entries()).map(([path, { repoName, items }]) => (
-              <div key={path} className="mb-1">
-                <div className="px-3 pt-2.5 pb-0.5 text-[10px] font-semibold text-sage uppercase tracking-wide truncate">
-                  {repoName}
-                </div>
-                {items.map((s) => {
-                  const label = s.title !== '' ? s.title : `${fmtTime(s.startedAt)} session`;
-                  const isActive = activeSessionId === s.id;
-                  return (
-                    // Row is a container (NOT a button) so the delete button can
-                    // be a sibling — no nested interactive elements.
-                    <div
-                      key={s.id}
-                      className={`group flex items-center transition-colors ${
-                        isActive ? 'bg-sage/20' : 'hover:bg-warm-gray/70'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        data-session-select
-                        onClick={() => switchToSession(s.id)}
-                        aria-label={`${label} — ${s.status === 'running' ? 'running' : 'ended'}`}
-                        className={`flex-1 min-w-0 text-left pl-3 pr-1 py-1.5 flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sage ${
-                          isActive ? 'text-navy' : 'text-navy-light/60 group-hover:text-navy'
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        repoPath={repoPath}
+        onSelect={handlePaletteSelect}
+      />
+      <div className="flex flex-1 min-h-0">
+        {/* ── Sidebar ─────────────────────────────────── */}
+        <nav
+          aria-label="Sessions"
+          className="w-52 shrink-0 border-r border-warm-gray flex flex-col bg-cream/30 overflow-y-auto"
+        >
+          <div className="px-3 py-2.5 border-b border-warm-gray/60">
+            <span className="text-[10px] font-semibold text-navy-light/50 uppercase tracking-widest">
+              Sessions
+            </span>
+          </div>
+          {sessions.length === 0 ? (
+            <p className="px-3 py-4 text-[11px] text-navy-light/40 italic leading-relaxed">
+              No sessions yet.
+              <br />
+              Pick a repo and tap New.
+            </p>
+          ) : (
+            <div className="py-1 flex-1">
+              {Array.from(grouped.entries()).map(([path, { repoName, items }]) => (
+                <div key={path} className="mb-1">
+                  <div className="px-3 pt-2.5 pb-0.5 text-[10px] font-semibold text-sage uppercase tracking-wide truncate">
+                    {repoName}
+                  </div>
+                  {items.map((s) => {
+                    const label = s.title !== '' ? s.title : `${fmtTime(s.startedAt)} session`;
+                    const isActive = activeSessionId === s.id;
+                    return (
+                      // Row is a container (NOT a button) so the delete button can
+                      // be a sibling — no nested interactive elements.
+                      <div
+                        key={s.id}
+                        className={`group flex items-center transition-colors ${
+                          isActive ? 'bg-sage/20' : 'hover:bg-warm-gray/70'
                         }`}
                       >
-                        <span
-                          aria-hidden="true"
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            s.status === 'running'
-                              ? 'bg-sage motion-safe:animate-pulse'
-                              : 'bg-navy-light/25'
+                        <button
+                          type="button"
+                          data-session-select
+                          onClick={() => switchToSession(s.id)}
+                          aria-label={`${label} — ${s.status === 'running' ? 'running' : 'ended'}`}
+                          className={`flex-1 min-w-0 text-left pl-3 pr-1 py-1.5 flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sage ${
+                            isActive ? 'text-navy' : 'text-navy-light/60 group-hover:text-navy'
                           }`}
-                        />
-                        <span className="block flex-1 min-w-0 text-[11px] truncate leading-tight">
-                          {label}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => requestDelete(s)}
-                        aria-label={`Delete session: ${label}`}
-                        className="shrink-0 mr-1 grid place-items-center h-6 w-6 rounded text-terracotta opacity-60 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-terracotta/15 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta transition-opacity cursor-pointer"
-                      >
-                        <Trash2 size={13} strokeWidth={2} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
-        {deleteToast !== null && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="sticky bottom-0 mx-2 mb-2 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-navy text-cream text-[11px] shadow-lg"
-          >
-            <span className="truncate">Session deleted</span>
-            <button
-              type="button"
-              onClick={undoDelete}
-              className="shrink-0 font-semibold text-sage hover:text-sage/80 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded px-1"
-            >
-              Undo
-            </button>
-          </div>
-        )}
-      </nav>
-
-      {/* ── Right panel ─────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-h-0">
-        {/* Controls row */}
-        <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-warm-gray bg-cream/60">
-          <SquareTerminal size={15} strokeWidth={1.75} className="text-sage shrink-0" />
-          <select
-            value={repoPath}
-            onChange={(e) => setRepoPath(e.target.value)}
-            className="px-2 py-1 text-[12px] font-mono bg-warm-gray text-navy rounded-lg cursor-pointer max-w-[180px]"
-            aria-label="Repository"
-          >
-            {rootDirectory !== null && <option value={rootDirectory}>All repos</option>}
-            {sorted.map((r) => (
-              <option key={r.path} value={r.path}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void start();
-            }}
-            placeholder={
-              repoPath === rootDirectory
-                ? 'Ask across all repos… e.g. "which repos use Tailwind v4?"'
-                : 'Ask something… (optional — blank opens a plain session)'
-            }
-            className="flex-1 px-3 py-1.5 text-[12px] bg-warm-gray text-navy rounded-lg placeholder:text-navy-light/40 focus:outline-none focus:ring-1 focus:ring-sage"
-          />
-          {activeRunning && (
-            <button
-              type="button"
-              onClick={() => activeSession && stopSession(activeSession.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-terracotta bg-terracotta/10 hover:bg-terracotta/20 transition-colors cursor-pointer rounded-full"
-            >
-              <Square size={12} strokeWidth={2} /> End
-            </button>
-          )}
-          {/* Run/build button — shown only when we know the project type */}
-          {repoDetection !== null && (
-            <button
-              type="button"
-              onClick={() => void handleRunBuild()}
-              className="flex flex-col items-start px-3 py-1 text-[11px] font-medium text-sage bg-sage/10 hover:bg-sage/20 transition-colors cursor-pointer rounded-full leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
-            >
-              <span>Run</span>
-              <span className="text-[9px] font-mono text-sage/70">{repoDetection.label}</span>
-            </button>
-          )}
-
-          {/* Cmd+K palette hint badge */}
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            aria-label="Open command palette (⌘K)"
-            className="px-2 py-1 text-[10px] font-mono text-navy-light/50 bg-warm-gray hover:bg-warm-gray/80 rounded-lg cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
-          >
-            ⌘K
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void start()}
-            disabled={repoPath === ''}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-cream bg-navy hover:bg-navy-light transition-colors cursor-pointer rounded-full disabled:opacity-40"
-          >
-            <Plus size={12} strokeWidth={2.5} /> New
-          </button>
-        </div>
-
-        {/* Global action bar — insert skills/agents/commands/MCP into the prompt */}
-        <TopActionBar onInsert={handleInsert} disabled={activeSessionId === null} />
-
-        {spawnError !== null && (
-          <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono bg-terracotta/15 text-terracotta border-b border-terracotta/40">
-            Failed to start: {spawnError} — is Claude Code installed? (`npm i -g
-            @anthropic-ai/claude-code`)
-          </div>
-        )}
-
-        {/* Terminal area */}
-        <div className="relative flex-1 min-h-0 bg-[#1A1C16]">
-          {activeSessionId === null && (
-            <div className="absolute inset-x-0 mt-24 flex flex-col items-center gap-2 pointer-events-none">
-              <SquareTerminal size={28} strokeWidth={1.25} className="text-cream/20" />
-              <p className="text-[13px] text-cream/30">
-                {repoPath !== ''
-                  ? `Ask Claude Code about ${getRepoName(repoPath)}`
-                  : 'Pick a repo to start'}
-              </p>
-              <p className="text-[11px] text-cream/20">
-                Runs your local Claude Code on your existing plan — no API key.
-              </p>
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              s.status === 'running'
+                                ? 'bg-sage motion-safe:animate-pulse'
+                                : 'bg-navy-light/25'
+                            }`}
+                          />
+                          <span className="block flex-1 min-w-0 text-[11px] truncate leading-tight">
+                            {label}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => requestDelete(s)}
+                          aria-label={`Delete session: ${label}`}
+                          className="shrink-0 mr-1 grid place-items-center h-6 w-6 rounded text-terracotta opacity-60 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-terracotta/15 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta transition-opacity cursor-pointer"
+                        >
+                          <Trash2 size={13} strokeWidth={2} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           )}
-          <div ref={containerRef} className="h-full w-full px-2 py-1" />
+          {deleteToast !== null && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="sticky bottom-0 mx-2 mb-2 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-navy text-cream text-[11px] shadow-lg"
+            >
+              <span className="truncate">Session deleted</span>
+              <button
+                type="button"
+                onClick={undoDelete}
+                className="shrink-0 font-semibold text-sage hover:text-sage/80 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded px-1"
+              >
+                Undo
+              </button>
+            </div>
+          )}
+        </nav>
+
+        {/* ── Right panel ─────────────────────────────── */}
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Controls row */}
+          <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-warm-gray bg-cream/60">
+            <SquareTerminal size={15} strokeWidth={1.75} className="text-sage shrink-0" />
+            <select
+              value={repoPath}
+              onChange={(e) => setRepoPath(e.target.value)}
+              className="px-2 py-1 text-[12px] font-mono bg-warm-gray text-navy rounded-lg cursor-pointer max-w-[180px]"
+              aria-label="Repository"
+            >
+              {rootDirectory !== null && <option value={rootDirectory}>All repos</option>}
+              {sorted.map((r) => (
+                <option key={r.path} value={r.path}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void start();
+              }}
+              placeholder={
+                repoPath === rootDirectory
+                  ? 'Ask across all repos… e.g. "which repos use Tailwind v4?"'
+                  : 'Ask something… (optional — blank opens a plain session)'
+              }
+              className="flex-1 px-3 py-1.5 text-[12px] bg-warm-gray text-navy rounded-lg placeholder:text-navy-light/40 focus:outline-none focus:ring-1 focus:ring-sage"
+            />
+            {activeRunning && (
+              <button
+                type="button"
+                onClick={() => activeSession && stopSession(activeSession.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-terracotta bg-terracotta/10 hover:bg-terracotta/20 transition-colors cursor-pointer rounded-full"
+              >
+                <Square size={12} strokeWidth={2} /> End
+              </button>
+            )}
+            {/* Run/build button — shown only when we know the project type */}
+            {repoDetection !== null && (
+              <button
+                type="button"
+                onClick={() => void handleRunBuild()}
+                className="flex flex-col items-start px-3 py-1 text-[11px] font-medium text-sage bg-sage/10 hover:bg-sage/20 transition-colors cursor-pointer rounded-full leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+              >
+                <span>Run</span>
+                <span className="text-[9px] font-mono text-sage/70">{repoDetection.label}</span>
+              </button>
+            )}
+
+            {/* Cmd+K palette hint badge */}
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Open command palette (⌘K)"
+              className="px-2 py-1 text-[10px] font-mono text-navy-light/50 bg-warm-gray hover:bg-warm-gray/80 rounded-lg cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            >
+              ⌘K
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void start()}
+              disabled={repoPath === ''}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-cream bg-navy hover:bg-navy-light transition-colors cursor-pointer rounded-full disabled:opacity-40"
+            >
+              <Plus size={12} strokeWidth={2.5} /> New
+            </button>
+          </div>
+
+          {/* Global action bar — insert skills/agents/commands/MCP into the prompt */}
+          <TopActionBar onInsert={handleInsert} disabled={activeSessionId === null} />
+
+          {spawnError !== null && (
+            <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono bg-terracotta/15 text-terracotta border-b border-terracotta/40">
+              Failed to start: {spawnError} — is Claude Code installed? (`npm i -g
+              @anthropic-ai/claude-code`)
+            </div>
+          )}
+
+          {/* Terminal area */}
+          <div className="relative flex-1 min-h-0 bg-[#1A1C16]">
+            {activeSessionId === null && (
+              <div className="absolute inset-x-0 mt-24 flex flex-col items-center gap-2 pointer-events-none">
+                <SquareTerminal size={28} strokeWidth={1.25} className="text-cream/20" />
+                <p className="text-[13px] text-cream/30">
+                  {repoPath !== ''
+                    ? `Ask Claude Code about ${getRepoName(repoPath)}`
+                    : 'Pick a repo to start'}
+                </p>
+                <p className="text-[11px] text-cream/20">
+                  Runs your local Claude Code on your existing plan — no API key.
+                </p>
+              </div>
+            )}
+            <div ref={containerRef} className="h-full w-full px-2 py-1" />
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }

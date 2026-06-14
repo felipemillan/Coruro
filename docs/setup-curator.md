@@ -4,19 +4,19 @@ The **Curate** sub-tab of the Claude Command Center judges your scanned
 `~/.claude` inventory and surfaces actionable findings — what to remove,
 consolidate, or revisit — plus an additive, on-device AI narrative.
 
-It answers the question the rest of the Command Center doesn't: *given
-everything I have installed, what should I actually clean up?*
+It answers the question the rest of the Command Center doesn't: _given
+everything I have installed, what should I actually clean up?_
 
 ## What it finds
 
 Findings are grouped by category, rendered actionable-first:
 
-| Category | Heuristic |
-|----------|-----------|
-| **Remove** | Plugins with `enabled === false`. Project-scoped MCP servers whose project has no active session (orphans). |
-| **Consolidate** | Skills / agents / commands whose name exists in both a `local` source and a non-local (plugin) source — duplicate or shadowing. |
-| **Stale / unused** | Sessions idle longer than `STALE_DAYS` (90 days). |
-| **Gap / Keep** | Reserved in the category union for the AI narrator and a future deterministic slice; not emitted in v1. |
+| Category           | Heuristic                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Remove**         | Plugins with `enabled === false`. Project-scoped MCP servers whose project has no active session (orphans).                     |
+| **Consolidate**    | Skills / agents / commands whose name exists in both a `local` source and a non-local (plugin) source — duplicate or shadowing. |
+| **Stale / unused** | Sessions idle longer than `STALE_DAYS` (90 days).                                                                               |
+| **Gap / Keep**     | Reserved in the category union for the AI narrator and a future deterministic slice; not emitted in v1.                         |
 
 Each finding carries a `severity` (`info` | `warn`); `warn` findings get a
 terracotta left border.

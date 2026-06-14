@@ -141,7 +141,18 @@ interface RawMcpServer {
 
 /** Command names that are generic runners — not informative as a package hint. */
 const MCP_RUNNERS = new Set([
-  'npx', 'uvx', 'node', 'python', 'python3', 'bunx', 'bun', 'deno', 'sh', 'bash', 'env', 'uv',
+  'npx',
+  'uvx',
+  'node',
+  'python',
+  'python3',
+  'bunx',
+  'bun',
+  'deno',
+  'sh',
+  'bash',
+  'env',
+  'uv',
 ]);
 
 /**
@@ -152,9 +163,7 @@ const MCP_RUNNERS = new Set([
  * no credential can leak through. Returns null when nothing identifiable.
  */
 function derivePackageHint(command: string | null, args: unknown): string | null {
-  const argList = Array.isArray(args)
-    ? args.filter((a): a is string => typeof a === 'string')
-    : [];
+  const argList = Array.isArray(args) ? args.filter((a): a is string => typeof a === 'string') : [];
   // 1) A scoped/path-shaped package token (e.g. @scope/server-x or a/b).
   for (const a of argList) {
     if (a.startsWith('-') || a.includes('=') || a.length > 60) continue;
@@ -188,11 +197,13 @@ interface RawHookMatcherGroup {
 }
 interface RawSettings {
   model?: unknown;
-  permissions?: {
-    allow?: unknown;
-    deny?: unknown;
-    ask?: unknown;
-  } | undefined;
+  permissions?:
+    | {
+        allow?: unknown;
+        deny?: unknown;
+        ask?: unknown;
+      }
+    | undefined;
   env?: Record<string, unknown> | undefined;
   hooks?: Record<string, RawHookMatcherGroup[]> | undefined;
   /** Map of "name@marketplace" → enabled flag. */
@@ -294,7 +305,8 @@ async function scanMcpServers(claudeJson: RawClaudeJson | null): Promise<ClaudeM
     projectPath?: string,
   ): void => {
     for (const [name, raw] of Object.entries(record)) {
-      if (raw && typeof raw === 'object') add(buildMcpServer(name, raw, scope, 'user', projectPath));
+      if (raw && typeof raw === 'object')
+        add(buildMcpServer(name, raw, scope, 'user', projectPath));
     }
   };
 
@@ -314,7 +326,9 @@ async function scanMcpServers(claudeJson: RawClaudeJson | null): Promise<ClaudeM
         try {
           const mcpJsonPath = await join(projectPath, '.mcp.json');
           if (!(await exists(mcpJsonPath))) return;
-          const parsed = await readJsonLoose<{ mcpServers?: Record<string, RawMcpServer> }>(mcpJsonPath);
+          const parsed = await readJsonLoose<{ mcpServers?: Record<string, RawMcpServer> }>(
+            mcpJsonPath,
+          );
           const m = parsed?.mcpServers;
           if (m && typeof m === 'object') addRecord(m, 'project', projectPath);
         } catch {
@@ -483,7 +497,11 @@ async function scanPlugins(
         try {
           const manifestPath = await join(installPath, '.claude-plugin', 'plugin.json');
           const manifest = await readJsonLoose<{ description?: unknown }>(manifestPath);
-          if (manifest && typeof manifest.description === 'string' && manifest.description.length > 0) {
+          if (
+            manifest &&
+            typeof manifest.description === 'string' &&
+            manifest.description.length > 0
+          ) {
             description = manifest.description;
           }
         } catch {
@@ -507,9 +525,7 @@ async function scanPlugins(
  * Disabled plugins contribute nothing here (their count still shows on the
  * Plugins card via the enabled/disabled split).
  */
-async function scanPluginContents(
-  roots: PluginRoot[],
-): Promise<{
+async function scanPluginContents(roots: PluginRoot[]): Promise<{
   skills: ClaudeSkill[];
   agents: ClaudeAgent[];
   commands: ClaudeCommand[];
@@ -540,7 +556,9 @@ async function scanPluginContents(
 
         try {
           if (await exists(mcpJsonPath)) {
-            const parsed = await readJsonLoose<{ mcpServers?: Record<string, RawMcpServer> }>(mcpJsonPath);
+            const parsed = await readJsonLoose<{ mcpServers?: Record<string, RawMcpServer> }>(
+              mcpJsonPath,
+            );
             const m = parsed?.mcpServers;
             if (m && typeof m === 'object') {
               for (const [srvName, srvRaw] of Object.entries(m)) {

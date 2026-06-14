@@ -87,10 +87,7 @@ function ActivityBar({ value, max }: ActivityBarProps) {
       className="mt-1 h-[3px] rounded-full bg-warm-gray overflow-hidden"
       style={{ width: '100%', maxWidth: 80 }}
     >
-      <div
-        className="h-full rounded-full bg-sage/70"
-        style={{ width: `${pct}%` }}
-      />
+      <div className="h-full rounded-full bg-sage/70" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -190,9 +187,7 @@ export function SessionsTable({ sessions, blurbs = {} }: SessionsTableProps) {
             const blurbKey = `session:${session.projectSlug}`;
             const blurb = blurbs[blurbKey] ?? null;
             const relMtime =
-              session.lastModified !== null
-                ? relativeTime(session.lastModified)
-                : '—';
+              session.lastModified !== null ? relativeTime(session.lastModified) : '—';
 
             return (
               <tr
@@ -210,9 +205,7 @@ export function SessionsTable({ sessions, blurbs = {} }: SessionsTableProps) {
                   {blurb !== null && (
                     <span className="flex items-start gap-1.5 mt-0.5">
                       <AiPill />
-                      <span className="text-[11px] text-navy-light leading-snug">
-                        {blurb}
-                      </span>
+                      <span className="text-[11px] text-navy-light leading-snug">{blurb}</span>
                     </span>
                   )}
                 </td>

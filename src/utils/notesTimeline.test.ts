@@ -1,10 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  makeNote,
-  renderTimelineMarkdown,
-  seedFromLegacy,
-  parseTimeline,
-} from './notesTimeline';
+import { makeNote, renderTimelineMarkdown, seedFromLegacy, parseTimeline } from './notesTimeline';
 import type { NotesTimeline } from '../types';
 
 describe('makeNote', () => {
@@ -22,9 +17,7 @@ describe('makeNote', () => {
 describe('renderTimelineMarkdown', () => {
   test('empty timeline → placeholder', () => {
     const t: NotesTimeline = { version: 1, notes: [] };
-    expect(renderTimelineMarkdown(t, 'demo')).toBe(
-      '# Notes — demo\n\n_No notes yet._\n',
-    );
+    expect(renderTimelineMarkdown(t, 'demo')).toBe('# Notes — demo\n\n_No notes yet._\n');
   });
 
   test('renders sections oldest-first with type label + date', () => {
@@ -48,7 +41,9 @@ describe('seedFromLegacy', () => {
     const t = seedFromLegacy('old notes\n', 'id-9', '2026-06-01T10:00:00.000Z');
     expect(t).toEqual({
       version: 1,
-      notes: [{ id: 'id-9', type: 'thought', body: 'old notes', createdAt: '2026-06-01T10:00:00.000Z' }],
+      notes: [
+        { id: 'id-9', type: 'thought', body: 'old notes', createdAt: '2026-06-01T10:00:00.000Z' },
+      ],
     });
   });
 });

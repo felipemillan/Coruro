@@ -142,10 +142,14 @@ describe('passesFilters', () => {
 
   // issues
   test('issues filter: true when openIssues > 0', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ openIssues: 1 }) }), new Set(['issues']))).toBe(true);
+    expect(passesFilters(makeRepo({ gh: makeGH({ openIssues: 1 }) }), new Set(['issues']))).toBe(
+      true,
+    );
   });
   test('issues filter: false when openIssues = 0', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ openIssues: 0 }) }), new Set(['issues']))).toBe(false);
+    expect(passesFilters(makeRepo({ gh: makeGH({ openIssues: 0 }) }), new Set(['issues']))).toBe(
+      false,
+    );
   });
   test('issues filter: false when gh is null', () => {
     expect(passesFilters(makeRepo({ gh: null }), new Set(['issues']))).toBe(false);
@@ -165,10 +169,14 @@ describe('passesFilters', () => {
     expect(passesFilters(makeRepo({ gh: makeGH({ pushedAt }) }), new Set(['stale']))).toBe(false);
   });
   test('stale filter: false when pushedAt is empty string', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ pushedAt: '' }) }), new Set(['stale']))).toBe(false);
+    expect(passesFilters(makeRepo({ gh: makeGH({ pushedAt: '' }) }), new Set(['stale']))).toBe(
+      false,
+    );
   });
   test('stale filter: false when pushedAt is unparseable', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ pushedAt: 'not-a-date' }) }), new Set(['stale']))).toBe(false);
+    expect(
+      passesFilters(makeRepo({ gh: makeGH({ pushedAt: 'not-a-date' }) }), new Set(['stale'])),
+    ).toBe(false);
   });
   test('stale filter: false when gh is null', () => {
     expect(passesFilters(makeRepo({ gh: null }), new Set(['stale']))).toBe(false);
@@ -176,10 +184,14 @@ describe('passesFilters', () => {
 
   // private
   test('private filter: true when isPrivate=true', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ isPrivate: true }) }), new Set(['private']))).toBe(true);
+    expect(passesFilters(makeRepo({ gh: makeGH({ isPrivate: true }) }), new Set(['private']))).toBe(
+      true,
+    );
   });
   test('private filter: false when isPrivate=false', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ isPrivate: false }) }), new Set(['private']))).toBe(false);
+    expect(
+      passesFilters(makeRepo({ gh: makeGH({ isPrivate: false }) }), new Set(['private'])),
+    ).toBe(false);
   });
   test('private filter: false when gh is null', () => {
     expect(passesFilters(makeRepo({ gh: null }), new Set(['private']))).toBe(false);
@@ -198,16 +210,24 @@ describe('passesFilters', () => {
 
   // ciFailing
   test('ciFailing filter: true when ciStatus=failure', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'failure' }) }), new Set(['ciFailing']))).toBe(true);
+    expect(
+      passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'failure' }) }), new Set(['ciFailing'])),
+    ).toBe(true);
   });
   test('ciFailing filter: false when ciStatus=success', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'success' }) }), new Set(['ciFailing']))).toBe(false);
+    expect(
+      passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'success' }) }), new Set(['ciFailing'])),
+    ).toBe(false);
   });
   test('ciFailing filter: false when ciStatus=pending', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'pending' }) }), new Set(['ciFailing']))).toBe(false);
+    expect(
+      passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'pending' }) }), new Set(['ciFailing'])),
+    ).toBe(false);
   });
   test('ciFailing filter: false when ciStatus=none', () => {
-    expect(passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'none' }) }), new Set(['ciFailing']))).toBe(false);
+    expect(
+      passesFilters(makeRepo({ gh: makeGH({ ciStatus: 'none' }) }), new Set(['ciFailing'])),
+    ).toBe(false);
   });
   test('ciFailing filter: false when gh is null', () => {
     expect(passesFilters(makeRepo({ gh: null }), new Set(['ciFailing']))).toBe(false);
@@ -228,9 +248,18 @@ describe('passesFilters', () => {
 // ---------------------------------------------------------------------------
 
 describe('sortRepos', () => {
-  const repoA = makeRepo({ name: 'alpha', gh: makeGH({ stars: 10, pushedAt: '2026-01-01T00:00:00Z' }) });
-  const repoB = makeRepo({ name: 'beta',  gh: makeGH({ stars: 50, pushedAt: '2026-03-01T00:00:00Z' }) });
-  const repoC = makeRepo({ name: 'gamma', gh: makeGH({ stars: 10, pushedAt: '2025-06-01T00:00:00Z' }) });
+  const repoA = makeRepo({
+    name: 'alpha',
+    gh: makeGH({ stars: 10, pushedAt: '2026-01-01T00:00:00Z' }),
+  });
+  const repoB = makeRepo({
+    name: 'beta',
+    gh: makeGH({ stars: 50, pushedAt: '2026-03-01T00:00:00Z' }),
+  });
+  const repoC = makeRepo({
+    name: 'gamma',
+    gh: makeGH({ stars: 10, pushedAt: '2025-06-01T00:00:00Z' }),
+  });
   const repoD = makeRepo({ name: 'delta', gh: null }); // no gh data
 
   test('manual: returns new array preserving original order', () => {
@@ -301,7 +330,12 @@ describe('applyView', () => {
   const repoPrivateTS = makeRepo({
     name: 'private-ts',
     branch: 'main',
-    gh: makeGH({ isPrivate: true, language: 'TypeScript', stars: 5, pushedAt: '2026-05-01T00:00:00Z' }),
+    gh: makeGH({
+      isPrivate: true,
+      language: 'TypeScript',
+      stars: 5,
+      pushedAt: '2026-05-01T00:00:00Z',
+    }),
   });
   const repoDirtyRust = makeRepo({
     name: 'dirty-rust',
@@ -343,13 +377,21 @@ describe('applyView', () => {
   test('search + filter combined (AND)', () => {
     const input = [repoPrivateTS, repoDirtyRust, repoPlain];
     // search for 'main' (branch) AND private filter → only private-ts
-    const result = applyView(input, { search: 'main', filters: new Set(['private']), sort: 'manual' });
+    const result = applyView(input, {
+      search: 'main',
+      filters: new Set(['private']),
+      sort: 'manual',
+    });
     expect(result.map((r) => r.name)).toEqual(['private-ts']);
   });
 
   test('search + filter combined → no results', () => {
     const input = [repoPrivateTS, repoDirtyRust, repoPlain];
-    const result = applyView(input, { search: 'rust', filters: new Set(['private']), sort: 'manual' });
+    const result = applyView(input, {
+      search: 'rust',
+      filters: new Set(['private']),
+      sort: 'manual',
+    });
     expect(result).toEqual([]);
   });
 
