@@ -130,9 +130,14 @@ pub fn pty_spawn(
                     };
                     if valid_up_to > 0 {
                         // Safety: validated prefix above.
-                        let text =
-                            unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) };
-                        let _ = app.emit("pty-output", PtyOutput { id: &id, data: text });
+                        let text = unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) };
+                        let _ = app.emit(
+                            "pty-output",
+                            PtyOutput {
+                                id: &id,
+                                data: text,
+                            },
+                        );
                         carry.drain(..valid_up_to);
                     }
                     // A carry that never completes (binary garbage) is dropped
@@ -216,11 +221,11 @@ pub fn pty_spawn_cmd(
 ) -> Result<(), String> {
     // Map repo_type to a COMPILE-TIME constant shell script. Never interpolate.
     let script: &'static str = match repo_type.as_str() {
-        "Tauri"  => "npm run tauri dev",
+        "Tauri" => "npm run tauri dev",
         "NextJs" => "npm run dev",
         "NodeJs" => "npm run dev",
-        "Cargo"  => "cargo run",
-        "Make"   => "make",
+        "Cargo" => "cargo run",
+        "Make" => "make",
         _ => return Err(format!("unknown repo_type: {repo_type}")),
     };
 
@@ -231,7 +236,12 @@ pub fn pty_spawn_cmd(
 
     let pty_system = native_pty_system();
     let pair = pty_system
-        .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
         .map_err(|e| e.to_string())?;
 
     // Use login shell so PATH includes npm/cargo/make regardless of GUI launch context.
@@ -247,7 +257,14 @@ pub fn pty_spawn_cmd(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    sessions.insert(id.clone(), PtySession { writer, master: pair.master, child });
+    sessions.insert(
+        id.clone(),
+        PtySession {
+            writer,
+            master: pair.master,
+            child,
+        },
+    );
     drop(sessions);
 
     // Reader thread: identical to pty_spawn — stream PTY output via pty-output events.
@@ -266,10 +283,18 @@ pub fn pty_spawn_cmd(
                     };
                     if valid_up_to > 0 {
                         let text = unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) };
-                        let _ = app.emit("pty-output", PtyOutput { id: &id, data: text });
+                        let _ = app.emit(
+                            "pty-output",
+                            PtyOutput {
+                                id: &id,
+                                data: text,
+                            },
+                        );
                         carry.drain(..valid_up_to);
                     }
-                    if carry.len() > 4 { carry.clear(); }
+                    if carry.len() > 4 {
+                        carry.clear();
+                    }
                 }
             }
         }
@@ -278,7 +303,9 @@ pub fn pty_spawn_cmd(
                 Ok(s) => s,
                 Err(p) => p.into_inner(),
             };
-            sessions.remove(&id).and_then(|mut s| s.child.wait().ok().map(|st| st.exit_code()))
+            sessions
+                .remove(&id)
+                .and_then(|mut s| s.child.wait().ok().map(|st| st.exit_code()))
         };
         let _ = app.emit("pty-exit", PtyExit { id: &id, code });
     });

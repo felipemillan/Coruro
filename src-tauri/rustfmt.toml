@@ -1,0 +1,4 @@
+# Rust formatting — stable rustfmt defaults, pinned explicitly so `cargo fmt
+# --check` is deterministic across machines and CI.
+edition = "2021"
+max_width = 100
