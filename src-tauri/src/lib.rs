@@ -1,6 +1,10 @@
 mod commands;
 mod pty;
 
+/// Build and run the Tauri application: register the plugins, manage the PTY
+/// session state, wire up every `#[tauri::command]` (the React → Rust boundary;
+/// see `ARCHITECTURE.md`), and start the event loop. Panics only if the app
+/// fails to start, which is unrecoverable.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
