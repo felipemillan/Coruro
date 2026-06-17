@@ -5,17 +5,37 @@
  * pills (Skills / Agents / Commands / MCP / Plugins) with live counts, a search
  * box, and a ⌄ expander.
  *
- * Expanded: a full-width drawer drops down with every Claude capability grouped
- * by type as a grid of buttons. Clicking an item INSERTS its invocation text
- * into the active PTY line (no Enter) so the user can edit/add args before
- * submitting. MCP/agents get a prompt scaffold; skills/commands get the slash.
+ * TWO independent menus (v2 split):
  *
- * Data comes from the same `useClaudeStore` inventory the Command Palette uses.
- * This bar is the always-visible mouse path; Cmd+K remains the keyboard path.
+ *   openMenu === 'favorites'
+ *     A compact popover absolutely positioned below the Favorites pill.
+ *     Width: min(320px, 90vw), max-height: 50vh.
+ *     No search box. Pinned items only. Escape / click-outside closes and
+ *     returns focus to `favTriggerRef`.
+ *
+ *   openMenu === 'inventory'
+ *     The existing full-width drawer below the bar (everything except
+ *     Favorites: Plugins / MCP / Commands / Agents / Skills). The ⌄ expander
+ *     button and the category pills both open this drawer. Escape closes and
+ *     returns focus to `expanderRef`.
+ *
+ * ## closeAll contract (task #5 binding point)
+ *
+ *   Pass a `closeAllRef` prop of type `React.MutableRefObject<(() => void) | null>`.
+ *   This component writes its `closeAll` function into that ref on every render,
+ *   so the parent (AskTab / App) can call `closeAllRef.current?.()` to close
+ *   whichever menu is open — e.g. when the PTY terminal gains focus.
+ *
+ *   Example (task #5):
+ *     const closeAllMenusRef = useRef<(() => void) | null>(null);
+ *     <TopActionBar closeAllRef={closeAllMenusRef} ... />
+ *     // inside terminal focus handler:
+ *     closeAllMenusRef.current?.();
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Star, Search } from 'lucide-react';
+import { ChevronDown, Star, Search, Pencil } from 'lucide-react';
+import { QuickCmdsDialog, loadUserCmds, type UserCmd } from './ask/QuickCmdsDialog';
 import { useClaudeStore } from '../store/useClaudeStore';
 import { useBoardStore } from '../store/useBoardStore';
 import type {
@@ -56,6 +76,7 @@ const BUILTIN_QUICK: { label: string; text: string }[] = [
   { label: '/context', text: '/context ' },
   { label: '/model', text: '/model ' },
   { label: '/review', text: '/review ' },
+  { label: '/caveman ultra', text: '/caveman:caveman ultra ' },
 ];
 
 // ── Favorites (localStorage-backed pins) ─────────────────────────────────────
@@ -102,9 +123,31 @@ export interface TopActionBarProps {
   disabled?: boolean;
   /** Name slug of the currently selected repo, for activity logging. */
   currentRepoName?: string | null;
+  /**
+   * Task #5 binding point — closeAll contract.
+   *
+   * If provided, this component writes its `closeAll` function into the ref on
+   * every render. The parent can call `closeAllRef.current?.()` at any time
+   * (e.g. on terminal focus) to close whichever menu is currently open.
+   *
+   * Usage:
+   *   const closeAllMenusRef = useRef<(() => void) | null>(null);
+   *   <TopActionBar closeAllRef={closeAllMenusRef} ... />
+   *   // somewhere in parent:
+   *   closeAllMenusRef.current?.();
+   */
+  closeAllRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 type GroupKey = 'favorites' | 'skills' | 'agents' | 'commands' | 'mcp' | 'plugins';
+
+/**
+ * Which menu (if any) is currently open.
+ *   'favorites'  — compact popover below the Favorites pill
+ *   'inventory'  — full-width drawer (all capability groups except Favorites)
+ *   null         — both closed
+ */
+type OpenMenu = 'favorites' | 'inventory' | null;
 
 // ── Component ───────────────────────────────────────────────────────────────
 
@@ -112,19 +155,63 @@ export function TopActionBar({
   onInsert,
   disabled = false,
   currentRepoName = null,
+  closeAllRef,
 }: TopActionBarProps) {
   const inventory = useClaudeStore((s) => s.inventory);
   const scanClaude = useClaudeStore((s) => s.scanClaude);
 
-  const [open, setOpen] = useState(false);
+  // Single enum replaces the old `open: boolean`.
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [query, setQuery] = useState('');
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites());
-  const expanderRef = useRef<HTMLButtonElement>(null);
+  const [userCmds, setUserCmds] = useState<UserCmd[]>(() => loadUserCmds());
+  const [editCmdsOpen, setEditCmdsOpen] = useState(false);
+
+  // Two independent focus-return refs — one per trigger.
+  const favTriggerRef = useRef<HTMLButtonElement>(null); // Favorites pill
+  const expanderRef = useRef<HTMLButtonElement>(null); // ⌄ expander
+
+  // Ref for the favorites popover itself (click-outside handling).
+  const favPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Ref for the pencil (edit quick commands) button — focus-return for QuickCmdsDialog.
+  const pencilRef = useRef<HTMLButtonElement>(null);
 
   // Scan once if the inventory hasn't been loaded yet.
   useEffect(() => {
     if (inventory === null) void scanClaude();
   }, [inventory, scanClaude]);
+
+  // ── closeAll — exposed to parent via closeAllRef prop ──────────────────
+  const closeAll = useCallback((): void => {
+    setOpenMenu(null);
+  }, []);
+
+  // Keep the ref current on every render so the parent always has the latest
+  // closure without needing to re-subscribe.
+  useEffect(() => {
+    if (closeAllRef) closeAllRef.current = closeAll;
+  });
+
+  // ── Click-outside for favorites popover ──────────────────────────────
+  useEffect(() => {
+    if (openMenu !== 'favorites') return;
+
+    const handler = (e: MouseEvent): void => {
+      const target = e.target as Node;
+      if (
+        favPopoverRef.current &&
+        !favPopoverRef.current.contains(target) &&
+        favTriggerRef.current &&
+        !favTriggerRef.current.contains(target)
+      ) {
+        setOpenMenu(null);
+        favTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openMenu]);
 
   const skills = inventory?.skills ?? [];
   const agents = inventory?.agents ?? [];
@@ -187,8 +274,12 @@ export function TopActionBar({
     [disabled, onInsert, currentRepoName],
   );
 
+  /**
+   * Open the INVENTORY drawer and scroll to a specific group.
+   * Category pills call this; Favorites pill calls openFavoritesMenu instead.
+   */
   const openTo = (group: GroupKey): void => {
-    setOpen(true);
+    setOpenMenu('inventory');
     // Defer to next frame so the drawer exists before we scroll to the group.
     requestAnimationFrame(() => {
       document
@@ -197,9 +288,18 @@ export function TopActionBar({
     });
   };
 
+  /** Toggle the compact Favorites popover. */
+  const openFavoritesMenu = (): void => {
+    setOpenMenu((prev) => (prev === 'favorites' ? null : 'favorites'));
+  };
+
   // ── Render helpers ──────────────────────────────────────────────────────
 
-  const pill = (label: string, count: number, group: GroupKey) => (
+  /**
+   * Category pill that opens the INVENTORY drawer and scrolls to `group`.
+   * The Favorites pill is rendered separately (it opens the popover, not the drawer).
+   */
+  const inventoryPill = (label: string, count: number, group: GroupKey) => (
     <button
       type="button"
       onClick={() => openTo(group)}
@@ -274,15 +374,108 @@ export function TopActionBar({
     </div>
   );
 
+  const favOpen = openMenu === 'favorites';
+  const inventoryOpen = openMenu === 'inventory';
+
   // ── Collapsed bar ─────────────────────────────────────────────────────────
 
   return (
     <div className="shrink-0 border-b border-warm-gray bg-cream/60">
       {/* Quick row + pills */}
       <div className="flex items-center gap-2 px-4 py-1.5 flex-wrap">
-        {/* Favorites entry point + built-in quick commands */}
+        {/* Favorites pill + built-in quick commands + user quick commands */}
         <div className="flex items-center gap-1">
-          {pill('Favorites', favorites.length, 'favorites')}
+          {/* ── Favorites pill — opens compact popover, NOT the drawer ── */}
+          <div className="relative">
+            <button
+              ref={favTriggerRef}
+              type="button"
+              onClick={openFavoritesMenu}
+              aria-haspopup="dialog"
+              aria-expanded={favOpen}
+              aria-controls="favorites-popover"
+              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            >
+              <Star
+                size={11}
+                strokeWidth={2}
+                className={favorites.length > 0 ? 'text-sage' : 'text-navy-light/40'}
+              />
+              Favorites
+              <span className="text-[10px] text-navy-light/40 tabular-nums">
+                {favorites.length}
+              </span>
+              <ChevronDown
+                size={11}
+                strokeWidth={2}
+                className={`text-navy-light/40 transition-transform ${favOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* ── Favorites compact popover ─────────────────────────────── */}
+            {favOpen && (
+              <div
+                ref={favPopoverRef}
+                id="favorites-popover"
+                role="dialog"
+                aria-label="Pinned favorites"
+                className="absolute left-0 top-full mt-1.5 z-50 w-[min(320px,90vw)] max-h-[50vh] overflow-y-auto rounded-xl border border-warm-gray/80 bg-cream shadow-lg shadow-navy/10"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setOpenMenu(null);
+                    favTriggerRef.current?.focus();
+                  }
+                }}
+              >
+                <div className="px-3 py-2 border-b border-warm-gray/60">
+                  <span className="text-[10px] font-semibold text-sage uppercase tracking-widest">
+                    Pinned
+                  </span>
+                </div>
+                <div className="px-2 py-2 flex flex-col gap-1">
+                  {favorites.length === 0 ? (
+                    <p className="text-[11px] text-navy-light/40 italic px-1 py-3 text-center">
+                      No favorites yet. Tap ★ on any item to pin it.
+                    </p>
+                  ) : (
+                    favorites.map((f) => (
+                      <div
+                        key={f.text}
+                        className="group relative flex items-start gap-1.5 rounded-lg border border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5 transition-colors"
+                      >
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => {
+                            insert(f.text, 'favorite');
+                            setOpenMenu(null);
+                          }}
+                          title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
+                          className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
+                        >
+                          <span className="text-[12px] font-semibold text-navy truncate block">
+                            {f.label}
+                          </span>
+                          <div className="text-[10px] font-mono text-navy-light/45 truncate">
+                            {f.text.trim()}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleFav(f.label, f.text)}
+                          aria-label={`Unpin ${f.label}`}
+                          className="shrink-0 p-1 mt-1 mr-0.5 transition-opacity cursor-pointer focus-visible:outline-none"
+                        >
+                          <Star size={12} strokeWidth={2} className="fill-sage text-sage" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {BUILTIN_QUICK.map((b) => (
             <button
               key={b.text}
@@ -295,65 +488,100 @@ export function TopActionBar({
               {b.label}
             </button>
           ))}
+          {userCmds.map((c) => (
+            <button
+              key={c.text}
+              type="button"
+              disabled={disabled}
+              onClick={() => insert(c.text, 'user-quick')}
+              title={`Insert: ${c.text.trim()}`}
+              className="px-2 py-1 text-[11px] font-mono text-navy-light/70 border border-dashed border-navy-light/30 hover:border-sage hover:text-navy rounded-full transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            >
+              {c.label}
+            </button>
+          ))}
+          {/* Edit user quick commands */}
+          <button
+            ref={pencilRef}
+            type="button"
+            onClick={() => setEditCmdsOpen(true)}
+            aria-label="Edit quick commands"
+            title="Edit quick commands"
+            className="flex items-center justify-center w-7 h-7 text-navy-light/40 hover:text-navy hover:bg-warm-gray/70 rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          >
+            <Pencil size={11} strokeWidth={2} />
+          </button>
         </div>
+        {editCmdsOpen && (
+          <QuickCmdsDialog
+            triggerRef={pencilRef}
+            onClose={() => setEditCmdsOpen(false)}
+            cmds={userCmds}
+            onChange={setUserCmds}
+          />
+        )}
 
         <div className="w-px h-4 bg-warm-gray mx-0.5" />
 
-        {/* Category pills */}
+        {/* Category pills — open INVENTORY drawer */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {pill('Plugins', plugins.length, 'plugins')}
-          {pill('MCP', mcpServers.length, 'mcp')}
+          {inventoryPill('Plugins', plugins.length, 'plugins')}
+          {inventoryPill('MCP', mcpServers.length, 'mcp')}
           <span className="w-px h-3.5 bg-warm-gray mx-0.5" />
-          {pill('Commands', commands.length, 'commands')}
-          {pill('Agents', agents.length, 'agents')}
-          {pill('Skills', skills.length, 'skills')}
+          {inventoryPill('Commands', commands.length, 'commands')}
+          {inventoryPill('Agents', agents.length, 'agents')}
+          {inventoryPill('Skills', skills.length, 'skills')}
         </div>
 
-        {/* Search — focusing/typing opens the drawer */}
+        {/* Search — focusing/typing opens the inventory drawer */}
         <div className="flex items-center gap-1.5 ml-auto">
           <div className="flex items-center gap-1 px-2 py-1 bg-warm-gray rounded-lg">
             <Search size={12} strokeWidth={2} className="text-navy-light/40 shrink-0" />
             <input
               type="text"
               value={query}
-              onFocus={() => setOpen(true)}
+              onFocus={() => setOpenMenu('inventory')}
               onChange={(e) => {
                 setQuery(e.target.value);
-                if (e.target.value !== '') setOpen(true);
+                if (e.target.value !== '') setOpenMenu('inventory');
               }}
               placeholder="Search all…"
-              className="w-32 bg-transparent text-[11px] text-navy placeholder:text-navy-light/40 focus:outline-none"
+              className="w-[clamp(80px,10vw,160px)] bg-transparent text-[11px] text-navy placeholder:text-navy-light/40 focus:outline-none"
             />
           </div>
+          {/* ⌄ expander — opens INVENTORY drawer */}
           <button
             ref={expanderRef}
             type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-label={open ? 'Collapse actions' : 'Expand all actions'}
-            aria-expanded={open}
+            onClick={() => setOpenMenu((prev) => (prev === 'inventory' ? null : 'inventory'))}
+            aria-label={inventoryOpen ? 'Collapse actions' : 'Expand all actions'}
+            aria-expanded={inventoryOpen}
             aria-controls="topbar-drawer"
             className="flex items-center gap-0.5 px-2 py-1 text-[11px] text-navy-light/60 hover:text-navy hover:bg-warm-gray/70 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
           >
             <ChevronDown
               size={14}
               strokeWidth={2}
-              className={`transition-transform ${open ? 'rotate-180' : ''}`}
+              className={`transition-transform ${inventoryOpen ? 'rotate-180' : ''}`}
             />
-            {open ? 'less' : 'more'}
+            {inventoryOpen ? 'less' : 'more'}
           </button>
         </div>
       </div>
 
-      {/* ── Drawer ─────────────────────────────────────────────────────────── */}
-      {open && (
+      {/* ── Inventory Drawer ──────────────────────────────────────────────────
+          Contains: Plugins / MCP / Commands / Agents / Skills.
+          Favorites are NOT shown here — they live in the compact popover above.
+       ──────────────────────────────────────────────────────────────────────── */}
+      {inventoryOpen && (
         <div
           id="topbar-drawer"
           role="region"
           aria-label="Claude capabilities"
-          className="max-h-[42vh] overflow-y-auto border-t border-warm-gray/60 bg-cream px-4 pb-3 pt-0"
+          className="max-h-[42vh] overflow-y-auto scroll-pt-10 border-t border-warm-gray/60 bg-cream px-4 pb-3 pt-0"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
-              setOpen(false);
+              setOpenMenu(null);
               expanderRef.current?.focus();
             }
           }}
@@ -369,53 +597,8 @@ export function TopActionBar({
             </p>
           ) : (
             <div className="flex gap-4 items-start">
-              {/* ── FAVORITES zone ──────────────────────────────────────────── */}
-              {groupCol(
-                'favorites',
-                'Favorites',
-                favorites.length,
-                favorites.length === 0 ? (
-                  <p className="text-[11px] text-navy-light/40 italic px-1 py-2">
-                    No favorites yet. Tap the star to pin.
-                  </p>
-                ) : (
-                  favorites.map((f) => (
-                    <div
-                      key={f.text}
-                      className="group relative flex items-start gap-1.5 rounded-lg border border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5 transition-colors"
-                    >
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => insert(f.text, 'favorite')}
-                        title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
-                        className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
-                      >
-                        <span className="text-[12px] font-semibold text-navy truncate block">
-                          {f.label}
-                        </span>
-                        <div className="text-[10px] font-mono text-navy-light/45 truncate">
-                          {f.text.trim()}
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleFav(f.label, f.text)}
-                        aria-label={`Unpin ${f.label}`}
-                        className="shrink-0 p-1 mt-1 mr-0.5 transition-opacity cursor-pointer focus-visible:outline-none"
-                      >
-                        <Star size={12} strokeWidth={2} className="fill-sage text-sage" />
-                      </button>
-                    </div>
-                  ))
-                ),
-              )}
-
-              {/* divider */}
-              <div className="w-px self-stretch bg-warm-gray shrink-0" />
-
               {/* ── SOURCES zone (providers — filter / context) ─────────────── */}
-              <div className="flex gap-3 shrink-0 w-[300px]">
+              <div className="flex gap-3 shrink-0 w-[clamp(200px,24vw,320px)]">
                 {groupCol(
                   'plugins',
                   'Plugins',
@@ -470,7 +653,7 @@ export function TopActionBar({
               <div className="w-px self-stretch bg-warm-gray shrink-0" />
 
               {/* ── INVOCABLES zone (insert into prompt) ────────────────────── */}
-              <div className="flex-1 min-w-0 grid grid-cols-[1fr_1.2fr_2.4fr] gap-4 items-start">
+              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1.2fr_2.4fr] gap-4 items-start">
                 {groupCol(
                   'commands',
                   'Commands',

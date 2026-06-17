@@ -1,9 +1,12 @@
 // Zustand store for Claude Command Center state.
 //
-// Runtime-only ephemeral state: inventory scan results, AI health summary.
-// Never persisted — all state is re-derived on demand.
+// Enrichments are persisted to localStorage (keys below) to avoid re-running
+// the on-device AI pass on every load.  Only blurbs whose context hash is
+// unchanged are reused; stale/removed ids are pruned automatically.
+// No secrets ever reach localStorage — claudeEnrich.ts guarantees secret-free
+// context strings (packageHint + hostname only).
 
-import { create } from 'zustand';
+import { create, type StateCreator } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import {
   type ClaudeInventory,
@@ -19,6 +22,58 @@ import { buildEnrichmentItems } from '../utils/claudeEnrich';
 import { buildCurateFindings, buildCuratePayload } from '../utils/claudeCurate';
 import { capItemsToContextBudget } from '../utils/aiContext';
 
+// ── localStorage keys ────────────────────────────────────────────────────────
+const LS_ENRICHMENTS = 'coruro.claude.enrichments';
+const LS_ENRICHMENT_HASHES = 'coruro.claude.enrichments.hashes';
+
+/**
+ * Stable cyrb53 hash of a plain string — same algorithm as inputHash() in
+ * aiContext.ts but accepts a raw string instead of an AiContext object.
+ * Used to detect when an item's context has changed and its cached blurb
+ * must be invalidated.
+ */
+function contextHash(str: string): string {
+  let h1 = 0xdeadbeef ^ str.length;
+  let h2 = 0x41c6ce57 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
+}
+
+/** Load enrichments + hashes from localStorage, returning empty maps on any error. */
+function loadEnrichmentsFromStorage(): {
+  enrichments: Record<string, string>;
+  enrichmentHashes: Record<string, string>;
+} {
+  try {
+    const rawBlurbs = localStorage.getItem(LS_ENRICHMENTS);
+    const rawHashes = localStorage.getItem(LS_ENRICHMENT_HASHES);
+    const enrichments = rawBlurbs ? (JSON.parse(rawBlurbs) as Record<string, string>) : {};
+    const enrichmentHashes = rawHashes ? (JSON.parse(rawHashes) as Record<string, string>) : {};
+    return { enrichments, enrichmentHashes };
+  } catch {
+    return { enrichments: {}, enrichmentHashes: {} };
+  }
+}
+
+/** Persist current enrichments + hashes to localStorage. */
+function saveEnrichmentsToStorage(
+  enrichments: Record<string, string>,
+  enrichmentHashes: Record<string, string>,
+): void {
+  try {
+    localStorage.setItem(LS_ENRICHMENTS, JSON.stringify(enrichments));
+    localStorage.setItem(LS_ENRICHMENT_HASHES, JSON.stringify(enrichmentHashes));
+  } catch {
+    // localStorage quota exceeded or unavailable — silently degrade.
+  }
+}
+
 /** Freshness window: skip rescan if inventory is younger than this. */
 const SCAN_FRESHNESS_MS = 60_000;
 
@@ -31,10 +86,16 @@ interface ClaudeStore {
   aiUnavailableReason: string | null;
 
   /**
-   * Per-item AI blurbs keyed by ClaudeEnrichItem.id. Acts as an in-memory
-   * cache: once an id has a blurb it is never regenerated for the session.
+   * Per-item AI blurbs keyed by ClaudeEnrichItem.id. Persisted to localStorage
+   * so blurbs survive tab-away / reload without re-running the AI pass.
+   * Entries are invalidated when the item's context string changes.
    */
   enrichments: Record<string, string>;
+  /**
+   * Parallel map: itemId → cyrb53 hash of the context string that produced the
+   * blurb. Used during scanClaude to prune stale cache entries.
+   */
+  enrichmentHashes: Record<string, string>;
   enrichLoading: boolean;
   enrichUnavailableReason: string | null;
   /** Live progress of the background enrichment pass; null when idle. */
@@ -79,6 +140,157 @@ interface ClaudeStore {
   generateRecommendations: () => Promise<void>;
 }
 
+// ── Extracted async helpers (keep create() callback under line-count limit) ───
+
+type StoreSet = Parameters<StateCreator<ClaudeStore>>[0];
+type StoreGet = Parameters<StateCreator<ClaudeStore>>[1];
+
+/** Invoke the sidecar for one chunk; returns parsed response or null on failure. */
+async function invokeEnrichChunk(
+  set: StoreSet,
+  chunk: ClaudeEnrichItem[],
+  done: number,
+  total: number,
+): Promise<ClaudeEnrichResponse | null> {
+  try {
+    const raw = await invoke<string>('ai_enrich', { items: chunk });
+    return JSON.parse(raw) as ClaudeEnrichResponse;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    set({
+      enrichUnavailableReason: `AI enrichment issue: ${message}`,
+      enrichProgress: { done, total },
+    });
+    return null;
+  }
+}
+
+/** Merge a successful chunk's blurbs into store + localStorage. */
+function applyEnrichChunk(
+  set: StoreSet,
+  get: StoreGet,
+  chunk: ClaudeEnrichItem[],
+  parsed: ClaudeEnrichResponse,
+): boolean {
+  if (parsed.ok && parsed.blurbs) {
+    const mergedBlurbs: Record<string, string> = { ...get().enrichments };
+    const mergedHashes: Record<string, string> = { ...get().enrichmentHashes };
+    for (const blurb of parsed.blurbs) {
+      mergedBlurbs[blurb.id] = blurb.text.trim();
+      const src = chunk.find((it) => it.id === blurb.id);
+      if (src) mergedHashes[blurb.id] = contextHash(src.context);
+    }
+    set({
+      enrichments: mergedBlurbs,
+      enrichmentHashes: mergedHashes,
+      enrichUnavailableReason: null,
+    });
+    saveEnrichmentsToStorage(mergedBlurbs, mergedHashes);
+    return false; // not terminal
+  }
+  const errCode = parsed.error ?? '';
+  if (errCode.includes('sidecar_missing') || errCode.includes('unavailable')) {
+    set({ enrichUnavailableReason: 'Apple Intelligence is unavailable on this device.' });
+    return true; // terminal — stop the pass
+  }
+  if (errCode.length > 0) {
+    set({ enrichUnavailableReason: `AI enrichment issue: ${errCode}` });
+  }
+  return false;
+}
+
+async function runGenerateEnrichments(set: StoreSet, get: StoreGet): Promise<void> {
+  const { inventory, enrichments } = get();
+  if (inventory === null) return;
+
+  // Build secret-free items. Skip ids already cached (blurb + hash still valid).
+  const items: ClaudeEnrichItem[] = buildEnrichmentItems(inventory);
+  const newItems = items.filter((item) => !(item.id in enrichments));
+  if (newItems.length === 0) return;
+
+  if (get().enrichLoading) return; // already running — don't double-start
+
+  const CHUNK = 4; // small chunks → smooth progress + bounded per-call latency
+  set({
+    enrichLoading: true,
+    enrichUnavailableReason: null,
+    enrichProgress: { done: 0, total: newItems.length },
+  });
+  try {
+    for (let i = 0; i < newItems.length; i += CHUNK) {
+      const chunk = capItemsToContextBudget(newItems.slice(i, i + CHUNK), (its) =>
+        JSON.stringify({ mode: 'enrich', items: its }),
+      );
+      if (chunk.length === 0) continue;
+      const doneAfter = Math.min(i + chunk.length, newItems.length);
+      const parsed = await invokeEnrichChunk(set, chunk, doneAfter, newItems.length);
+      if (parsed === null) continue; // transient failure already recorded
+      const terminal = applyEnrichChunk(set, get, chunk, parsed);
+      if (terminal) break;
+      set({ enrichProgress: { done: doneAfter, total: newItems.length } });
+    }
+  } finally {
+    set({ enrichLoading: false, enrichProgress: null });
+  }
+}
+
+async function runGenerateRecommendations(set: StoreSet, get: StoreGet): Promise<void> {
+  const { inventory } = get();
+  if (inventory === null) return;
+
+  const findings: CurateFinding[] = buildCurateFindings(inventory);
+  set({ recommendations: findings });
+
+  const { useBoardStore } = await import('./useBoardStore');
+  useBoardStore.getState().logActivity({
+    id: crypto.randomUUID(),
+    ts: Date.now(),
+    kind: 'curator_run',
+    repoName: null,
+  });
+
+  set({ curateLoading: true, curateUnavailableReason: null });
+  try {
+    const payload = buildCuratePayload(findings);
+    const cappedFindings = capItemsToContextBudget(payload.findings, (f) =>
+      JSON.stringify({ mode: 'curate', findings: f, summary: payload.summary }),
+    );
+    const raw = await invoke<string>('ai_curate', {
+      findings: cappedFindings,
+      summary: payload.summary,
+    });
+    const parsed = JSON.parse(raw) as ClaudeCurateResponse;
+
+    if (parsed.ok && parsed.body) {
+      set({ curateNarrative: parsed.body.trim() });
+    } else {
+      const errCode = parsed.error ?? '';
+      if (
+        errCode.includes('noFindings') ||
+        errCode.includes('unavailable') ||
+        errCode.includes('sidecar_missing')
+      ) {
+        set({ curateUnavailableReason: null });
+      } else if (errCode.length > 0) {
+        set({ curateUnavailableReason: `AI narrative unavailable: ${errCode}` });
+      } else {
+        set({ curateUnavailableReason: 'AI narrative unavailable — unknown error.' });
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    set({ curateUnavailableReason: `AI narrative unavailable: ${message}` });
+  } finally {
+    set({ curateLoading: false });
+  }
+}
+
+// ── Store ────────────────────────────────────────────────────────────────────
+
+// Load any previously persisted blurbs so the AI pass doesn't re-run on reload.
+const { enrichments: _initEnrichments, enrichmentHashes: _initEnrichmentHashes } =
+  loadEnrichmentsFromStorage();
+
 export const useClaudeStore = create<ClaudeStore>((set, get) => ({
   inventory: null,
   scanning: false,
@@ -86,7 +298,8 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
   aiSummary: null,
   aiSummaryLoading: false,
   aiUnavailableReason: null,
-  enrichments: {},
+  enrichments: _initEnrichments,
+  enrichmentHashes: _initEnrichmentHashes,
   enrichLoading: false,
   enrichUnavailableReason: null,
   enrichProgress: null,
@@ -109,16 +322,35 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
     set({ scanning: true, scanError: null });
     try {
       const result = await scanClaudeFs();
-      // Fresh inventory invalidates the per-item blurb cache and stale curator state.
+
+      // Build the new inventory's item set so we can prune the enrichment cache.
+      // Keep blurbs whose id is still present AND whose context hash is unchanged.
+      // Drop blurbs for ids that no longer appear (pruned inventory).
+      const newItems = buildEnrichmentItems(result);
+      const newIdToContext = new Map(newItems.map((it) => [it.id, it.context]));
+      const { enrichments: prevBlurbs, enrichmentHashes: prevHashes } = get();
+      const keptBlurbs: Record<string, string> = {};
+      const keptHashes: Record<string, string> = {};
+      for (const [id, blurb] of Object.entries(prevBlurbs)) {
+        const newCtx = newIdToContext.get(id);
+        if (newCtx !== undefined && prevHashes[id] === contextHash(newCtx)) {
+          keptBlurbs[id] = blurb;
+          keptHashes[id] = prevHashes[id];
+        }
+      }
+      // Persist the pruned cache immediately so stale entries don't survive reload.
+      saveEnrichmentsToStorage(keptBlurbs, keptHashes);
+
       set({
         inventory: result,
-        enrichments: {},
+        enrichments: keptBlurbs,
+        enrichmentHashes: keptHashes,
         recommendations: null,
         curateNarrative: null,
         curateUnavailableReason: null,
         curateLoading: false,
       });
-      // Kick off background enrichment (best-effort; never blocks the scan).
+      // Kick off background enrichment for genuinely new/changed items.
       void get().generateEnrichments();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -130,9 +362,7 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
 
   generateHealthSummary: async () => {
     const { inventory } = get();
-    if (inventory === null) {
-      return;
-    }
+    if (inventory === null) return;
 
     set({ aiSummaryLoading: true, aiUnavailableReason: null });
     try {
@@ -164,148 +394,13 @@ export const useClaudeStore = create<ClaudeStore>((set, get) => ({
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      set({
-        aiUnavailableReason: `AI summary unavailable: ${message}`,
-      });
+      set({ aiUnavailableReason: `AI summary unavailable: ${message}` });
     } finally {
       set({ aiSummaryLoading: false });
     }
   },
 
-  generateEnrichments: async () => {
-    const { inventory, enrichments } = get();
-    if (inventory === null) {
-      return;
-    }
+  generateEnrichments: () => runGenerateEnrichments(set, get),
 
-    // Build secret-free items, then drop any id we already have a blurb for —
-    // the in-memory cache is authoritative; known ids are never regenerated.
-    const items: ClaudeEnrichItem[] = buildEnrichmentItems(inventory);
-    const newItems = items.filter((item) => !(item.id in enrichments));
-    if (newItems.length === 0) {
-      return;
-    }
-
-    // Already running? don't double-start.
-    if (get().enrichLoading) return;
-
-    const CHUNK = 4; // small chunks → smooth progress + bounded per-call latency
-    set({
-      enrichLoading: true,
-      enrichUnavailableReason: null,
-      enrichProgress: { done: 0, total: newItems.length },
-    });
-    try {
-      for (let i = 0; i < newItems.length; i += CHUNK) {
-        const chunk = capItemsToContextBudget(newItems.slice(i, i + CHUNK), (items) =>
-          JSON.stringify({ mode: 'enrich', items }),
-        );
-        if (chunk.length === 0) continue;
-        let parsed: ClaudeEnrichResponse;
-        try {
-          const raw = await invoke<string>('ai_enrich', { items: chunk });
-          parsed = JSON.parse(raw) as ClaudeEnrichResponse;
-        } catch (err) {
-          // Transient invoke/parse failure on one chunk — skip it, keep going.
-          const message = err instanceof Error ? err.message : String(err);
-          set({ enrichUnavailableReason: `AI enrichment issue: ${message}` });
-          set({
-            enrichProgress: {
-              done: Math.min(i + chunk.length, newItems.length),
-              total: newItems.length,
-            },
-          });
-          continue;
-        }
-
-        if (parsed.ok && parsed.blurbs) {
-          const merged: Record<string, string> = { ...get().enrichments };
-          for (const blurb of parsed.blurbs) {
-            merged[blurb.id] = blurb.text.trim();
-          }
-          set({ enrichments: merged, enrichUnavailableReason: null });
-        } else {
-          const errCode = parsed.error ?? '';
-          // Device-level unavailability is terminal — stop the whole pass.
-          if (errCode.includes('sidecar_missing') || errCode.includes('unavailable')) {
-            set({ enrichUnavailableReason: 'Apple Intelligence is unavailable on this device.' });
-            break;
-          }
-          // Otherwise note it and continue with the next chunk.
-          if (errCode.length > 0) {
-            set({ enrichUnavailableReason: `AI enrichment issue: ${errCode}` });
-          }
-        }
-
-        set({
-          enrichProgress: {
-            done: Math.min(i + chunk.length, newItems.length),
-            total: newItems.length,
-          },
-        });
-      }
-    } finally {
-      set({ enrichLoading: false, enrichProgress: null });
-    }
-  },
-
-  generateRecommendations: async () => {
-    const { inventory } = get();
-    if (inventory === null) {
-      return;
-    }
-
-    // DETERMINISTIC: compute + commit findings first. These render instantly
-    // and never depend on AI availability.
-    const findings: CurateFinding[] = buildCurateFindings(inventory);
-    set({ recommendations: findings });
-
-    // Log curator_run after findings are committed. Cross-store call via
-    // getState() at call-time to avoid a top-level import cycle.
-    const { useBoardStore } = await import('./useBoardStore');
-    useBoardStore.getState().logActivity({
-      id: crypto.randomUUID(),
-      ts: Date.now(),
-      kind: 'curator_run',
-      repoName: null,
-    });
-
-    // ADDITIVE: qualitative narrative only. Mirrors generateHealthSummary.
-    set({ curateLoading: true, curateUnavailableReason: null });
-    try {
-      const payload = buildCuratePayload(findings);
-      const cappedFindings = capItemsToContextBudget(payload.findings, (f) =>
-        JSON.stringify({ mode: 'curate', findings: f, summary: payload.summary }),
-      );
-      const raw = await invoke<string>('ai_curate', {
-        findings: cappedFindings,
-        summary: payload.summary,
-      });
-      const parsed = JSON.parse(raw) as ClaudeCurateResponse;
-
-      if (parsed.ok && parsed.body) {
-        set({ curateNarrative: parsed.body.trim() });
-      } else {
-        const errCode = parsed.error ?? '';
-        // A tidy setup (noFindings) or an unavailable device are benign — the
-        // deterministic findings (or empty state) already convey everything.
-        if (
-          errCode.includes('noFindings') ||
-          errCode.includes('unavailable') ||
-          errCode.includes('sidecar_missing')
-        ) {
-          set({ curateUnavailableReason: null });
-        } else if (errCode.length > 0) {
-          set({ curateUnavailableReason: `AI narrative unavailable: ${errCode}` });
-        } else {
-          set({ curateUnavailableReason: 'AI narrative unavailable — unknown error.' });
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      set({ curateUnavailableReason: `AI narrative unavailable: ${message}` });
-    } finally {
-      set({ curateLoading: false });
-    }
-  },
+  generateRecommendations: () => runGenerateRecommendations(set, get),
 }));

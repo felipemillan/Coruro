@@ -212,6 +212,41 @@ html {
   border-top: 1px solid var(--color-outline-variant);
   margin: 1.2em 0;
 }
+/* Compact variant — used inside modals and side panels (MarkdownBody compact prop). */
+.markdown-body--compact {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.markdown-body--compact h1 {
+  font-size: 1.3em;
+}
+.markdown-body--compact h2 {
+  font-size: 1.1em;
+}
+.markdown-body--compact h3,
+.markdown-body--compact h4 {
+  font-size: 1em;
+}
+.markdown-body--compact p {
+  margin: 0.5em 0;
+}
+/* Inline link button — rendered by MarkdownBody <a> override; looks like a link, acts as one. */
+.markdown-body .markdown-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  display: inline;
+}
+.markdown-body .markdown-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
 
 /* ── Command Palette (cmdk) ─────────────────────────────────────────────── */
 
@@ -352,4 +387,12 @@ html {
     opacity: 1;
     transform: translateX(-50%) scale(1);
   }
+}
+
+/* Drag-over feedback when a file is dragged onto the Ask terminal (drop writes
+   the file path into the PTY). Toggled on the container div by useAskTerminal. */
+.drag-over-ring {
+  outline: 2px dashed var(--color-sage, #8faf8a);
+  outline-offset: -6px;
+  background-color: color-mix(in srgb, var(--color-sage, #8faf8a) 8%, transparent);
 }

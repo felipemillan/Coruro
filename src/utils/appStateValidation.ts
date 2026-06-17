@@ -31,6 +31,8 @@ function applyBooleanSettings(s: Record<string, unknown>, base: Settings): void 
   for (const k of ['hasToken', 'debugBannerEnabled', 'autoNotesEnabled'] as const) {
     if (typeof s[k] === 'boolean') base[k] = s[k] as boolean;
   }
+  const tt = s.terminalTheme;
+  if (tt === 'mocha' || tt === 'latte') base.terminalTheme = tt;
 }
 
 /** Finite, in-range minute intervals only (refresh ≥ 0, autoNotes > 0). */
@@ -183,6 +185,8 @@ export function validateChatSessions(
           startedAt: s.startedAt as number,
           status: 'ended',
           exitCode: typeof s.exitCode === 'number' ? (s.exitCode as number) : null,
+          // Legacy sessions (pre-shell feature) have no `kind` — default to 'claude'.
+          kind: s.kind === 'shell' ? 'shell' : 'claude',
         }),
       );
   }

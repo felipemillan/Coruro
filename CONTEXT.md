@@ -1,15 +1,15 @@
 # Context
 
-**Current Task:** Staff-level hardening + oversized-file refactor — COMPLETE. Hardening (Phases 0–5) pushed to `origin/main` (`0ac0228`). Oversized-file splits done this run and committed locally (`0a18166`, NOT yet pushed). Full `just gate` green: 157 TS + 9 Rust + 5 Swift tests, 0 lint/fmt errors. App rebuilt + replaced at `/Applications/Coruro.app`.
+**Current Task:** Ask-tab terminal overhaul + 10-request feature batch. Committed + pushed to `main`.
 
 **Key Decisions:**
 
-- All 5 P0 invariants PASS (zero-network AI, secret-free Command Center, Keychain-only token, git read-only via `git_fetch` carve-out + boundary test, sidecar <4096 tokens enforced TS+Swift). ADRs in `docs/adr/`.
-- Oversized-file splits landed via a MODEL-TIERED workflow (Opus god-store, Sonnet ×6) on the pushed hardened base: useBoardStore 1209→48, RepoDetail→450, CommandCenterTab→416, claudeScanner→193, AskTab→272, Settings→154, CommandPalette→311. Behavior-preserving; eslint baseline pruned (debt down). Only `types.ts` (508, declarations) marginally >500.
-- Lesson: workflow worktrees branch from the pushed remote — push before running, and exclude `.claude/worktrees` when linting (eslint `.` recurses into them; remove worktrees before gating/pruning).
-- npm audit: 3 high-sev esbuild advisories are DEV-only (Deno/Windows-dev-server vectors), not in the shipped bundle; fix = breaking vite@8. Accepted, deferred.
+- Ask sidebar rebuilt: pinned "Github" root-dir shell, "+ start new session" chooser (Shell/Claude), repo→session breakdown with absolute date-time stamps. Shell button moved out of the controls row.
+- Independent shell sessions via `pty_spawn_shell` (`exec $SHELL -il`), `ChatSession.kind: 'claude'|'shell'` (legacy defaults to claude). Terminal accepts file drag-drop (writes path to PTY via Tauri `onDragDropEvent`).
+- Terminal reflow fixed (min-w-0 + overflow-hidden so FitAddon measures real width; isVisible refit-on-show). Board responsive = `grid-cols-[repeat(5,minmax(200px,1fr))]`. Settings gear moved to global header. Health summary removed from Command Center.
 
 **Next Steps:**
 
-- Push `origin/main` to publish the splits commit `0a18166` (needs user OK — policy-gated).
-- Optional: code-split the 1 MB JS bundle (vite manualChunks) + lift `types.ts` under 500; React component test coverage.
+- Subagents truncated mid-task repeatedly this session — sidebar/shell work was hand-finished + gate-verified.
+- Rebuild + replace `/Applications/Coruro.app` when ready (still on old build).
+- Live-test shell sessions + drag-drop in dev (`npm run tauri dev`).

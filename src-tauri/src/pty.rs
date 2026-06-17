@@ -230,6 +230,26 @@ pub fn pty_kill(state: State<'_, PtyState>, id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Spawn an independent interactive login shell rooted at `cwd`.
+/// Uses `exec "${SHELL:-/bin/zsh}" -il` so the user's preferred shell is
+/// honoured while still being launched through a login context. No claude, no
+/// extra tooling — just a plain navigable shell for the user.
+#[tauri::command]
+pub fn pty_spawn_shell(
+    app: AppHandle,
+    state: State<'_, PtyState>,
+    id: String,
+    cwd: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    let mut cmd = CommandBuilder::new("/bin/zsh");
+    cmd.args(["-lc", r#"exec "${SHELL:-/bin/zsh}" -il"#]);
+    cmd.cwd(&cwd);
+    cmd.env("TERM", "xterm-256color");
+    spawn_in_pty(app, &state, id, cmd, cols, rows)
+}
+
 /// Map a validated `repo_type` to its hardcoded run command. Pure + tested so
 /// the command table can't silently drift and unknown types are always
 /// rejected — this is the guarantee that no user-supplied string enters the

@@ -46,12 +46,7 @@ function isColumnId(value: string): value is ColumnId {
   return (COLUMN_IDS as readonly string[]).includes(value);
 }
 
-interface BoardProps {
-  /** Forwarded to the Toolbar's settings gear; state lives in App. */
-  onOpenSettings: () => void;
-}
-
-export function Board({ onOpenSettings }: BoardProps) {
+export function Board() {
   const board = useBoardStore((s) => s.board);
   const repos = useBoardStore((s) => s.repos);
   const moveCard = useBoardStore((s) => s.moveCard);
@@ -98,11 +93,11 @@ export function Board({ onOpenSettings }: BoardProps) {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <Toolbar onOpenSettings={onOpenSettings} />
+      <Toolbar />
       <AiBanner />
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="grid grid-cols-5 gap-4 p-4 flex-1 min-h-0">
+        <div className="grid grid-cols-[repeat(5,minmax(200px,1fr))] gap-4 p-4 flex-1 min-h-0 overflow-auto">
           {COLUMN_IDS.map((columnId) => {
             // All live repos in this column (persisted order), then the view
             // transform (search + filters + sort). `manual` sort keeps order.

@@ -329,7 +329,8 @@ if modeProbe?.mode == "enrich" {
         emitEnrich(EnrichResponse(ok: false, blurbs: nil, model: nil, error: "unavailable")); exit(0)
     }
 
-    // Cap the batch; ignore anything beyond the limit.
+    // Cap the batch; ignore anything beyond the limit. PAIRED CONSTANT — must match
+    // MAX_ITEMS in src/utils/claudeEnrich.ts; any change requires updates to both.
     let items = req.items.prefix(40)
 
     let session = LanguageModelSession(

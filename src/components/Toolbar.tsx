@@ -7,7 +7,7 @@
 // Design contract: rounded-none, indie pastel palette, text-[11px]/[12px],
 // lucide-react icons with strokeWidth 1.5–1.75, transition-colors duration-150.
 
-import { Search, ArrowUpDown, X, Settings as SettingsIcon } from 'lucide-react';
+import { Search, ArrowUpDown, X } from 'lucide-react';
 import { useViewStore } from '../store/useViewStore';
 import {
   FILTER_KEYS,
@@ -19,12 +19,7 @@ import {
   type SortMode,
 } from '../view';
 
-interface ToolbarProps {
-  /** Opens the controlled Settings modal (state lives in App). */
-  onOpenSettings: () => void;
-}
-
-export function Toolbar({ onOpenSettings }: ToolbarProps) {
+export function Toolbar() {
   // Individual selectors — do not destructure the whole store in one selector.
   const search = useViewStore((s) => s.search);
   const filters = useViewStore((s) => s.filters);
@@ -135,24 +130,6 @@ export function Toolbar({ onOpenSettings }: ToolbarProps) {
           Clear
         </button>
       )}
-
-      {/* ── Settings gear — pushed to the far right ── */}
-      <button
-        type="button"
-        onClick={onOpenSettings}
-        aria-label="Open settings"
-        title="Settings (⌘,)"
-        className="
-          ml-auto shrink-0
-          flex items-center justify-center
-          w-8 h-8 rounded-full
-          text-navy-light hover:text-navy hover:bg-warm-gray
-          transition-colors duration-150
-          cursor-pointer
-        "
-      >
-        <SettingsIcon size={18} strokeWidth={1.5} />
-      </button>
     </div>
   );
 }

@@ -19,7 +19,14 @@ import { useAskTerminal } from './ask/useAskTerminal';
 /** Undo window (ms) for an inline session delete before teardown is finalized. */
 const DELETE_UNDO_MS = 6000;
 
-export function AskTab() {
+interface AskTabProps {
+  /** True when the Ask tab is the currently active (visible) tab. Forwarded to
+   *  useAskTerminal so it can refit the terminal after the display:none wrapper
+   *  becomes visible again. */
+  isVisible: boolean;
+}
+
+export function AskTab({ isVisible }: AskTabProps) {
   const repos = useBoardStore((s) => s.repos);
   const rootDirectory = useBoardStore((s) => s.settings.rootDirectory);
   const sorted = [...repos].sort((a, b) => a.name.localeCompare(b.name));
@@ -48,9 +55,13 @@ export function AskTab() {
   );
   // Inline-delete undo toast: holds the pending-delete id + label, else null.
   const [deleteToast, setDeleteToast] = useState<{ id: string; label: string } | null>(null);
+  // The pinned "Github" root-dir shell session id (created on first open).
+  const [githubShellId, setGithubShellId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const newBtnRef = useRef<HTMLButtonElement | null>(null);
+  // Ref written by TopActionBar so we can call closeAll from outside (task #5).
+  const closeAllMenusRef = useRef<(() => void) | null>(null);
   // Sessions deleted but inside the undo window: stash the full session + its
   // expiry timer so Undo can restore the row (and keep a running PTY alive).
   const pendingDeletesRef = useRef<
@@ -65,6 +76,7 @@ export function AskTab() {
     buffersRef,
     switchToSession,
     start,
+    startShell,
     handleRunBuild,
     stopSession,
     handlePaletteSelect,
@@ -77,6 +89,8 @@ export function AskTab() {
     addChatSession,
     updateChatSessionStatus,
     setPaletteOpen,
+    onTerminalFocus: () => closeAllMenusRef.current?.(),
+    isVisible,
   });
 
   useEffect(() => {
@@ -222,6 +236,21 @@ export function AskTab() {
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
 
+  // Pinned "Github" entry: focus the existing root-dir shell if alive, else
+  // start a fresh one rooted at the root scan dir and remember its id.
+  const openGithubShell = useCallback(() => {
+    if (githubShellId !== null && sessions.some((s) => s.id === githubShellId)) {
+      switchToSession(githubShellId);
+      return;
+    }
+    void startShell({ title: 'Github' }).then((id) => {
+      if (id !== null) setGithubShellId(id);
+    });
+  }, [githubShellId, sessions, switchToSession, startShell]);
+
+  const githubShellRunning =
+    githubShellId !== null && sessions.find((s) => s.id === githubShellId)?.status === 'running';
+
   return (
     <>
       <CommandPalette
@@ -236,6 +265,11 @@ export function AskTab() {
           sessions={sessions}
           activeSessionId={activeSessionId}
           deleteToast={deleteToast}
+          githubShellId={githubShellId}
+          githubShellRunning={githubShellRunning}
+          onOpenGithubShell={openGithubShell}
+          onStartShell={() => void startShell()}
+          onStartClaude={() => void start(undefined, repoPath, question, getRepoName)}
           onSelectSession={switchToSession}
           onDeleteSession={requestDelete}
           onUndoDelete={undoDelete}
@@ -265,6 +299,7 @@ export function AskTab() {
           onInsert={handleInsert}
           getRepoName={getRepoName}
           newBtnRef={newBtnRef}
+          closeAllMenusRef={closeAllMenusRef}
         />
       </div>
     </>

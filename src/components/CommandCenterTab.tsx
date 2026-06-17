@@ -33,11 +33,7 @@ export function CommandCenterTab() {
   const inventory = useClaudeStore((s) => s.inventory);
   const scanning = useClaudeStore((s) => s.scanning);
   const scanError = useClaudeStore((s) => s.scanError);
-  const aiSummary = useClaudeStore((s) => s.aiSummary);
-  const aiSummaryLoading = useClaudeStore((s) => s.aiSummaryLoading);
-  const aiUnavailableReason = useClaudeStore((s) => s.aiUnavailableReason);
   const scanClaude = useClaudeStore((s) => s.scanClaude);
-  const generateHealthSummary = useClaudeStore((s) => s.generateHealthSummary);
 
   const enrichments = useClaudeStore((s) => s.enrichments);
   const enrichLoading = useClaudeStore((s) => s.enrichLoading);
@@ -218,10 +214,8 @@ export function CommandCenterTab() {
       <CommandCenterHeader
         scanning={scanning}
         inventoryLoaded={inventory !== null}
-        aiSummaryLoading={aiSummaryLoading}
         quickActions={quickActions}
         onRefresh={() => void scanClaude({ force: true })}
-        onHealthSummary={() => void generateHealthSummary()}
       />
 
       {scanError !== null && (
@@ -325,9 +319,6 @@ export function CommandCenterTab() {
                 onPluginSearch={setPluginSearch}
                 pluginFilter={pluginFilter}
                 onPluginFilter={setPluginFilter}
-                aiSummary={aiSummary}
-                aiSummaryLoading={aiSummaryLoading}
-                aiUnavailableReason={aiUnavailableReason}
                 enrichUnavailableReason={enrichUnavailableReason}
               />
             )}

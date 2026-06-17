@@ -35,7 +35,8 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             commands::detect_repo_type,
-            pty::pty_spawn_cmd
+            pty::pty_spawn_cmd,
+            pty::pty_spawn_shell
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

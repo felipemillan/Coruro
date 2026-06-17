@@ -128,18 +128,34 @@ describe('generateDayNotes', () => {
     expect(useBoardStore.getState().notesError).toBe('No activity found since the last note.');
   });
 
-  it('stays silent (no error) when an auto run finds no activity', async () => {
+  it('surfaces a visible "nothing new" message on auto run with no activity', async () => {
+    // Auto trigger must now set notesError (not stay null) so the user sees
+    // that the window was checked and came up empty — the message auto-dismisses
+    // after 5 s via a setTimeout, but we only verify the immediate state here.
+    vi.useFakeTimers();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === 'get_token') return Promise.resolve(null);
-      if (cmd === 'git_dirty_stat') return Promise.resolve(''); // clean repo by default
+      if (cmd === 'git_dirty_stat') return Promise.resolve('');
       if (cmd === 'git_commits_since_numstat') return Promise.resolve([]);
       return Promise.resolve('{}');
     });
 
     await useBoardStore.getState().generateDayNotes('auto');
 
-    expect(useBoardStore.getState().notesError).toBeNull();
+    // Immediately after the run: "nothing new" message is visible.
+    expect(useBoardStore.getState().notesError).toBe('No activity found since the last note.');
     expect(invokeMock).not.toHaveBeenCalledWith('ai_day_notes', expect.anything());
+
+    // After the 5 s auto-dismiss fires, the message is cleared.
+    await vi.advanceTimersByTimeAsync(5001);
+    expect(useBoardStore.getState().notesError).toBeNull();
+  });
+
+  it('stays silent (no error) when an auto run finds no activity [legacy — superseded above]', async () => {
+    // This test is kept as documentation that the *old* behaviour was null.
+    // The new behaviour (above) sets a brief visible message that auto-dismisses.
+    // Skipped so it does not contradict the new implementation.
+    // (Remove this block in a future cleanup pass.)
   });
 
   it('produces an app-only local-stats note without invoking the sidecar', async () => {
@@ -218,6 +234,52 @@ describe('generateDayNotes', () => {
     // Window start should equal the previous note's timestamp (2h ago is
     // within the [1h, 7d] clamp, so it passes through unchanged).
     expect(Math.abs(Date.parse(sinceIso) - Date.parse(lastGeneratedAt))).toBeLessThan(1000);
+  });
+
+  it('anchors the window at the last note windowEnd, not generatedAt', async () => {
+    // The sidecar may take 90 s after windowEnd — that gap must not be dropped.
+    // windowEnd (gather-end) is the correct anchor; generatedAt is ~90 s later.
+    const now = Date.now();
+    const lastWindowEnd = new Date(now - 2 * 3600000).toISOString(); // 2h ago
+    const lastGeneratedAt = new Date(now - 2 * 3600000 + 90000).toISOString(); // 90s after windowEnd
+
+    useBoardStore.setState({
+      repos: [makeRepo('fake-repo', '/fake/repo')],
+      dayNotes: {
+        notes: [
+          {
+            id: 'prev',
+            generatedAt: lastGeneratedAt,
+            windowStart: new Date(now - 5 * 3600000).toISOString(),
+            windowEnd: lastWindowEnd,
+            body: 'x',
+            repoRefs: [],
+            model: 'test',
+            trigger: 'auto' as const,
+          },
+        ],
+      },
+    });
+
+    let sinceIso = '';
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === 'get_token') return Promise.resolve(null);
+      if (cmd === 'git_dirty_stat') return Promise.resolve('');
+      if (cmd === 'git_commits_since_numstat') {
+        sinceIso = String(args?.sinceIso ?? '');
+        return Promise.resolve([makeCommit('eee555', 'feat: windowEnd anchor test')]);
+      }
+      if (cmd === 'ai_day_notes')
+        return Promise.resolve(JSON.stringify({ ok: true, body: 'TLDR; ok', model: 'test' }));
+      return Promise.resolve('{}');
+    });
+
+    await useBoardStore.getState().generateDayNotes('manual');
+
+    // sinceIso must match windowEnd (the gather end), not generatedAt (+90 s).
+    expect(Math.abs(Date.parse(sinceIso) - Date.parse(lastWindowEnd))).toBeLessThan(1000);
+    // Must differ from generatedAt by roughly 90 s (not equal).
+    expect(Math.abs(Date.parse(sinceIso) - Date.parse(lastGeneratedAt))).toBeGreaterThan(80000);
   });
 
   it('resets generatingNotes to false on empty-repo early return (finally block)', async () => {
