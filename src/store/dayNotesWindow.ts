@@ -28,7 +28,9 @@ export function shouldSkipAutoRun(
   now: number,
   autoNotesIntervalMin: number,
 ): boolean {
-  const lastMs = lastAiNoteMs(notes);
+  // Use generatedAt for the interval check — this is the wall-clock time the
+  // note was written, which determines "how long ago did we last run?".
+  const lastMs = lastAiNoteGeneratedAtMs(notes);
   if (!Number.isFinite(lastMs)) return false;
   const intervalMs = (autoNotesIntervalMin > 0 ? autoNotesIntervalMin : 60) * 60 * 1000;
   return now - lastMs < intervalMs;
@@ -40,11 +42,18 @@ export function shouldSkipAutoRun(
  * happened since the previous one"; clamps the start to at most 7 days back. No
  * 1-hour minimum clamp is applied — a recent last note yields a short window
  * and the "no activity" path handles it.
+ *
+ * Anchor priority: use the previous note's windowEnd (the exact timestamp that
+ * note's gathering ended), falling back to generatedAt for older notes that lack
+ * it. Using generatedAt would silently drop any activity that happened between
+ * windowEnd and generatedAt (i.e. the time spent running the sidecar/gather).
  */
 export function computeWindow(notes: DayNote[], now: number): DayNotesWindow {
-  const lastMs = lastAiNoteMs(notes);
+  const lastMs = lastAiNoteAnchorMs(notes);
   let windowStartMs = Number.isFinite(lastMs) ? lastMs : now - 86400000;
   windowStartMs = Math.max(windowStartMs, now - 7 * 86400000);
+  // windowStart is the exclusive lower bound passed to git_commits_since_numstat
+  // and all GitHub API calls — nothing before this timestamp is ever included.
   return {
     windowStart: new Date(windowStartMs).toISOString(),
     windowEnd: new Date(now).toISOString(),
@@ -52,11 +61,29 @@ export function computeWindow(notes: DayNote[], now: number): DayNotesWindow {
 }
 
 /**
- * Epoch ms of the most recent AI-generated note's generatedAt, or NaN when no
- * such note exists. A hand-written ('user') note must not move the anchor —
- * otherwise a 5pm manual note would silently drop earlier activity.
+ * Epoch ms of the most recent AI-generated note's generatedAt. Used by
+ * shouldSkipAutoRun to measure "how long since the last run?" (wall-clock).
+ * Returns NaN when no AI-generated note exists.
  */
-function lastAiNoteMs(notes: DayNote[]): number {
+function lastAiNoteGeneratedAtMs(notes: DayNote[]): number {
   const lastAiNote = [...notes].reverse().find((n) => n.trigger !== 'user');
   return lastAiNote ? Date.parse(lastAiNote.generatedAt) : NaN;
+}
+
+/**
+ * Epoch ms of the anchor for the next window start: the most recent AI note's
+ * windowEnd, falling back to generatedAt when windowEnd is absent (legacy notes).
+ * Returns NaN when no AI-generated note exists.
+ *
+ * A hand-written ('user') note must not move the anchor — otherwise a 5pm manual
+ * note would silently drop earlier activity.
+ */
+function lastAiNoteAnchorMs(notes: DayNote[]): number {
+  const lastAiNote = [...notes].reverse().find((n) => n.trigger !== 'user');
+  if (!lastAiNote) return NaN;
+  // Prefer windowEnd (covers all gathered activity); fall back to generatedAt
+  // for notes written before windowEnd was stored, or when windowEnd is empty
+  // (legacy fixture data that pre-dates the field).
+  const anchor = lastAiNote.windowEnd || lastAiNote.generatedAt;
+  return Date.parse(anchor);
 }

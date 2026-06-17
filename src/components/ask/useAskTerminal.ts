@@ -4,10 +4,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { ChatSession } from '../../types';
 import { useBoardStore } from '../../store/useBoardStore';
+import { CATPPUCCIN_MOCHA, CATPPUCCIN_LATTE } from './termThemes';
 
 interface PtyOutput {
   id: string;
@@ -23,13 +25,77 @@ interface PtyExit {
  *  persist metadata only, never the real transcript. */
 const RESTORED_BANNER = '\r\n\x1b[2m── restored session (ended) ──\x1b[0m\r\n';
 
-const TERM_THEME = {
-  background: '#1A1C16',
-  foreground: '#F9FAEF',
-  cursor: '#CDEDA3',
-  cursorAccent: '#1A1C16',
-  selectionBackground: '#4C662B66',
+/** Returns true when the Tauri physical-pixel position falls inside el's CSS rect. */
+function dropIsInsideEl(pos: { x: number; y: number } | undefined, el: HTMLElement): boolean {
+  if (pos === undefined) return true; // no position info — allow
+  const dpr = window.devicePixelRatio || 1;
+  const cssX = pos.x / dpr;
+  const cssY = pos.y / dpr;
+  const r = el.getBoundingClientRect();
+  return cssX >= r.left && cssX <= r.right && cssY >= r.top && cssY <= r.bottom;
+}
+
+/** Shell-quote a list of absolute paths (single-quote; escape embedded quotes). */
+function shellQuotePaths(paths: string[]): string {
+  return paths.map((p) => (p.includes(' ') ? `'${p.replace(/'/g, "'\\''")}'` : p)).join(' ');
+}
+
+/** Derive a shell session's repo base name + display title (override wins). */
+function shellSessionNames(
+  rootDirectory: string | null,
+  titleOverride?: string,
+): { baseName: string; title: string } {
+  const baseName = rootDirectory ? (rootDirectory.split('/').pop() ?? 'shell') : 'shell';
+  const title = titleOverride ?? (rootDirectory ? `Shell · ${baseName}` : 'Shell');
+  return { baseName, title };
+}
+
+interface DragDropCtx {
+  el: HTMLElement | null;
+  displayedId: string | null;
+  termFocus: () => void;
+}
+
+type DragPayload = {
+  type: string;
+  position?: { x: number; y: number };
+  paths?: string[];
 };
+
+/** Handles a Tauri drag-drop event for the terminal container. */
+/** Toggles the drag-hover ring class; returns true if the event was a hover/leave. */
+function applyDragHover(type: string, el: HTMLElement | null): boolean {
+  if (type === 'over' || type === 'enter') {
+    el?.classList.add('drag-over-ring');
+    return true;
+  }
+  if (type === 'leave' || type === 'cancelled') {
+    el?.classList.remove('drag-over-ring');
+    return true;
+  }
+  return false;
+}
+
+/** Writes dropped paths into the active PTY stdin. */
+function commitDrop(payload: DragPayload, ctx: DragDropCtx): void {
+  const { el, displayedId } = ctx;
+  if (el === null || displayedId === null) return;
+  if (!dropIsInsideEl(payload.position, el)) return;
+  const paths = payload.paths ?? [];
+  if (paths.length === 0) return;
+  void invoke('pty_write', { id: displayedId, data: shellQuotePaths(paths) + ' ' }).catch(
+    () => undefined,
+  );
+  ctx.termFocus();
+}
+
+/** Dispatches a Tauri drag-drop event to the terminal container. */
+function handleDragDrop(payload: DragPayload, ctx: DragDropCtx): void {
+  if (applyDragHover(payload.type, ctx.el)) return;
+  if (payload.type !== 'drop') return;
+  ctx.el?.classList.remove('drag-over-ring');
+  commitDrop(payload, ctx);
+}
 
 interface UseAskTerminalOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -39,6 +105,16 @@ interface UseAskTerminalOptions {
   addChatSession: (s: ChatSession) => void;
   updateChatSessionStatus: (id: string, status: 'ended', code: number | null) => void;
   setPaletteOpen: (open: boolean) => void;
+  /** Called when the xterm Terminal gains focus (click or programmatic). Use
+   *  this to close overlaying menus without relying on React onClick, which is
+   *  unreliable on the raw xterm canvas. Only fires when activeSessionId is
+   *  non-null (a session is displayed). */
+  onTerminalFocus?: () => void;
+  /** True when the Ask tab is the active (visible) tab. Used to refit the
+   *  terminal after the parent container transitions out of display:none —
+   *  ResizeObserver does not fire when a hidden element becomes visible if its
+   *  reported size is unchanged from before it was hidden. */
+  isVisible?: boolean;
 }
 
 export interface UseAskTerminalResult {
@@ -55,6 +131,7 @@ export interface UseAskTerminalResult {
     question: string,
     getRepoName: (p: string) => string,
   ) => Promise<void>;
+  startShell: (opts?: { title?: string }) => Promise<string | null>;
   handleRunBuild: (
     repoDetection: { repoType: string; label: string },
     repoPath: string,
@@ -73,9 +150,18 @@ export function useAskTerminal({
   addChatSession,
   updateChatSessionStatus,
   setPaletteOpen,
+  onTerminalFocus,
+  isVisible,
 }: UseAskTerminalOptions): UseAskTerminalResult {
+  const terminalTheme = useBoardStore((s) => s.settings.terminalTheme);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  // Keep the latest onTerminalFocus callback in a ref so ensureTerminal's
+  // useCallback never needs it in its dependency array.
+  const onTerminalFocusRef = useRef<(() => void) | undefined>(onTerminalFocus);
+  useEffect(() => {
+    onTerminalFocusRef.current = onTerminalFocus;
+  });
   // Which session's output is currently rendered in the terminal.
   const displayedIdRef = useRef<string | null>(null);
   // Accumulated raw output per session (for buffer replay on switch).
@@ -91,11 +177,12 @@ export function useAskTerminal({
   const ensureTerminal = useCallback((): Terminal | null => {
     if (termRef.current !== null) return termRef.current;
     if (containerRef.current === null) return null;
+    const theme = terminalTheme === 'latte' ? CATPPUCCIN_LATTE : CATPPUCCIN_MOCHA;
     const term = new Terminal({
       fontSize: 12.5,
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, 'Courier New', monospace",
       cursorBlink: true,
-      theme: TERM_THEME,
+      theme,
       scrollback: 5000,
     });
     const fit = new FitAddon();
@@ -107,10 +194,17 @@ export function useAskTerminal({
       const id = displayedIdRef.current;
       if (id !== null) void invoke('pty_write', { id, data }).catch(() => undefined);
     });
+    // Close any open menus when the user clicks into the terminal. React onClick
+    // on the container is unreliable because xterm consumes pointer events on its
+    // canvas — listening on the underlying textarea focus is the correct intercept.
+    const onFocusHandler = () => {
+      if (displayedIdRef.current !== null) onTerminalFocusRef.current?.();
+    };
+    term.textarea?.addEventListener('focus', onFocusHandler);
     termRef.current = term;
     fitRef.current = fit;
     return term;
-  }, [containerRef]);
+  }, [containerRef, terminalTheme]);
 
   const switchToSession = useCallback(
     (sessionId: string) => {
@@ -369,6 +463,88 @@ export function useAskTerminal({
     ],
   );
 
+  // Spawns an independent interactive login shell. Kind = 'shell' so sidebar
+  // renders it with a distinct icon. Always enabled — no repo selection needed.
+  const startShell = useCallback(
+    async (opts?: { title?: string }): Promise<string | null> => {
+      if (containerRef.current === null) return null;
+      setSpawnError(null);
+
+      const rootDirectory = useBoardStore.getState().settings.rootDirectory;
+      const id = crypto.randomUUID();
+      const { baseName, title } = shellSessionNames(rootDirectory, opts?.title);
+
+      const session: ChatSession = {
+        id,
+        repoPath: rootDirectory ?? '',
+        repoName: baseName,
+        title,
+        startedAt: Date.now(),
+        status: 'running',
+        exitCode: null,
+        kind: 'shell',
+      };
+
+      addChatSession(session);
+      useBoardStore.getState().logActivity({
+        id: crypto.randomUUID(),
+        ts: Date.now(),
+        kind: 'ask_session_started',
+        repoName: baseName,
+      });
+      buffersRef.current.set(id, '');
+
+      const term = ensureTerminal()!;
+      term.reset();
+      displayedIdRef.current = id;
+      setActiveSessionId(id);
+
+      const unOut = await listen<PtyOutput>('pty-output', (e) => {
+        if (e.payload.id !== id) return;
+        const chunk = e.payload.data;
+        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
+        if (displayedIdRef.current === id) term.write(chunk);
+      });
+
+      const unExit = await listen<PtyExit>('pty-exit', (e) => {
+        if (e.payload.id !== id) return;
+        const msg = `\r\n\x1b[2m── session ended${e.payload.code !== null ? ` (exit ${e.payload.code})` : ''} ──\x1b[0m\r\n`;
+        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + msg);
+        if (displayedIdRef.current === id) term.write(msg);
+        updateChatSessionStatus(id, 'ended', e.payload.code);
+      });
+
+      unlistenersRef.current.set(id, [unOut, unExit]);
+
+      try {
+        await invoke('pty_spawn_shell', {
+          id,
+          cwd: rootDirectory ?? '',
+          cols: term.cols,
+          rows: term.rows,
+        });
+        switchToSession(id);
+        term.focus();
+      } catch (e: unknown) {
+        setSpawnError(e instanceof Error ? e.message : String(e));
+        updateChatSessionStatus(id, 'ended', -1);
+        unlistenersRef.current.get(id)?.forEach((u) => u());
+        unlistenersRef.current.delete(id);
+      }
+
+      return id;
+    },
+    [
+      containerRef,
+      setSpawnError,
+      addChatSession,
+      ensureTerminal,
+      setActiveSessionId,
+      updateChatSessionStatus,
+      switchToSession,
+    ],
+  );
+
   const stopSession = useCallback((sessionId: string) => {
     void invoke('pty_kill', { id: sessionId }).catch(() => undefined);
   }, []);
@@ -394,19 +570,50 @@ export function useAskTerminal({
     termRef.current?.focus();
   }, []);
 
-  // Cleanup on unmount.
+  // Drag-and-drop: Tauri's webview captures native drag events (HTML5 onDrop
+  // never fires when dragDropEnabled=true, the default). On drop, write the
+  // absolute path(s) into the active PTY stdin — no \r so the user can review.
+  // Paths with spaces are single-quoted (matches Terminal.app behaviour).
+  // A subtle ring is toggled on the container while files are hovering over it.
   useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    void getCurrentWebview()
+      .onDragDropEvent((event) => {
+        handleDragDrop(event.payload as DragPayload, {
+          el: containerRef.current,
+          displayedId: displayedIdRef.current,
+          termFocus: () => termRef.current?.focus(),
+        });
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+
     return () => {
-      termRef.current?.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      for (const uns of unlistenersRef.current.values()) uns.forEach((u) => u());
-      unlistenersRef.current.clear();
-      for (const timers of quickActionTimersRef.current.values())
-        timers.forEach((t) => clearTimeout(t));
-      quickActionTimersRef.current.clear();
+      unlisten?.();
     };
-  }, []);
+  }, [containerRef]);
+
+  // Refit when the Ask tab becomes visible again after being hidden (display:none).
+  // ResizeObserver does not fire in that transition when the container's reported
+  // size happens to equal its pre-hidden size, so the terminal's col/row count
+  // stays stale and text overflows / disappears. We use requestAnimationFrame so
+  // the browser has finished painting the newly-visible layout before we measure.
+  useEffect(() => {
+    if (!isVisible) return;
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (term === null || fit === null) return;
+    const el = containerRef.current;
+    if (el === null) return;
+    requestAnimationFrame(() => {
+      if (el.clientWidth === 0 || el.clientHeight === 0) return;
+      fit.fit();
+      const id = displayedIdRef.current;
+      if (id !== null)
+        void invoke('pty_resize', { id, cols: term.cols, rows: term.rows }).catch(() => undefined);
+    });
+  }, [isVisible, containerRef]);
 
   // Resize observer: keep xterm in sync with container size.
   useEffect(() => {
@@ -435,6 +642,7 @@ export function useAskTerminal({
     quickActionTimersRef,
     switchToSession,
     start,
+    startShell,
     handleRunBuild,
     stopSession,
     handlePaletteSelect,

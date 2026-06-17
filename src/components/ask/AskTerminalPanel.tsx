@@ -2,6 +2,7 @@
 // the xterm.js terminal area. Extracted from AskTab.tsx for size.
 
 import { type RefObject } from 'react';
+import type React from 'react';
 import { Plus, Square, SquareTerminal } from 'lucide-react';
 import { TopActionBar } from '../TopActionBar';
 import type { ChatSession } from '../../types';
@@ -25,6 +26,8 @@ interface AskTerminalPanelProps {
   onInsert: (text: string) => void;
   getRepoName: (path: string) => string;
   newBtnRef: RefObject<HTMLButtonElement | null>;
+  /** Ref that TopActionBar writes its closeAll fn into (task #5 contract). */
+  closeAllMenusRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export function AskTerminalPanel({
@@ -46,11 +49,12 @@ export function AskTerminalPanel({
   onInsert,
   getRepoName,
   newBtnRef,
+  closeAllMenusRef,
 }: AskTerminalPanelProps) {
   const activeRunning = activeSession?.status === 'running';
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 min-w-0">
       {/* Controls row */}
       <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-warm-gray bg-cream/60">
         <SquareTerminal size={15} strokeWidth={1.75} className="text-sage shrink-0" />
@@ -124,7 +128,11 @@ export function AskTerminalPanel({
       </div>
 
       {/* Global action bar — insert skills/agents/commands/MCP into the prompt */}
-      <TopActionBar onInsert={onInsert} disabled={activeSessionId === null} />
+      <TopActionBar
+        onInsert={onInsert}
+        disabled={activeSessionId === null}
+        closeAllRef={closeAllMenusRef}
+      />
 
       {spawnError !== null && (
         <div className="shrink-0 px-4 py-1.5 text-[11px] font-mono bg-terracotta/15 text-terracotta border-b border-terracotta/40">
@@ -134,7 +142,7 @@ export function AskTerminalPanel({
       )}
 
       {/* Terminal area */}
-      <div className="relative flex-1 min-h-0 bg-[#1A1C16]">
+      <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden bg-[#1A1C16]">
         {activeSessionId === null && (
           <div className="absolute inset-x-0 mt-24 flex flex-col items-center gap-2 pointer-events-none">
             <SquareTerminal size={28} strokeWidth={1.25} className="text-cream/20" />

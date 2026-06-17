@@ -1,9 +1,8 @@
 // PreviewPane.tsx — right-pane top half: markdown doc or AI summary switcher.
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Sparkles } from 'lucide-react';
 import { AiSummaryPane } from './AiSummaryPane';
+import { MarkdownBody } from '../shared/MarkdownBody';
 import type { Repo } from '../../types';
 
 interface AiProps {
@@ -43,11 +42,7 @@ function DocBody({
   if (loading) return <p className="p-6 text-[13px] text-navy-light/50">Loading…</p>;
   if (error !== null) return <p className="p-6 text-[13px] text-terracotta font-mono">{error}</p>;
   if (previewContent !== null) {
-    return (
-      <div className="markdown-body p-6 max-w-[820px]">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewContent}</ReactMarkdown>
-      </div>
-    );
+    return <MarkdownBody className="p-6 max-w-[820px]">{previewContent}</MarkdownBody>;
   }
   if (fileBodyLoading) return <p className="p-6 text-[13px] text-navy-light/50">Loading file…</p>;
   return (

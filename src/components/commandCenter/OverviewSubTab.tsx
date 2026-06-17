@@ -1,12 +1,10 @@
 // OverviewSubTab.tsx — Overview sub-tab for the Command Center.
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type { ClaudeInventory, ClaudePlugin } from '../../types';
 import { SkillsDonut } from '../claude/SkillsDonut';
 import { FilterBar } from '../claude/FilterBar';
 import type { FilterGroup } from '../claude/FilterBar';
-import { SectionHeader, mdComponents } from '../claude/markdownComponents';
+import { SectionHeader } from '../claude/markdownComponents';
 import { EventChip, SourceChip } from './GroupedList';
 import { PluginCard } from './PluginCard';
 
@@ -113,38 +111,6 @@ function GlobalMemorySection({
   );
 }
 
-function AiHealthPanel({
-  aiSummary,
-  aiSummaryLoading,
-  aiUnavailableReason,
-}: {
-  aiSummary: string | null;
-  aiSummaryLoading: boolean;
-  aiUnavailableReason: string | null;
-}) {
-  if (aiSummary === null && !aiSummaryLoading && aiUnavailableReason === null) return null;
-  return (
-    <section>
-      <SectionHeader label="AI Health Summary" />
-      <div className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-3">
-        {aiSummaryLoading && (
-          <p className="text-sm text-navy-light animate-pulse">Generating summary&hellip;</p>
-        )}
-        {aiUnavailableReason !== null && !aiSummaryLoading && (
-          <p className="text-xs text-navy-light">{aiUnavailableReason}</p>
-        )}
-        {aiSummary !== null && !aiSummaryLoading && (
-          <div className="text-sm text-navy leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-              {aiSummary}
-            </ReactMarkdown>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Public interface
 // ---------------------------------------------------------------------------
@@ -159,9 +125,6 @@ interface OverviewSubTabProps {
   onPluginSearch: (v: string) => void;
   pluginFilter: string;
   onPluginFilter: (v: string) => void;
-  aiSummary: string | null;
-  aiSummaryLoading: boolean;
-  aiUnavailableReason: string | null;
   enrichUnavailableReason: string | null;
 }
 
@@ -175,9 +138,6 @@ export function OverviewSubTab({
   onPluginSearch,
   pluginFilter,
   onPluginFilter,
-  aiSummary,
-  aiSummaryLoading,
-  aiUnavailableReason,
   enrichUnavailableReason,
 }: OverviewSubTabProps) {
   return (
@@ -198,12 +158,6 @@ export function OverviewSubTab({
           <GlobalMemorySection globalMemory={inventory.globalMemory} />
         )}
       </div>
-
-      <AiHealthPanel
-        aiSummary={aiSummary}
-        aiSummaryLoading={aiSummaryLoading}
-        aiUnavailableReason={aiUnavailableReason}
-      />
 
       {enrichUnavailableReason !== null && (
         <p className="text-xs text-navy-light">{enrichUnavailableReason}</p>

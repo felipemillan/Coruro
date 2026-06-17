@@ -86,6 +86,8 @@ export interface BoardStore extends AppState {
   setEditorApp: (app: string) => Promise<void>;
   /** Set the macOS terminal app name (open -a) and persist. */
   setTerminalApp: (app: string) => Promise<void>;
+  /** Set the Catppuccin terminal colour theme ('mocha' | 'latte') and persist. */
+  setTerminalTheme: (theme: 'mocha' | 'latte') => Promise<void>;
 
   /** Append a DayNote; trims the list to 90 entries and persists. */
   addDayNote: (note: DayNote) => void;

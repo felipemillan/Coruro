@@ -8,11 +8,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import type { Components } from 'react-markdown';
 import { X, FileText, Folder, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
 import { getFileTree, getMarkdownFile, type TreeNode } from '../../utils/repoDetail';
+import { MarkdownBody } from '../shared/MarkdownBody';
 import type { ClaudeMcpServer } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -40,44 +38,6 @@ function hostOf(url: string | null | undefined): string | null {
     return null;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Markdown render components (compact, warm palette)
-// ---------------------------------------------------------------------------
-
-const md: Components = {
-  p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed text-navy/90">{children}</p>,
-  h1: ({ children }) => (
-    <h1 className="text-base font-bold text-navy mt-4 mb-2 pb-1 border-b border-warm-gray/50 first:mt-0">
-      {children}
-    </h1>
-  ),
-  h2: ({ children }) => (
-    <h2 className="text-sm font-semibold text-navy mt-4 mb-1.5 first:mt-0">{children}</h2>
-  ),
-  h3: ({ children }) => (
-    <h3 className="text-xs font-semibold text-navy/70 mt-3 mb-1 first:mt-0">{children}</h3>
-  ),
-  ul: ({ children }) => (
-    <ul className="list-disc list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">
-      {children}
-    </ul>
-  ),
-  ol: ({ children }) => (
-    <ol className="list-decimal list-outside ml-4 space-y-0.5 text-sm text-navy/85 mb-2">
-      {children}
-    </ol>
-  ),
-  li: ({ children }) => <li className="mb-0.5 leading-snug">{children}</li>,
-  code: ({ children }) => (
-    <code className="font-mono text-xs bg-navy/6 border border-navy/10 px-1 py-0.5 rounded">
-      {children}
-    </code>
-  ),
-  strong: ({ children }) => <strong className="font-semibold text-navy">{children}</strong>,
-  a: ({ children }) => <span className="text-sage underline">{children}</span>,
-  hr: () => <hr className="border-warm-gray/30 my-3" />,
-};
 
 // ---------------------------------------------------------------------------
 // File-tree row (recursive) — dirs toggle, files select.
@@ -287,11 +247,7 @@ export function ClaudeDetail({
               {loading ? (
                 <p className="text-sm text-navy-light animate-pulse">Loading…</p>
               ) : isMd ? (
-                <div className="text-sm text-navy leading-relaxed">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>
-                    {content}
-                  </ReactMarkdown>
-                </div>
+                <MarkdownBody compact>{content}</MarkdownBody>
               ) : (
                 <pre className="text-xs font-mono text-navy/90 whitespace-pre-wrap break-words">
                   {content}

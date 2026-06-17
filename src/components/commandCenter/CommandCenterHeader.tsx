@@ -1,6 +1,6 @@
 // CommandCenterHeader.tsx — top action bar for the Command Center tab.
 
-import { RefreshCw, Sparkles } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import type { ElementType } from 'react';
 
 interface QuickAction {
@@ -13,19 +13,15 @@ interface QuickAction {
 interface CommandCenterHeaderProps {
   scanning: boolean;
   inventoryLoaded: boolean;
-  aiSummaryLoading: boolean;
   quickActions: QuickAction[];
   onRefresh: () => void;
-  onHealthSummary: () => void;
 }
 
 export function CommandCenterHeader({
   scanning,
   inventoryLoaded,
-  aiSummaryLoading,
   quickActions,
   onRefresh,
-  onHealthSummary,
 }: CommandCenterHeaderProps) {
   return (
     <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b border-warm-gray bg-cream/60">
@@ -65,18 +61,6 @@ export function CommandCenterHeader({
         >
           <RefreshCw size={12} strokeWidth={2} />
           Refresh
-        </button>
-        <button
-          type="button"
-          title="Generate AI health summary"
-          onClick={onHealthSummary}
-          disabled={scanning || aiSummaryLoading || !inventoryLoaded}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-warm-gray bg-cream text-xs text-navy
-                     hover:bg-cream/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage/50 focus-visible:ring-offset-1"
-        >
-          <Sparkles size={12} strokeWidth={2} />
-          Health summary
         </button>
       </div>
     </div>

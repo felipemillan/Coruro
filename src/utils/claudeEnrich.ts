@@ -26,8 +26,8 @@ import type { ClaudeInventory, ClaudeEnrichItem } from '../types';
 
 /**
  * Maximum total items returned, to bound model-call latency. Kept equal to the
- * sidecar's per-batch cap (main.swift `prefix(40)`) so no item is silently left
- * without a blurb.
+ * sidecar's per-batch cap (main.swift line 333 `prefix(40)`). PAIRED CONSTANT —
+ * must be kept in sync; changes require updates to both this value and main.swift.
  */
 const MAX_ITEMS = 40;
 

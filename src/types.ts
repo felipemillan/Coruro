@@ -54,6 +54,11 @@ export interface Settings {
   autoNotesEnabled: boolean;
   /** Auto day-notes generation interval, in minutes. */
   autoNotesIntervalMin: number;
+  /**
+   * Catppuccin flavour used for the xterm.js terminal in the ASK tab.
+   * 'mocha' = dark, 'latte' = light. Defaults to 'mocha'.
+   */
+  terminalTheme: 'mocha' | 'latte';
 }
 
 /**
@@ -232,6 +237,10 @@ export interface ChatSession {
   startedAt: number;
   status: 'running' | 'ended';
   exitCode: number | null;
+  /** Discriminates Claude Code sessions from independent shell sessions.
+   *  Optional for backward-compat: absent on persisted pre-v2 sessions,
+   *  treated as 'claude' by the validator on load. */
+  kind?: 'claude' | 'shell';
 }
 
 /** Persisted collection of ASK chat sessions (metadata only). */
@@ -284,6 +293,7 @@ export function createEmptyAppState(): AppState {
       refreshIntervalMin: 10,
       autoNotesEnabled: false,
       autoNotesIntervalMin: 60,
+      terminalTheme: 'mocha',
     },
     board: {
       inbox: [],

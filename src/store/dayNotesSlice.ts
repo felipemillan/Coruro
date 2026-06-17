@@ -154,10 +154,17 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
         const appEvents = get().eventsInWindow(windowStart, windowEnd);
 
         if (activeRepoData.length === 0 && appEvents.length === 0) {
-          // Manual click deserves feedback; a recurring auto run with a quiet
-          // window should not paint an error banner.
-          if (trigger === 'manual') {
-            set({ notesError: 'No activity found since the last note.' });
+          // Both manual and auto runs surface a brief "nothing new" message so
+          // the user can see the window was checked and came up empty — auto
+          // runs auto-dismiss after 5 s so the banner is non-blocking.
+          set({ notesError: 'No activity found since the last note.' });
+          if (trigger === 'auto') {
+            setTimeout(() => {
+              // Only clear if the message hasn't been replaced by a real error.
+              if (get().notesError === 'No activity found since the last note.') {
+                get().clearNotesError();
+              }
+            }, 5000);
           }
           return;
         }

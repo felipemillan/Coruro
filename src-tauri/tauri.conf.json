@@ -15,6 +15,8 @@
         "title": "Coruro",
         "width": 1200,
         "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
         "transparent": true,
         "decorations": true
       }

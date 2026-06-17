@@ -12,6 +12,7 @@ type SettingsSlice = Pick<
   | 'setEditorCommand'
   | 'setEditorApp'
   | 'setTerminalApp'
+  | 'setTerminalTheme'
 >;
 
 export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice {
@@ -38,6 +39,11 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
 
     setTerminalApp: async (app) => {
       set((s) => ({ settings: { ...s.settings, terminalApp: app } }));
+      await get().save();
+    },
+
+    setTerminalTheme: async (theme) => {
+      set((s) => ({ settings: { ...s.settings, terminalTheme: theme } }));
       await get().save();
     },
   };

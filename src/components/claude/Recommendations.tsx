@@ -8,13 +8,12 @@
 // from the deterministic finding, never from the model. Cards render even when
 // Apple Intelligence is unavailable.
 
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { Sparkles, RefreshCw } from 'lucide-react';
 import { homeDir, join } from '@tauri-apps/api/path';
 import type { CurateFinding, CurateCategory } from '../../types';
 import { useViewStore } from '../../store/useViewStore';
-import { mdComponents, SectionHeader } from './markdownComponents';
+import { SectionHeader } from './markdownComponents';
+import { MarkdownBody } from '../shared/MarkdownBody';
 
 export interface RecommendationsProps {
   findings: CurateFinding[] | null;
@@ -154,13 +153,7 @@ export function Recommendations({
           {unavailableReason !== null && !loading && (
             <p className="text-xs text-navy-light">{unavailableReason}</p>
           )}
-          {narrative !== null && !loading && (
-            <div className="text-sm text-navy leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                {narrative}
-              </ReactMarkdown>
-            </div>
-          )}
+          {narrative !== null && !loading && <MarkdownBody compact>{narrative}</MarkdownBody>}
         </div>
       )}
 

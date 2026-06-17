@@ -4,14 +4,13 @@
 //  1. Call store.load() on mount; show a minimal loader while !loaded.
 //  2. Render <Setup> when settings.rootDirectory is null (first run).
 //  3. Render <Board> once a root is configured.
-//  4. The app name and Settings gear live on the Board's Toolbar row (passed
-//     down via onOpenSettings) — there is no longer a separate nav bar.
-//     Settings also opens via the ⌘, shortcut, which works on every screen.
+//  4. The Settings gear lives in the global tab-nav header (far right), so it
+//     is available on every tab. Settings also opens via ⌘, on every screen.
 //     App owns the open state and the controlled <Settings> modal.
 //  5. An optional debug strip renders at the top when enabled.
 
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Settings as SettingsIcon } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useBoardStore } from './store/useBoardStore';
 import { useViewStore } from './store/useViewStore';
@@ -244,7 +243,7 @@ export default function App() {
         ) : (
           /* Normal: tab bar + content */
           <>
-            {/* Top-level tab bar — Notes | Board */}
+            {/* Top-level tab bar — Notes | Board | Ask | Claude + gear */}
             <div className="shrink-0 flex items-center border-b border-warm-gray bg-cream/60">
               <button
                 type="button"
@@ -296,6 +295,16 @@ export default function App() {
               >
                 Claude
               </button>
+              {/* Settings gear — pushed to the far right of the global header */}
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Open settings"
+                title="Settings (⌘,)"
+                className="ml-auto mr-1 shrink-0 flex items-center justify-center w-8 h-8 rounded-full text-navy-light hover:text-navy hover:bg-warm-gray transition-colors duration-150 cursor-pointer"
+              >
+                <SettingsIcon size={14} strokeWidth={1.5} />
+              </button>
             </div>
 
             {/* Tab content. AskTab is display-toggled (not unmounted) so its
@@ -304,13 +313,13 @@ export default function App() {
               {activeTab === 'notes' ? (
                 <NotesTab />
               ) : activeTab === 'board' ? (
-                <Board onOpenSettings={() => setSettingsOpen(true)} />
+                <Board />
               ) : activeTab === 'claude' ? (
                 <CommandCenterTab />
               ) : null}
               {askVisited && (
                 <div className={activeTab === 'ask' ? 'flex flex-col flex-1 min-h-0' : 'hidden'}>
-                  <AskTab />
+                  <AskTab isVisible={activeTab === 'ask'} />
                 </div>
               )}
             </div>

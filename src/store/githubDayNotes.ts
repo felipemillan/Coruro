@@ -66,6 +66,9 @@ interface OneRepoCtx {
 async function gatherOneRepo(r: Repo, ctx: OneRepoCtx): Promise<RepoDayNotesData> {
   const { token, allEvents, windowStart, seenShas } = ctx;
   // 1. Local git commits (fast, works offline) — now returns CommitDetail[]
+  // windowStart is the exclusive lower bound: no commit before this timestamp
+  // is ever included. computeWindow() anchors windowStart on the previous
+  // note's windowEnd so there is no silent gap between runs.
   const rawCommits = await invoke<CommitDetail[]>('git_commits_since_numstat', {
     path: r.path,
     sinceIso: windowStart,
@@ -241,6 +244,9 @@ async function gatherGitHubActivity(
     }
   };
 
+  // windowStart is passed as `since=` to both endpoints — GitHub excludes
+  // everything at or before this timestamp, consistent with the local git lower
+  // bound. No pre-window history is pulled in.
   const [commitsRes, prsRes] = await Promise.all([
     fetchWithTimeout(
       `https://api.github.com/repos/${coords.owner}/${coords.repo}/commits?since=${windowStart}&per_page=20`,
