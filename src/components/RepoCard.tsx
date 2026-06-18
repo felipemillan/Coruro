@@ -8,7 +8,7 @@
 // description); tags render repo.aiTags when present (else GitHub topics).
 // Both are produced by deriveCardData — later AI cycles just populate fields.
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import {
   Code2,
   FolderOpen,
@@ -34,7 +34,7 @@ interface RepoCardProps {
   selected?: boolean;
 }
 
-export function RepoCard({ repo, selected = false }: RepoCardProps) {
+function RepoCardImpl({ repo, selected = false }: RepoCardProps) {
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
   const setDetail = useViewStore((s) => s.setDetail);
@@ -182,3 +182,8 @@ export function RepoCard({ repo, selected = false }: RepoCardProps) {
     </article>
   );
 }
+
+// Memoized: Board re-renders on every search keystroke / store change. With a
+// stable `repo` identity per scan cycle, shallow prop equality skips
+// reconciliation of every visible card whose props are unchanged.
+export const RepoCard = memo(RepoCardImpl);
