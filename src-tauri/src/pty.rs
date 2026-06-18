@@ -107,11 +107,17 @@ fn spawn_in_pty(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
-    if sessions.contains_key(&id) {
-        return Err(format!("session {id} already exists"));
+    // Brief lock only to reserve the id — released before the expensive PTY work.
+    {
+        let sessions = state.0.lock().map_err(|e| e.to_string())?;
+        if sessions.contains_key(&id) {
+            return Err(format!("session {id} already exists"));
+        }
     }
 
+    // PTY allocation (openpty + fork/exec) is done WITHOUT holding the lock, so a
+    // concurrent pty_write/pty_resize/pty_kill on another session isn't blocked
+    // for the 20–200ms it takes to launch a shell.
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -122,21 +128,30 @@ fn spawn_in_pty(
         })
         .map_err(|e| e.to_string())?;
 
-    let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
     let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
-    sessions.insert(
-        id.clone(),
-        PtySession {
-            writer,
-            master: pair.master,
-            child,
-        },
-    );
-    drop(sessions);
+    // Re-acquire briefly to register the completed session. Re-check the id in
+    // case another spawn raced in while the lock was released; if so, kill the
+    // child we just spawned rather than leak it.
+    {
+        let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+        if sessions.contains_key(&id) {
+            let _ = child.kill();
+            return Err(format!("session {id} already exists"));
+        }
+        sessions.insert(
+            id.clone(),
+            PtySession {
+                writer,
+                master: pair.master,
+                child,
+            },
+        );
+    }
 
     spawn_pty_reader(app, Arc::clone(&state.0), id, reader);
     Ok(())
