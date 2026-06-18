@@ -111,11 +111,20 @@ pub fn open_in_terminal(app: String, path: String) -> Result<(), String> {
 /// HEAD-only commits = ahead). Returns `Ok(None)` when there is no upstream
 /// configured (the command exits non-zero) so the UI can simply show nothing.
 #[tauri::command]
-pub fn git_ahead_behind(path: String) -> Result<Option<(i64, i64)>, String> {
+pub async fn git_ahead_behind(path: String) -> Result<Option<(i64, i64)>, String> {
+    // Async + spawn_blocking: the git subprocess runs on a blocking-pool thread
+    // so the N-repo board fan-out never saturates Tauri's command executor.
+    tokio::task::spawn_blocking(move || ahead_behind_blocking(&path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Blocking core of `git_ahead_behind` (synchronous; unit-testable directly).
+fn ahead_behind_blocking(path: &str) -> Result<Option<(i64, i64)>, String> {
     let out = Command::new("git")
         .args([
             "-C",
-            &path,
+            path,
             "rev-list",
             "--left-right",
             "--count",
@@ -139,9 +148,16 @@ pub fn git_ahead_behind(path: String) -> Result<Option<(i64, i64)>, String> {
 
 /// List local branch names (`git -C <path> branch --format=%(refname:short)`).
 #[tauri::command]
-pub fn git_branches(path: String) -> Result<Vec<String>, String> {
+pub async fn git_branches(path: String) -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(move || branches_blocking(&path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Blocking core of `git_branches`.
+fn branches_blocking(path: &str) -> Result<Vec<String>, String> {
     let out = Command::new("git")
-        .args(["-C", &path, "branch", "--format=%(refname:short)"])
+        .args(["-C", path, "branch", "--format=%(refname:short)"])
         .output()
         .map_err(|e| format!("Failed to run git branch: {e}"))?;
     if !out.status.success() {
@@ -163,9 +179,18 @@ pub fn git_branches(path: String) -> Result<Vec<String>, String> {
 /// remote-tracking refs / FETCH_HEAD only — never the working tree or HEAD.
 /// The boundary is locked by `git_boundary_tests` below.
 #[tauri::command]
-pub fn git_fetch(path: String) -> Result<(), String> {
+pub async fn git_fetch(path: String) -> Result<(), String> {
+    // Network op — spawn_blocking keeps it off the command executor entirely
+    // (it can take seconds on a slow remote).
+    tokio::task::spawn_blocking(move || fetch_blocking(&path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Blocking core of `git_fetch` — the SOLE git_* command that touches the network.
+fn fetch_blocking(path: &str) -> Result<(), String> {
     let out = Command::new("git")
-        .args(["-C", &path, "fetch"])
+        .args(["-C", path, "fetch"])
         .output()
         .map_err(|e| format!("Failed to run git fetch: {e}"))?;
     if out.status.success() {
@@ -185,10 +210,28 @@ pub fn git_fetch(path: String) -> Result<(), String> {
 /// empty repo with no commits) is returned as 0 / null rather than erroring,
 /// so a single odd repo never breaks the scan.
 #[tauri::command]
-pub fn git_local_stats(path: String) -> Result<(i64, Option<String>, i64), String> {
-    // Commit count on HEAD. Empty repo → rev-list fails → 0.
-    let commit_count = Command::new("git")
-        .args(["-C", &path, "rev-list", "--count", "HEAD"])
+pub async fn git_local_stats(path: String) -> Result<(i64, Option<String>, i64), String> {
+    // The three git sub-queries are independent, so run them on three
+    // blocking-pool threads concurrently (tokio::join!) instead of serially.
+    // Per call this turns 3 sequential fork+exec waits into ~1, and the whole
+    // command is off the Tauri executor so an N-repo board fan-out can't stall it.
+    let (p1, p2, p3) = (path.clone(), path.clone(), path);
+    // spawn_blocking dispatches immediately, so all three are already running on
+    // the pool before the first .await — awaiting in sequence still overlaps them.
+    let commit_count = tokio::task::spawn_blocking(move || count_commits_blocking(&p1));
+    let last_commit_at = tokio::task::spawn_blocking(move || last_commit_at_blocking(&p2));
+    let branch_count = tokio::task::spawn_blocking(move || branch_count_blocking(&p3));
+    Ok((
+        commit_count.await.map_err(|e| e.to_string())?,
+        last_commit_at.await.map_err(|e| e.to_string())?,
+        branch_count.await.map_err(|e| e.to_string())?,
+    ))
+}
+
+/// Commit count on HEAD. Empty repo → rev-list fails → 0.
+fn count_commits_blocking(path: &str) -> i64 {
+    Command::new("git")
+        .args(["-C", path, "rev-list", "--count", "HEAD"])
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -198,20 +241,24 @@ pub fn git_local_stats(path: String) -> Result<(i64, Option<String>, i64), Strin
                 .parse::<i64>()
                 .ok()
         })
-        .unwrap_or(0);
+        .unwrap_or(0)
+}
 
-    // Last commit time, strict ISO 8601. None on empty repo.
-    let last_commit_at = Command::new("git")
-        .args(["-C", &path, "log", "-1", "--format=%cI"])
+/// Last commit time, strict ISO 8601. None on empty repo.
+fn last_commit_at_blocking(path: &str) -> Option<String> {
+    Command::new("git")
+        .args(["-C", path, "log", "-1", "--format=%cI"])
         .output()
         .ok()
         .filter(|o| o.status.success())
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .filter(|s| !s.is_empty());
+        .filter(|s| !s.is_empty())
+}
 
-    // Local branch count.
-    let branch_count = Command::new("git")
-        .args(["-C", &path, "branch", "--format=%(refname:short)"])
+/// Local branch count.
+fn branch_count_blocking(path: &str) -> i64 {
+    Command::new("git")
+        .args(["-C", path, "branch", "--format=%(refname:short)"])
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -221,9 +268,7 @@ pub fn git_local_stats(path: String) -> Result<(i64, Option<String>, i64), Strin
                 .filter(|l| !l.trim().is_empty())
                 .count() as i64
         })
-        .unwrap_or(0);
-
-    Ok((commit_count, last_commit_at, branch_count))
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -232,9 +277,12 @@ mod local_stats_tests {
 
     #[test]
     fn reports_stats_for_this_repo() {
-        // The crate lives inside the project's own git repo.
-        let (commits, last, branches) = git_local_stats(env!("CARGO_MANIFEST_DIR").to_string())
-            .expect("git_local_stats should succeed in a repo");
+        // The crate lives inside the project's own git repo. Test the blocking
+        // cores directly (the command wrapper just runs these on the pool).
+        let dir = env!("CARGO_MANIFEST_DIR");
+        let commits = count_commits_blocking(dir);
+        let last = last_commit_at_blocking(dir);
+        let branches = branch_count_blocking(dir);
         assert!(commits >= 1, "expected at least one commit, got {commits}");
         assert!(last.is_some(), "expected a last-commit timestamp");
         assert!(
@@ -247,12 +295,18 @@ mod local_stats_tests {
 /// Last N commit subject lines (`git -C <path> log -n <n> --format=%s`).
 /// Returns an empty vec on any failure so a single odd repo never breaks scan.
 #[tauri::command]
-pub fn git_recent_commits(path: String, count: u32) -> Result<Vec<String>, String> {
+pub async fn git_recent_commits(path: String, count: u32) -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(move || recent_commits_blocking(&path, count))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Blocking core of `git_recent_commits`.
+fn recent_commits_blocking(path: &str, count: u32) -> Vec<String> {
     let out = Command::new("git")
-        .args(["-C", &path, "log", "-n", &count.to_string(), "--format=%s"])
+        .args(["-C", path, "log", "-n", &count.to_string(), "--format=%s"])
         .output();
-    let subjects = out
-        .ok()
+    out.ok()
         .filter(|o| o.status.success())
         .map(|o| {
             String::from_utf8_lossy(&o.stdout)
@@ -261,8 +315,7 @@ pub fn git_recent_commits(path: String, count: u32) -> Result<Vec<String>, Strin
                 .filter(|l| !l.trim().is_empty())
                 .collect::<Vec<String>>()
         })
-        .unwrap_or_default();
-    Ok(subjects)
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -270,7 +323,7 @@ mod recent_commits_tests {
     use super::*;
     #[test]
     fn lists_subjects_for_this_repo() {
-        let subjects = git_recent_commits(env!("CARGO_MANIFEST_DIR").to_string(), 5).unwrap();
+        let subjects = recent_commits_blocking(env!("CARGO_MANIFEST_DIR"), 5);
         assert!(!subjects.is_empty(), "expected at least one commit subject");
     }
 }
@@ -503,32 +556,43 @@ pub async fn ai_enrich(items: serde_json::Value) -> Result<String, String> {
 /// Never errors on git failure — returns Ok("").
 #[tauri::command]
 pub async fn git_dirty_stat(path: String) -> Result<String, String> {
-    let summary = std::process::Command::new("git")
-        .args(["-C", &path, "diff", "--stat", "HEAD"])
-        .output()
-        .ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
-        .and_then(|stdout| {
-            stdout
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .next_back()
-                .filter(|l| l.contains("changed"))
-                .map(|l| l.trim().to_string())
-        })
-        .unwrap_or_default();
-
-    let untracked = std::process::Command::new("git")
-        .args(["-C", &path, "status", "--porcelain"])
-        .output()
-        .ok()
-        .map(|o| {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .filter(|l| l.starts_with("??"))
-                .count()
-        })
-        .unwrap_or(0);
+    // Was: two blocking std::process calls running serially on a Tokio async
+    // thread. Now each runs on the blocking pool and they overlap (join!), so
+    // the per-repo cost halves and the async executor thread isn't held hostage.
+    let (p1, p2) = (path.clone(), path);
+    let summary_task = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("git")
+            .args(["-C", &p1, "diff", "--stat", "HEAD"])
+            .output()
+            .ok()
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+            .and_then(|stdout| {
+                stdout
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .next_back()
+                    .filter(|l| l.contains("changed"))
+                    .map(|l| l.trim().to_string())
+            })
+            .unwrap_or_default()
+    });
+    let untracked_task = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("git")
+            .args(["-C", &p2, "status", "--porcelain"])
+            .output()
+            .ok()
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .filter(|l| l.starts_with("??"))
+                    .count()
+            })
+            .unwrap_or(0)
+    });
+    // Both tasks are already running on the pool (spawned above); awaiting in
+    // sequence still overlaps them.
+    let summary = summary_task.await.map_err(|e| e.to_string())?;
+    let untracked = untracked_task.await.map_err(|e| e.to_string())?;
 
     let result = match (summary.is_empty(), untracked) {
         (true, 0) => String::new(),
