@@ -40,6 +40,41 @@ pub fn get_token() -> Result<Option<String>, String> {
     }
 }
 
+/// Editor CLI binaries `open_in_editor` is permitted to raw-spawn. Matched by
+/// basename, so both `code` and `/usr/local/bin/code` resolve to `code`, while
+/// `/bin/sh`, `osascript`, etc. resolve to a basename absent from this list and
+/// are rejected. Extend deliberately — every entry is an executable the app may
+/// launch on a frontend's say-so.
+const ALLOWED_EDITORS: &[&str] = &[
+    "code",
+    "code-insiders",
+    "cursor",
+    "windsurf",
+    "antigravity",
+    "subl",
+    "zed",
+    "nvim",
+    "vim",
+    "vi",
+    "emacs",
+    "nano",
+    "idea",
+    "webstorm",
+    "pycharm",
+    "rustrover",
+    "goland",
+    "phpstorm",
+    "clion",
+];
+
+/// True when `cli`'s basename is a known editor (see `ALLOWED_EDITORS`).
+fn editor_is_allowed(cli: &str) -> bool {
+    std::path::Path::new(cli)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .is_some_and(|base| ALLOWED_EDITORS.contains(&base))
+}
+
 /// Open `path` in the user's editor.
 ///
 /// Strategy (matches the Settings UI):
@@ -51,11 +86,18 @@ pub fn get_token() -> Result<Option<String>, String> {
 ///
 /// Args are passed as an array (never a shell string), so a `path` is never
 /// interpreted as a shell command. `command`/`app` come from local Settings.
+///
+/// Security (audit S2): `command` is the executable NAME — `Command::new(cli)`
+/// would launch any binary the frontend names (`/bin/sh`, `osascript`, …), which
+/// is arbitrary code execution if a webview is ever compromised. We therefore
+/// only raw-spawn a `command` whose basename is on `ALLOWED_EDITORS`; anything
+/// else falls through to the `open -a <App>` launcher, which LaunchServices
+/// resolves to registered GUI apps only and cannot execute an arbitrary binary.
 #[tauri::command]
 pub fn open_in_editor(command: String, app: String, path: String) -> Result<(), String> {
-    // Step 1: CLI binary. spawn() Ok means the process launched.
+    // Step 1: CLI binary — only if it's a known editor. spawn() Ok = launched.
     let cli = command.trim();
-    if !cli.is_empty() && Command::new(cli).arg(&path).spawn().is_ok() {
+    if !cli.is_empty() && editor_is_allowed(cli) && Command::new(cli).arg(&path).spawn().is_ok() {
         return Ok(());
     }
 
@@ -269,6 +311,30 @@ fn branch_count_blocking(path: &str) -> i64 {
                 .count() as i64
         })
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod editor_allowlist_tests {
+    use super::*;
+
+    #[test]
+    fn known_editors_are_allowed_by_basename() {
+        assert!(editor_is_allowed("code"));
+        assert!(editor_is_allowed("/usr/local/bin/code"));
+        assert!(editor_is_allowed("cursor"));
+        assert!(editor_is_allowed("nvim"));
+    }
+
+    #[test]
+    fn arbitrary_binaries_are_rejected() {
+        // The S2 injection sinks: a shell, an interpreter, an absolute path.
+        assert!(!editor_is_allowed("/bin/sh"));
+        assert!(!editor_is_allowed("sh"));
+        assert!(!editor_is_allowed("osascript"));
+        assert!(!editor_is_allowed("bash"));
+        assert!(!editor_is_allowed("python3"));
+        assert!(!editor_is_allowed(""));
+    }
 }
 
 #[cfg(test)]
