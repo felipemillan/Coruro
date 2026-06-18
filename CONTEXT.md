@@ -1,15 +1,15 @@
 # Context
 
-**Current Task:** Ask-tab terminal overhaul + 10-request feature batch. Committed + pushed to `main`.
+**Current Task:** Multi-agent perf+security audit (tauri-v2-expert). Perf shipped to main; security on review branch awaiting sign-off.
 
 **Key Decisions:**
 
-- Ask sidebar rebuilt: pinned "Github" root-dir shell, "+ start new session" chooser (Shell/Claude), repo→session breakdown with absolute date-time stamps. Shell button moved out of the controls row.
-- Independent shell sessions via `pty_spawn_shell` (`exec $SHELL -il`), `ChatSession.kind: 'claude'|'shell'` (legacy defaults to claude). Terminal accepts file drag-drop (writes path to PTY via Tauri `onDragDropEvent`).
-- Terminal reflow fixed (min-w-0 + overflow-hidden so FitAddon measures real width; isVisible refit-on-show). Board responsive = `grid-cols-[repeat(5,minmax(200px,1fr))]`. Settings gear moved to global header. Health summary removed from Command Center.
+- Perf P1–P6 merged to `main` (`88a223c`): git_* commands async + spawn_blocking, git_local_stats/git_dirty_stat concurrent subprocesses, pty.rs mutex released before PTY open, RepoCard React.memo, enrichAi bounded pool. Behavior-preserving; cargo 9/9 + vitest 218/218. `/Applications/Coruro.app` rebuilt + replaced.
+- Security on branch `security/audit-s1-s2-csp` (`9b1a3ac`, NOT merged): S2 open_in_editor editor allowlist done; CSP set (runtime-unverified, white-screen risk); S1 fs-glob NOT applied — audit premise wrong (app writes notes into repo dirs + reads repo trees/~/.claude).
+- tokio built without `macros` feature → no `tokio::join!`; spawn handles then await sequentially (still overlaps).
 
 **Next Steps:**
 
-- Subagents truncated mid-task repeatedly this session — sidebar/shell work was hand-finished + gate-verified.
-- Rebuild + replace `/Applications/Coruro.app` when ready (still on old build).
-- Live-test shell sessions + drag-drop in dev (`npm run tauri dev`).
+- Push: `main` is +2 ahead of origin (+ push `security/audit-s1-s2-csp`).
+- Runtime-verify CSP (DevTools console) before merging security branch.
+- S1 fs scoping needs product decision (repos-root scope, or deny ~/.ssh ~/.aws ~/.gnupg).
