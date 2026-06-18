@@ -188,19 +188,32 @@ export function createEnrichSlice(set: BoardSet, get: BoardGet): EnrichSlice {
 
     enrichAi: async () => {
       const targets = get().repos;
-      for (const repo of targets) {
-        // Skip if Apple Intelligence already reported unavailable this session.
-        if (get().aiUnavailableReason !== null) break;
-        const ctx = await buildAiContext(repo);
-        const hash = inputHash(ctx);
-        const cached = get().aiCache[repo.path];
-        if (cached && cached.inputHash === hash) continue; // fresh — skip
+      if (targets.length === 0) return;
+      // Bounded-concurrency pool (mirrors enrichGitHub/enrichGit). The sidecar
+      // drives the on-device model, so keep concurrency modest. Was a strict
+      // serial loop — N repos meant N sequential sidecar round-trips.
+      const CONCURRENCY = 3;
+      let cursor = 0;
+      const worker = async (): Promise<void> => {
+        while (cursor < targets.length) {
+          // Stop the whole pool if Apple Intelligence reported unavailable.
+          if (get().aiUnavailableReason !== null) break;
+          const repo = targets[cursor];
+          cursor += 1;
+          const ctx = await buildAiContext(repo);
+          const hash = inputHash(ctx);
+          const cached = get().aiCache[repo.path];
+          if (cached && cached.inputHash === hash) continue; // fresh — skip
 
-        const result = await runAiAnalyze(set, repo.path, ctx);
-        const unavailable = applyAiResult(set, get, repo.path, result, hash);
-        if (unavailable) break; // stop the queue — no point continuing this session
-        // other errors: skip this repo, continue.
-      }
+          const result = await runAiAnalyze(set, repo.path, ctx);
+          const unavailable = applyAiResult(set, get, repo.path, result, hash);
+          if (unavailable) break; // no point continuing this session
+          // other errors: skip this repo, continue.
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => worker()),
+      );
     },
 
     enrichAiOne: async (path) => {
