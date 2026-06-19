@@ -209,6 +209,18 @@ export interface DayNote {
   windowEnd: string;
   body: string;
   repoRefs: string[];
+  /**
+   * Attribution string for the note's executive summary.
+   *
+   * - `'user'`                    — human-written note; no AI involved.
+   * - `'local-stats'`             — sidecar never ran (single-repo, app-only,
+   *                                 or sidecar spawn/parse failure).
+   * - `'ai-gated-fallback'`       — sidecar ran and responded ok:true, but the
+   *                                 sanitizer rejected the output (numbers / time-
+   *                                 spans / no letters survived). Distinguishes
+   *                                 "sidecar ran but gated" from "never ran".
+   * - `'apple/foundation-models'` — sidecar ran, output passed the gate.
+   */
   model: string;
   /** 'user' = human-written note (model is 'user', window collapses to generatedAt). */
   trigger: 'manual' | 'auto' | 'user';

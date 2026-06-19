@@ -319,7 +319,10 @@ describe('updateDayNote', () => {
 
 describe('generateDayNotes – git_dirty_stat integration', () => {
   it('injects "[uncommitted] ..." context when git_dirty_stat returns a non-empty string', async () => {
-    useBoardStore.setState({ repos: [makeRepo('dirty-repo', '/dirty/repo')] });
+    // Two repos so the sidecar path runs (WI-1.6 skips the sidecar on a lone repo).
+    useBoardStore.setState({
+      repos: [makeRepo('dirty-repo', '/dirty/repo'), makeRepo('second-repo', '/second/repo')],
+    });
 
     let capturedRepos: Array<{ name: string; commits: string[] }> | null = null;
 
@@ -353,15 +356,25 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
   });
 
   it('does NOT inject an [uncommitted] line when git_dirty_stat returns empty string', async () => {
-    useBoardStore.setState({ repos: [makeRepo('clean-repo', '/clean/repo')] });
+    // Two repos so the sidecar path runs (WI-1.6 skips the sidecar on a lone repo).
+    useBoardStore.setState({
+      repos: [makeRepo('clean-repo', '/clean/repo'), makeRepo('second-repo', '/second/repo')],
+    });
 
     let capturedRepos: Array<{ name: string; commits: string[] }> | null = null;
 
     invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      const path = (args as { path?: string } | undefined)?.path;
       if (cmd === 'get_token') return Promise.resolve(null);
-      if (cmd === 'git_dirty_stat') return Promise.resolve(''); // clean
+      // clean-repo is clean; second-repo is dirty so it stays active on its own —
+      // otherwise the cross-repo SHA dedup would collapse the set to one repo and
+      // WI-1.6 would skip the sidecar.
+      if (cmd === 'git_dirty_stat')
+        return Promise.resolve(path === '/second/repo' ? '1 file changed, 1 insertion(+)' : '');
       if (cmd === 'git_commits_since_numstat')
-        return Promise.resolve([makeCommit('abc123', 'feat: something')]);
+        return Promise.resolve(
+          path === '/clean/repo' ? [makeCommit('abc123', 'feat: something')] : [],
+        );
       if (cmd === 'ai_day_notes') {
         capturedRepos = (args as { repos: Array<{ name: string; commits: string[] }> }).repos;
         return Promise.resolve(JSON.stringify({ ok: true, body: 'Clean note.', model: 'test' }));
@@ -377,9 +390,10 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
     expect(repoEntry!.commits.some((line) => line.startsWith('[uncommitted]'))).toBe(false);
   });
 
-  it('a dirty-only repo (zero commits) still produces a note', async () => {
-    // Zero commits in window but dirty stat is non-empty → repo must appear in
-    // activeRepoData and ai_day_notes must be invoked.
+  it('a single dirty-only repo (zero commits) still produces a note, skipping the sidecar (WI-1.6)', async () => {
+    // Zero commits in window but dirty stat is non-empty → repo appears in
+    // activeRepoData. WI-1.6: a lone repo skips the sidecar entirely (the
+    // "name 2–4 repos" prompt misfires on one repo) and composes deterministically.
     useBoardStore.setState({ repos: [makeRepo('dirty-only', '/dirty-only/repo')] });
 
     const aiDayNotesSpy = vi
@@ -398,13 +412,14 @@ describe('generateDayNotes – git_dirty_stat integration', () => {
 
     await useBoardStore.getState().generateDayNotes('manual');
 
-    // ai_day_notes must have been called (dirty stat alone is enough activity)
-    expect(aiDayNotesSpy).toHaveBeenCalledOnce();
+    // WI-1.6: the sidecar is NOT invoked for a single repo (P0 #1 preserved).
+    expect(aiDayNotesSpy).not.toHaveBeenCalled();
 
-    // A note must have been added to the store
+    // A note is still added, attributed to local stats (the sidecar never ran).
     const notes = useBoardStore.getState().dayNotes.notes;
     expect(notes).toHaveLength(1);
     expect(notes[0].trigger).toBe('manual');
+    expect(notes[0].model).toBe('local-stats');
   });
 
   it('git_dirty_stat failure is swallowed (no throw, no error banner)', async () => {

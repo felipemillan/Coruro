@@ -10,7 +10,7 @@ import { capContextLines } from '../utils/dayNotesContext';
 import {
   composeSessionReport,
   sanitizeExecSummary,
-  EXEC_SUMMARY_FALLBACK,
+  EXEC_SUMMARY_LOCAL,
 } from '../utils/sessionReport';
 import { fetchUserLogin } from '../utils/githubUser';
 import { fetchUserEvents } from '../utils/githubEvents';
@@ -179,20 +179,32 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
           return;
         }
 
-        // Cap total context before sending to sidecar. The AI sees only the
-        // number-free digest lines; the numeric stats live in the composed report.
-        const cappedRepoData = capItemsToContextBudget(
-          capContextLines(
-            activeRepoData.map(({ name, aiLines }) => ({ name, commits: aiLines })),
-            8000,
-          ),
-          (repos) => JSON.stringify({ mode: 'day_notes', repos }),
-        );
+        // WI-1.6: single-repo sessions skip the sidecar entirely. The on-device
+        // model's prompt asks it to name "2–4 repos", which misfires on one repo
+        // (hallucinated/vague output); a lone repo also reads fine from the
+        // deterministic describe()+stats. Skipping preserves P0 #1 (no sidecar on
+        // 0 *or* 1 repo) and is faster. model='local-stats' — the sidecar never ran.
+        let execSummary: string;
+        let model: string;
+        if (activeRepoData.length === 1) {
+          execSummary = EXEC_SUMMARY_LOCAL;
+          model = 'local-stats';
+        } else {
+          // Cap total context before sending to sidecar. The AI sees only the
+          // number-free digest lines; the numeric stats live in the composed report.
+          const cappedRepoData = capItemsToContextBudget(
+            capContextLines(
+              activeRepoData.map(({ name, aiLines }) => ({ name, commits: aiLines })),
+              8000,
+            ),
+            (repos) => JSON.stringify({ mode: 'day_notes', repos }),
+          );
 
-        // The report skeleton (tiers, metrics, per-repo stats) is deterministic;
-        // Apple Intelligence contributes only the executive-summary narrative.
-        // An AI failure therefore degrades to a stats-only note, never a no-note.
-        const { execSummary, model } = await fetchExecSummary(cappedRepoData);
+          // The report skeleton (tiers, metrics, per-repo stats) is deterministic;
+          // Apple Intelligence contributes only the executive-summary narrative.
+          // An AI failure therefore degrades to a stats-only note, never a no-note.
+          ({ execSummary, model } = await fetchExecSummary(cappedRepoData));
+        }
 
         const body = composeSessionReport(
           activeRepoData.map((r) => r.activity),
@@ -273,7 +285,7 @@ function buildAppOnlyNote(
   appEvents: ActivityEvent[],
   trigger: 'manual' | 'auto',
 ): DayNote {
-  const body = composeSessionReport([], EXEC_SUMMARY_FALLBACK, new Date(now), appEvents);
+  const body = composeSessionReport([], EXEC_SUMMARY_LOCAL, new Date(now), appEvents);
   return {
     id: crypto.randomUUID(),
     generatedAt: new Date().toISOString(),
@@ -313,7 +325,7 @@ async function gatherUserEvents(
 async function fetchExecSummary(
   cappedRepoData: Array<{ name: string; commits: string[] }>,
 ): Promise<{ execSummary: string; model: string }> {
-  let execSummary = EXEC_SUMMARY_FALLBACK;
+  let execSummary = EXEC_SUMMARY_LOCAL;
   let model = 'local-stats';
   try {
     const raw = await invoke<string>('ai_day_notes', { repos: cappedRepoData });
@@ -326,13 +338,14 @@ async function fetchExecSummary(
     if (parsed.ok && parsed.body) {
       // Deterministic gate: the on-device model leaks time spans and numbers
       // despite three prompt layers forbidding them. Sanitize before the
-      // report uses it; if nothing survives, the gate returns the fallback and
-      // we keep the local-stats attribution.
+      // report uses it; if nothing survives, the gate returns the fallback.
+      // 'ai-gated-fallback' distinguishes "sidecar ran but output rejected"
+      // from 'local-stats' (sidecar never ran / spawn-or-parse failure).
       const cleaned = sanitizeExecSummary(parsed.body);
       execSummary = cleaned;
       model =
-        cleaned === EXEC_SUMMARY_FALLBACK
-          ? 'local-stats'
+        cleaned === EXEC_SUMMARY_LOCAL
+          ? 'ai-gated-fallback'
           : (parsed.model ?? 'apple/foundation-models');
     }
   } catch {
