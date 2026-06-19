@@ -165,12 +165,12 @@ export function ClaudeDetail({
       onClick={onClose}
     >
       <div
-        className="w-[85vw] h-[85vh] bg-cream rounded-2xl border border-warm-gray shadow-lg flex flex-col overflow-hidden"
+        className="nb-card w-[85vw] h-[85vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-warm-gray bg-cream/60">
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-sage/20 text-sage">
+          <span className="nb-chip px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-sage/20 text-sage">
             {entity.kind}
           </span>
           <h2 className="text-sm font-semibold text-navy font-mono truncate flex-1">
@@ -180,8 +180,7 @@ export function ClaudeDetail({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="p-1 rounded-lg text-navy-light hover:text-navy hover:bg-navy/8 transition-colors
-                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage/50"
+            className="nb-btn p-1 text-navy-light hover:text-navy transition-colors"
           >
             <X size={16} />
           </button>
@@ -190,7 +189,7 @@ export function ClaudeDetail({
         {entity.kind === 'mcp' ? (
           // ── MCP config panel (no backing files) ───────────────────────────
           <div className="flex-1 min-h-0 overflow-y-auto p-6">
-            <div className="max-w-xl mx-auto rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
+            <div className="nb-card-sm max-w-xl mx-auto divide-y divide-warm-gray/50">
               {(
                 [
                   ['Name', entity.server.name],
@@ -210,8 +209,8 @@ export function ClaudeDetail({
               ))}
             </div>
             {entity.blurb && (
-              <div className="max-w-xl mx-auto mt-4 rounded-xl border border-warm-gray bg-cream/60 p-4">
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-tertiary/20 text-tertiary mr-2">
+              <div className="nb-card-sm max-w-xl mx-auto mt-4 p-4">
+                <span className="nb-chip px-1.5 py-0.5 text-[10px] font-semibold uppercase bg-tertiary/20 text-tertiary mr-2">
                   AI
                 </span>
                 <span className="text-sm text-navy-light">{entity.blurb}</span>

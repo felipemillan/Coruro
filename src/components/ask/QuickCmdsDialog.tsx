@@ -114,7 +114,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
         if (e.target === dialogRef.current) handleClose();
       }}
       className="
-        m-auto p-0 rounded-xl border border-warm-gray bg-cream shadow-2xl
+        nb-card m-auto p-0
         backdrop:bg-navy/30 backdrop:backdrop-blur-sm
         open:flex open:flex-col
         w-[340px] max-h-[70vh]
@@ -122,7 +122,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
       "
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-warm-gray shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b-2 border-navy shrink-0">
         <h2 id={dialogId} className="text-[13px] font-semibold text-navy">
           Quick commands
         </h2>
@@ -130,7 +130,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
           type="button"
           onClick={handleClose}
           aria-label="Close quick commands dialog"
-          className="p-1 rounded-md hover:bg-warm-gray/70 text-navy-light/60 hover:text-navy transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          className="nb-btn p-1 bg-transparent hover:bg-warm-gray/70 text-navy-light/60 hover:text-navy transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
         >
           <X size={14} strokeWidth={2} />
         </button>
@@ -147,7 +147,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
             {cmds.map((c, i) => (
               <li
                 key={`${c.label}-${i}`}
-                className="flex items-center gap-2 rounded-lg border border-warm-gray/70 bg-cream/40 px-2.5 py-1.5 group"
+                className="nb-card-sm flex items-center gap-2 px-2.5 py-1.5 group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-[12px] font-semibold text-navy truncate">{c.label}</div>
@@ -157,7 +157,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
                   type="button"
                   onClick={() => handleDelete(i)}
                   aria-label={`Delete command ${c.label}`}
-                  className="shrink-0 p-1.5 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-terracotta/10 text-navy-light/40 hover:text-terracotta transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+                  className="nb-btn shrink-0 p-1.5 bg-transparent opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-terracotta/10 text-navy-light/40 hover:text-terracotta transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
                 >
                   <Trash2 size={12} strokeWidth={2} />
                 </button>
@@ -168,14 +168,14 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
       </div>
 
       {/* Add form */}
-      <div className="px-4 py-3 border-t border-warm-gray shrink-0 flex flex-col gap-2">
+      <div className="px-4 py-3 border-t-2 border-navy shrink-0 flex flex-col gap-2">
         <input
           ref={firstInputRef}
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Label (e.g. /myfix)"
-          className="w-full px-2.5 py-1.5 rounded-lg border border-warm-gray bg-cream text-[12px] text-navy placeholder:text-navy-light/40 focus:outline-none focus:ring-2 focus:ring-sage"
+          className="nb-input w-full px-2.5 py-1.5 text-[12px] text-navy placeholder:text-navy-light/40"
         />
         <input
           type="text"
@@ -185,13 +185,13 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
             if (e.key === 'Enter') handleAdd();
           }}
           placeholder="Command text (inserted verbatim)"
-          className="w-full px-2.5 py-1.5 rounded-lg border border-warm-gray bg-cream text-[12px] font-mono text-navy placeholder:text-navy-light/40 focus:outline-none focus:ring-2 focus:ring-sage"
+          className="nb-input w-full px-2.5 py-1.5 text-[12px] font-mono text-navy placeholder:text-navy-light/40"
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={!label.trim() || !text.trim()}
-          className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-sage text-cream text-[12px] font-semibold hover:bg-sage/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          className="nb-btn flex items-center justify-center gap-1.5 w-full py-1.5 bg-sage text-cream text-[12px] font-semibold hover:bg-sage/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
         >
           <Plus size={13} strokeWidth={2.5} />
           Add command

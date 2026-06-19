@@ -109,6 +109,82 @@ html {
 }
 
 /*
+ * ── Neo-Brutalist primitives ──────────────────────────────────────────────
+ * Centralized chrome so the whole app shares one look: thick navy borders,
+ * hard (non-blurred) offset shadows, flat fills. Components apply these
+ * classes and keep their own padding / layout / color utilities. Tuned to the
+ * Daily Notes bento that seeded the style.
+ */
+:root {
+  --nb-border: 2px solid var(--color-navy);
+  --nb-shadow: 4px 4px 0 0 var(--color-navy);
+  --nb-shadow-sm: 3px 3px 0 0 var(--color-navy);
+  --nb-shadow-lg: 6px 6px 0 0 var(--color-navy);
+  --nb-radius: 12px;
+  --nb-radius-sm: 10px;
+}
+
+/* Card / panel / modal surface. */
+.nb-card {
+  border: var(--nb-border);
+  border-radius: var(--nb-radius);
+  background-color: var(--color-cream);
+  box-shadow: var(--nb-shadow);
+}
+/* Smaller nested panel / list item. */
+.nb-card-sm {
+  border: var(--nb-border);
+  border-radius: var(--nb-radius-sm);
+  box-shadow: var(--nb-shadow-sm);
+}
+/* Flat bordered surface, no shadow (rows, inset wells). */
+.nb-flat {
+  border: var(--nb-border);
+  border-radius: var(--nb-radius-sm);
+}
+
+/* Buttons: hard shadow that "presses" on active. Keep bg/text via utilities. */
+.nb-btn {
+  border: var(--nb-border);
+  border-radius: var(--nb-radius-sm);
+  box-shadow: var(--nb-shadow-sm);
+  font-weight: 600;
+  transition:
+    transform 0.04s ease,
+    box-shadow 0.04s ease;
+}
+.nb-btn:hover:not(:disabled) {
+  box-shadow: var(--nb-shadow);
+  transform: translate(-1px, -1px);
+}
+.nb-btn:active:not(:disabled) {
+  box-shadow: 1px 1px 0 0 var(--color-navy);
+  transform: translate(2px, 2px);
+}
+.nb-btn:disabled {
+  box-shadow: none;
+  opacity: 0.5;
+}
+
+/* Text inputs / textareas / selects. */
+.nb-input {
+  border: var(--nb-border);
+  border-radius: var(--nb-radius-sm);
+  background-color: var(--color-cream);
+}
+.nb-input:focus,
+.nb-input:focus-visible {
+  outline: none;
+  box-shadow: var(--nb-shadow-sm);
+}
+
+/* Pills / chips / badges. */
+.nb-chip {
+  border: var(--nb-border);
+  border-radius: 9999px;
+}
+
+/*
  * Markdown rendering (RepoDetail README pane).
  * Tailwind v4 strips default tag styles, so react-markdown output needs
  * explicit rules. Scoped under .markdown-body to avoid leaking globally.

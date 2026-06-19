@@ -39,6 +39,7 @@ export default function App() {
 
   const pendingAskPath = useViewStore((s) => s.pendingAskPath);
   const pendingAskCommand = useViewStore((s) => s.pendingAskCommand);
+  const setDetail = useViewStore((s) => s.setDetail);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = React.useState<'board' | 'notes' | 'ask' | 'claude'>('notes');
@@ -57,6 +58,14 @@ export default function App() {
       setAskVisited(true);
     }
   }, [pendingAskPath, pendingAskCommand]);
+
+  // Opening a repo detail (e.g. clicking a repo name in a Day Notes bento, or an
+  // @mention) must switch to Board, where the detail modal lives. Done in the
+  // event handler (not an effect) to avoid a cascading setState-in-effect.
+  const openRepoDetail = (path: string) => {
+    setDetail(path);
+    setActiveTab('board');
+  };
 
   useEffect(() => {
     void load();
@@ -301,7 +310,7 @@ export default function App() {
                 onClick={() => setSettingsOpen(true)}
                 aria-label="Open settings"
                 title="Settings (⌘,)"
-                className="ml-auto mr-1 shrink-0 flex items-center justify-center w-8 h-8 rounded-full text-navy-light hover:text-navy hover:bg-warm-gray transition-colors duration-150 cursor-pointer"
+                className="ml-auto mr-1 shrink-0 flex items-center justify-center w-8 h-8 nb-btn text-navy-light hover:text-navy hover:bg-warm-gray transition-colors duration-150 cursor-pointer"
               >
                 <SettingsIcon size={14} strokeWidth={1.5} />
               </button>
@@ -311,7 +320,7 @@ export default function App() {
                 PTY session keeps running while other tabs are open. */}
             <div className="flex flex-col flex-1 min-h-0">
               {activeTab === 'notes' ? (
-                <NotesTab />
+                <NotesTab onOpenRepoDetail={openRepoDetail} />
               ) : activeTab === 'board' ? (
                 <Board />
               ) : activeTab === 'claude' ? (

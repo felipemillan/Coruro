@@ -32,15 +32,7 @@ export function DebugSection() {
       <SectionHeading>Debug</SectionHeading>
 
       {/* Live readout */}
-      <div
-        className="
-          px-3 py-2 mb-3
-          rounded-lg
-          bg-warm-gray border border-warm-gray/80
-          text-[11px] font-mono text-navy-light
-          flex flex-col gap-1
-        "
-      >
+      <div className="nb-card-sm px-3 py-2 mb-3 text-[11px] font-mono text-navy-light flex flex-col gap-1">
         <div className="flex justify-between gap-3">
           <span className="text-navy-light/60">root</span>
           <span className="truncate text-right">{rootDirectory ?? 'not set'}</span>
@@ -63,14 +55,7 @@ export function DebugSection() {
       <button
         type="button"
         onClick={() => void setDebugBannerEnabled(!debugBannerEnabled)}
-        className="
-          flex items-center justify-between w-full
-          px-3 py-2 mb-3
-          rounded-lg
-          bg-warm-gray/60 hover:bg-warm-gray border border-warm-gray/80
-          text-[12px] text-navy
-          transition-colors duration-150 cursor-pointer
-        "
+        className="nb-btn flex items-center justify-between w-full px-3 py-2 mb-3 bg-warm-gray/60 hover:bg-warm-gray text-[12px] text-navy transition-colors duration-150 cursor-pointer"
       >
         <span className="flex items-center gap-2">
           <Bug size={13} strokeWidth={1.5} className="text-navy-light" />
@@ -92,15 +77,7 @@ export function DebugSection() {
         type="button"
         onClick={() => void handleRescan()}
         disabled={rescanning || rootDirectory === null}
-        className="
-          flex items-center gap-2
-          px-4 py-2
-          rounded-full
-          bg-navy text-cream text-[12px] font-medium
-          hover:bg-navy-light
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors duration-150 cursor-pointer
-        "
+        className="nb-btn flex items-center gap-2 px-4 py-2 bg-navy text-cream text-[12px] font-medium hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer"
       >
         <RefreshCw size={13} strokeWidth={1.5} className={rescanning ? 'animate-spin' : ''} />
         {rescanning ? 'Rescanning…' : 'Rescan now'}

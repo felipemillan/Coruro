@@ -84,13 +84,11 @@ export function SubTabNav({ active, onChange, counts = {} }: SubTabNavProps) {
             onClick={() => onChange(id)}
             className={[
               // Base layout
-              'relative flex items-center gap-1.5 px-3 py-2.5 cursor-pointer',
+              'nb-chip relative flex items-center gap-1.5 px-3 py-2.5 cursor-pointer',
               'text-[10px] font-semibold uppercase tracking-widest',
               'transition-colors select-none whitespace-nowrap',
               // Bottom border indicator (active)
               'border-b-2',
-              // Focus ring — keyboard accessible
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage/50 focus-visible:ring-offset-1 rounded-t-sm',
               // Active vs inactive
               isActive
                 ? 'border-sage text-navy bg-cream'
