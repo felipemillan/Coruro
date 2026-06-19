@@ -22,9 +22,36 @@ struct AiResponse: Encodable {
 }
 
 // ── day_notes contracts ──
+//
+// Wire shape for the `ai_day_notes` Tauri command (WI-3.1 contract freeze).
+//
+// Required fields:
+//   mode  — "day_notes" (string discriminator)
+//   repos — array of RepoEntry (metadata-only; no file paths or secrets)
+//
+// Optional field (Phase 3 / WI-3.2+):
+//   priorContext — [String], camelCase JSON key.
+//     Absent (not null) when the caller has no prior notes to supply; a missing
+//     key decodes to the default `[]` via the Swift initializer default value,
+//     keeping legacy payloads without this field fully back-compatible.
+//
+//     Each string is a sanitized exec-summary sentence produced by
+//     `sanitizeExecSummary` on the TypeScript side. Strings MUST NOT contain:
+//     raw commit subjects, file paths, tokens, app-event labels, numeric stats,
+//     or repo references. The TS sanitizer is the authoritative gate — no raw
+//     content may bypass it before being placed in priorContext.
+//
+// P0 invariants (never bypass):
+//   - priorContext byte count is included in the payload line passed to
+//     `exceedsContextBudget` BEFORE the guard runs — the guard is never bypassed.
+//   - A missing `priorContext` key decodes to [] (back-compat invariant); the
+//     caller MUST NOT send null — absent and [] are semantically identical here.
 struct DayNotesRequest: Decodable {
     var mode: String
     var repos: [RepoEntry]
+    /// Sanitized exec-summary sentences from recent AI-attributed notes.
+    /// Absent in legacy payloads → decoded as []. See contract comment above.
+    var priorContext: [String] = []
 
     struct RepoEntry: Decodable {
         var name: String
@@ -183,6 +210,21 @@ func buildPrompt(_ req: AiRequest) -> String {
 func buildDayNotesPrompt(_ req: DayNotesRequest) -> String {
     let activeRepos = req.repos.filter { !$0.commits.isEmpty }
     var lines: [String] = []
+
+    // WI-3.3: prior-context continuity block. Entries are already sanitized by
+    // the TS side (sanitizeExecSummary) — no raw subjects, paths, tokens,
+    // appEvents, stats, or repoRefs reach here. When absent (legacy payloads)
+    // priorContext is [] and this block + footer clause are omitted, leaving the
+    // prompt byte-identical to the pre-WI-3.3 form. The priorContext bytes are
+    // part of `line` (the raw JSON) before exceedsContextBudget runs, so the
+    // budget guard is never bypassed.
+    let hasPriorContext = !req.priorContext.isEmpty
+    if hasPriorContext {
+        lines.append("Prior session notes (for continuity — do not repeat verbatim):")
+        for note in req.priorContext { lines.append("  - \(note)") }
+        lines.append("")
+    }
+
     lines.append("Git activity for my latest work session across \(activeRepos.count) repo(s):")
     lines.append("")
     for repo in activeRepos {
@@ -190,11 +232,15 @@ func buildDayNotesPrompt(_ req: DayNotesRequest) -> String {
         for c in repo.commits { lines.append("  \(c)") }
         lines.append("")
     }
-    lines.append("""
+    var instruction = """
     Write the executive summary of this work session: 1-2 sentences naming the 2-4 repos with the most \
     significant work and characterizing it qualitatively (refactoring, fixing, new features, work in progress). \
     First-person past tense. Synthesize — do not repeat the raw lines verbatim.
-    """)
+    """
+    if hasPriorContext {
+        instruction += " The prior session notes are context only — do NOT echo/summarise prior notes, continuity only."
+    }
+    lines.append(instruction)
     return lines.joined(separator: "\n")
 }
 

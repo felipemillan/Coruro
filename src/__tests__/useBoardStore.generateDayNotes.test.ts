@@ -330,6 +330,48 @@ describe('generateDayNotes', () => {
     expect(note.body).toContain('Stats compiled from local git data.');
   });
 
+  it('renders the >24h coverage label in the note body (WI-3.5 wired through the slice)', async () => {
+    // Anchor on a prior AI note from 2 days ago → window > 24h → coverageLabel.
+    // Guards the slice→composeSessionReport handoff (computeWindow returns the
+    // label; generateDayNotes must thread it through). Two repos → full skeleton.
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+    useBoardStore.setState({
+      repos: [makeRepo('fake-repo', '/fake/repo'), makeRepo('second-repo', '/second/repo')],
+      dayNotes: {
+        notes: [
+          {
+            id: 'prior',
+            generatedAt: twoDaysAgo,
+            windowStart: new Date(Date.now() - 3 * 86400000).toISOString(),
+            windowEnd: twoDaysAgo,
+            body: '# 📅 Daily Session Summary\n\n## Executive Summary\n\nEarlier work landed.',
+            repoRefs: [],
+            model: 'apple/foundation-models',
+            trigger: 'auto',
+          },
+        ],
+      },
+    });
+
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      const path = (args as { path?: string } | undefined)?.path;
+      if (cmd === 'get_token') return Promise.resolve(null);
+      if (cmd === 'git_dirty_stat')
+        return Promise.resolve(path === '/second/repo' ? '1 file changed, 1 insertion(+)' : '');
+      if (cmd === 'git_commits_since_numstat')
+        return Promise.resolve(path === '/fake/repo' ? [makeCommit('bbb222', 'feat: thing')] : []);
+      if (cmd === 'ai_day_notes')
+        return Promise.resolve(JSON.stringify({ ok: true, body: 'Did work.', model: 'test' }));
+      return Promise.resolve('{}');
+    });
+
+    await useBoardStore.getState().generateDayNotes('manual');
+
+    const notes = useBoardStore.getState().dayNotes.notes;
+    const note = notes[notes.length - 1];
+    expect(note.body).toContain('Covering activity since');
+  });
+
   it('resets generatingNotes to false when sidecar invoke throws (finally block)', async () => {
     useBoardStore.setState({ repos: [makeRepo('fake-repo', '/fake/repo')] });
 

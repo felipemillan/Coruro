@@ -24,7 +24,7 @@ import {
 } from './boardStoreShared';
 import { runtimeEffects } from './runtimeEffects';
 import { computeWindow, shouldSkipAutoRun } from './dayNotesWindow';
-import { gatherRepoDayNotesData } from './githubDayNotes';
+import { gatherRepoDayNotesData, buildPriorContext } from './githubDayNotes';
 
 type DayNotesSlice = Pick<
   BoardStore,
@@ -134,7 +134,7 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
           return;
         }
 
-        const { windowStart, windowEnd } = computeWindow(notes, now);
+        const { windowStart, windowEnd, coverageLabel } = computeWindow(notes, now, trigger);
 
         const token = await resolveToken();
         const allEvents = await gatherUserEvents(token, windowStart);
@@ -190,20 +190,31 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
           execSummary = EXEC_SUMMARY_LOCAL;
           model = 'local-stats';
         } else {
+          // WI-3.2: continuity memory. Take the last 2–3 AI-attributed notes,
+          // extract + re-sanitize each exec summary, and thread them in as
+          // priorContext. buildPriorContext runs every string through the SAME
+          // sanitizeExecSummary gate as live output, so these carry no numbers,
+          // time-spans, paths, commit subjects, repoRefs, or appEvents (P0 #2).
+          // <2 prior AI notes → []. (app-only / single-repo paths never reach
+          // here, so their priorContext stays untouched/empty by construction.)
+          const priorContext = buildPriorContext(notes);
+
           // Cap total context before sending to sidecar. The AI sees only the
           // number-free digest lines; the numeric stats live in the composed report.
+          // priorContext is included in the budget serializer so its bytes are
+          // counted BEFORE the guard runs (never bypassed — P0 context-budget).
           const cappedRepoData = capItemsToContextBudget(
             capContextLines(
               activeRepoData.map(({ name, aiLines }) => ({ name, commits: aiLines })),
               8000,
             ),
-            (repos) => JSON.stringify({ mode: 'day_notes', repos }),
+            (repos) => JSON.stringify({ mode: 'day_notes', repos, priorContext }),
           );
 
           // The report skeleton (tiers, metrics, per-repo stats) is deterministic;
           // Apple Intelligence contributes only the executive-summary narrative.
           // An AI failure therefore degrades to a stats-only note, never a no-note.
-          ({ execSummary, model } = await fetchExecSummary(cappedRepoData));
+          ({ execSummary, model } = await fetchExecSummary(cappedRepoData, priorContext));
         }
 
         const body = composeSessionReport(
@@ -211,6 +222,7 @@ export function createDayNotesSlice(set: BoardSet, get: BoardGet): DayNotesSlice
           execSummary,
           new Date(now),
           appEvents,
+          coverageLabel,
         );
 
         const note: DayNote = {
@@ -324,6 +336,7 @@ async function gatherUserEvents(
  */
 async function fetchExecSummary(
   cappedRepoData: Array<{ name: string; commits: string[] }>,
+  priorContext: string[] = [],
 ): Promise<{ execSummary: string; model: string; wasGated: boolean }> {
   let execSummary = EXEC_SUMMARY_LOCAL;
   let model = 'local-stats';
@@ -333,7 +346,14 @@ async function fetchExecSummary(
   // logging anything (no-console) — callers/tests read this off the return.
   let wasGated = false;
   try {
-    const raw = await invoke<string>('ai_day_notes', { repos: cappedRepoData });
+    // WI-3.1 wire shape: camelCase `priorContext`, ABSENT (not null) when empty
+    // so legacy payloads and the old Swift decoder are byte-identical and default
+    // the field to []. Non-empty entries are already sanitized by the caller.
+    const args: { repos: typeof cappedRepoData; priorContext?: string[] } = {
+      repos: cappedRepoData,
+    };
+    if (priorContext.length > 0) args.priorContext = priorContext;
+    const raw = await invoke<string>('ai_day_notes', args);
     const parsed = JSON.parse(raw) as {
       ok: boolean;
       body?: string;
