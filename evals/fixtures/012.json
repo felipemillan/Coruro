@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Fixed the PTY lock", "branch: feat/x"],
+  "rawSidecarOutput": "Fixed the PTY lock and the AI pool bounds.",
+  "gated": false
+}

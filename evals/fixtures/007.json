@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Split the board st", "branch: feat/x"],
+  "rawSidecarOutput": "Split the board store into focused slices.",
+  "gated": false
+}

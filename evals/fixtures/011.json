@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Polished the repo ", "branch: feat/x"],
+  "rawSidecarOutput": "Polished the repo cards and the stats line.",
+  "gated": false
+}

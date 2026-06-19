@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Wired the activity", "branch: feat/x"],
+  "rawSidecarOutput": "Wired the activity log into daily notes.",
+  "gated": false
+}
