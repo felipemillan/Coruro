@@ -218,10 +218,37 @@ const TIME_SPAN_RE = new RegExp(
 );
 
 /**
- * A standalone numeric token (1, 7, 1,209, 3.5) — but never digits glued inside
- * an identifier like web3 or s2n (no word boundary there).
+ * Number stripping for the exec-summary gate (WI-2.2). The old blunt rule
+ * (`/\b\d[\d,.]*\b/g`) gutted meaningful tokens — `v2`, `#42`, `P1`, `S3`,
+ * `React 19` — turning a real sentence into noise and tripping the fallback.
+ *
+ * This pass preserves identifier-ish numbers and strips only bare counts:
+ *  - `#42`               issue / PR refs
+ *  - `v2`, `v1.4`        version tags
+ *  - `P1`, `S3`, `web3`  letter-glued identifiers (digit touches a letter)
+ *  - `React 19 upgrade`  "Name <version>" in an explicit version context
+ * Everything else digit-led (`3`, `7`, `1,209`, `3.5`) is a count → stripped.
  */
-const NUMBER_RE = /\b\d[\d,.]*\b/g;
+const PRESERVE_OR_NUMBER_RE = new RegExp(
+  [
+    '(', // group 1 = preserve verbatim
+    [
+      '#\\d[\\d.]*', // #42
+      '\\b[vV]\\d[\\d.]*', // v2, v1.4
+      '[A-Za-z]\\d[\\dA-Za-z.]*', // P1, S3, web3, s2n, v2
+      '\\b[A-Z][a-z]+\\s\\d+(?=\\s+(?:upgrade|release|version|stable|beta|alpha|LTS|landed)\\b)', // React 19 upgrade
+    ].join('|'),
+    ')',
+    '|',
+    '\\d[\\d,.]*', // otherwise: a bare count → stripped
+  ].join(''),
+  'g',
+);
+
+/** Strip bare count numbers while preserving version/ref/identifier tokens. */
+function stripCountNumbers(input: string): string {
+  return input.replace(PRESERVE_OR_NUMBER_RE, (_m, keep) => (keep ? keep : ''));
+}
 
 /**
  * Deterministic anti-hallucination gate for the AI executive summary.
@@ -236,7 +263,7 @@ const NUMBER_RE = /\b\d[\d,.]*\b/g;
  * If nothing meaningful survives, degrade to the stats-only fallback sentinel.
  */
 export function sanitizeExecSummary(input: string): string {
-  let out = input.replace(TIME_SPAN_RE, '').replace(NUMBER_RE, '');
+  let out = stripCountNumbers(input.replace(TIME_SPAN_RE, ''));
   out = out
     .replace(/\s+([,.;:!?])/g, '$1') // space stranded before punctuation
     .replace(/([([])\s+/g, '$1') // space stranded after an opening bracket

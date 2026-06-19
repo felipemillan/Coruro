@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Refactored the day", "branch: feat/x"],
+  "rawSidecarOutput": "Refactored the day-notes pipeline into focused modules.",
+  "gated": false
+}

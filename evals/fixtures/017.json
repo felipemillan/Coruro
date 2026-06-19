@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: calc"],
+  "rawSidecarOutput": "3 + 7 = 10.",
+  "gated": true
+}

@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Shipped the Ask te", "branch: feat/x"],
+  "rawSidecarOutput": "Shipped the Ask terminal overhaul and fixed reflow.",
+  "gated": false
+}
