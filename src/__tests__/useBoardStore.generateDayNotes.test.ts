@@ -296,13 +296,23 @@ describe('generateDayNotes', () => {
   });
 
   it('degrades to a stats-only note (no error) on sidecar ok:false response', async () => {
-    useBoardStore.setState({ repos: [makeRepo('fake-repo', '/fake/repo')] });
+    // Two repos so the sidecar is actually invoked (WI-1.6 skips it on a lone
+    // repo); this test exercises the ok:false degradation path specifically.
+    useBoardStore.setState({
+      repos: [makeRepo('fake-repo', '/fake/repo'), makeRepo('second-repo', '/second/repo')],
+    });
 
-    invokeMock.mockImplementation((cmd: string) => {
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      const path = (args as { path?: string } | undefined)?.path;
       if (cmd === 'get_token') return Promise.resolve(null);
-      if (cmd === 'git_dirty_stat') return Promise.resolve(''); // clean repo by default
+      // fake-repo carries the commit; second-repo is dirty so both stay active
+      // (≥2 repos) and the sidecar is actually invoked to exercise ok:false.
+      if (cmd === 'git_dirty_stat')
+        return Promise.resolve(path === '/second/repo' ? '1 file changed, 1 insertion(+)' : '');
       if (cmd === 'git_commits_since_numstat')
-        return Promise.resolve([makeCommit('aaa111', 'fix: something')]);
+        return Promise.resolve(
+          path === '/fake/repo' ? [makeCommit('aaa111', 'fix: something')] : [],
+        );
       if (cmd === 'ai_day_notes')
         return Promise.resolve(JSON.stringify({ ok: false, error: 'generation' }));
       return Promise.resolve('{}');
@@ -316,7 +326,8 @@ describe('generateDayNotes', () => {
     const note = dayNotes.notes[dayNotes.notes.length - 1];
     expect(note.model).toBe('local-stats');
     expect(note.body).toContain('Daily Session Summary');
-    expect(note.body).toContain('summary unavailable');
+    // WI-1.5: neutral fallback copy (no product-name "summary unavailable").
+    expect(note.body).toContain('Stats compiled from local git data.');
   });
 
   it('resets generatingNotes to false when sidecar invoke throws (finally block)', async () => {
