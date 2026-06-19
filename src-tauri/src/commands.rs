@@ -604,8 +604,36 @@ pub async fn git_dirty_stat(path: String) -> Result<String, String> {
 }
 
 /// Spawn the coruro-ai sidecar in "day_notes" mode.
-/// Writes {"mode":"day_notes","repos":<repos>} to stdin, returns one JSON line.
+///
+/// Writes a JSON payload to stdin; returns one JSON line (`DayNotesResponse`).
 /// On any spawn / sidecar-missing error returns a synthetic error JSON.
+///
+/// # Payload contract (WI-3.1 freeze)
+///
+/// Required fields:
+/// - `mode`  — `"day_notes"` (string discriminator)
+/// - `repos` — array of `{ name, commits }` repo entries (metadata-only; no paths/secrets)
+///
+/// Optional field (Phase 3 / WI-3.2+):
+/// - `priorContext` — `[String]`, camelCase.
+///   Absent (not null) when there are no prior notes to send; the Swift side
+///   defaults a missing key to `[]` so legacy payloads without this field
+///   continue to decode cleanly (back-compat invariant).
+///
+///   Each string is a sanitized exec-summary sentence produced by
+///   `sanitizeExecSummary` on the TypeScript side. Strings MUST NOT contain:
+///   raw commit subjects, file paths, tokens, app-event labels, numeric stats,
+///   or repo references. The sanitizer is the authoritative gate — no raw
+///   content may bypass it.
+///
+/// # P0 invariants (never bypass)
+/// - Zero-network AI: `ai_day_notes` is NOT called for app-only or single-repo
+///   sessions; those compose the note deterministically in TypeScript.
+/// - `priorContext` byte count is added to the context-budget line BEFORE
+///   `exceedsContextBudget` runs in the sidecar — the guard is never bypassed.
+/// - `DayNotesRequest` / `DayNotesResponse` wire shape is back-compatible:
+///   payloads without `priorContext` decode to `priorContext = []` on the Swift
+///   side via the default initializer.
 #[tauri::command]
 pub async fn ai_day_notes(repos: serde_json::Value) -> Result<String, String> {
     let payload = encode_payload(serde_json::json!({ "mode": "day_notes", "repos": repos }))?;

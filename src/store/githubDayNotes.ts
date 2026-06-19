@@ -10,11 +10,17 @@
 // network/git IO (via Tauri invoke + fetch) — it is "gathering", not pure.
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Repo } from '../types';
+import type { DayNote, Repo } from '../types';
 import { parseRemote } from '../utils/github';
 import { formatRepoContext } from '../utils/dayNotesContext';
 import type { EnrichedRepoEntry, CommitDetail } from '../utils/dayNotesContext';
-import { parseDirtyStat, qualitativeDigest, type RepoActivity } from '../utils/sessionReport';
+import {
+  parseDirtyStat,
+  qualitativeDigest,
+  sanitizeExecSummary,
+  EXEC_SUMMARY_LOCAL,
+  type RepoActivity,
+} from '../utils/sessionReport';
 import { fetchCIOutcomes, formatCILine } from '../utils/githubCI';
 import { fetchPRDetails, formatPRLine } from '../utils/githubPRDetails';
 import type { ActivityEvent } from '../utils/githubEvents';
@@ -36,6 +42,103 @@ interface GatherInput {
   token: string | null;
   allEvents: ActivityEvent[];
   windowStart: string;
+}
+
+/**
+ * Models whose notes carry a genuine AI-narrated executive summary, eligible to
+ * seed `priorContext` for the next run (WI-3.2). Deliberately excludes:
+ *  - `'user'`              — human note, free-text body, never AI continuity.
+ *  - `'local-stats'`       — sidecar never ran; exec summary is the local sentinel.
+ *  - `'ai-gated-fallback'` — sidecar ran but output was rejected; the surviving
+ *                            exec summary is the local sentinel, not narrative.
+ * Only a model that produced surviving narrative (e.g. `apple/foundation-models`)
+ * is AI-attributed here, so the local sentinel is never fed back as "memory".
+ */
+function isAiAttributed(note: DayNote): boolean {
+  return (
+    note.trigger !== 'user' &&
+    note.model !== 'user' &&
+    note.model !== 'local-stats' &&
+    note.model !== 'ai-gated-fallback'
+  );
+}
+
+/**
+ * Extract the executive-summary text from a composed day-note body, tolerating
+ * BOTH layouts (critic F5/F9):
+ *  - post-WI-1.1: a standalone `## Executive Summary` heading, the prose on the
+ *    following non-empty line(s), terminated by the next `## ` heading or EOF.
+ *  - legacy:      an inline `**Executive Summary:**` bold pseudo-heading, the
+ *    prose trailing on the same line and/or following lines until a blank line
+ *    or the next bold pseudo-heading / `## ` heading.
+ * Returns the trimmed prose (no heading, no stats bullets) or '' if not found.
+ */
+function extractExecSummaryText(body: string): string {
+  const lines = body.split('\n');
+
+  // Post-WI-1.1: a real `## Executive Summary` heading.
+  const headingIdx = lines.findIndex((l) => /^##\s+Executive Summary\s*$/i.test(l.trim()));
+  if (headingIdx !== -1) {
+    const out: string[] = [];
+    for (let i = headingIdx + 1; i < lines.length; i++) {
+      const line = lines[i];
+      // A new `## ` heading (e.g. App Activity) terminates the section.
+      if (/^##\s+/.test(line.trim())) break;
+      out.push(line);
+    }
+    return out.join('\n').trim();
+  }
+
+  // Legacy: an inline `**Executive Summary:**` bold pseudo-heading.
+  const boldIdx = lines.findIndex((l) => /\*\*Executive Summary:\*\*/i.test(l));
+  if (boldIdx !== -1) {
+    const out: string[] = [];
+    // Same-line trailing prose after the bold marker.
+    const sameLine = lines[boldIdx].replace(/^.*\*\*Executive Summary:\*\*/i, '').trim();
+    if (sameLine) out.push(sameLine);
+    for (let i = boldIdx + 1; i < lines.length; i++) {
+      const line = lines[i];
+      // Stop at a blank line, a `## ` heading, or another bold pseudo-heading.
+      if (line.trim() === '') break;
+      if (/^##\s+/.test(line.trim())) break;
+      if (/^\*\*[^*]+:\*\*/.test(line.trim())) break;
+      out.push(line);
+    }
+    return out.join('\n').trim();
+  }
+
+  return '';
+}
+
+/**
+ * WI-3.2: build the `priorContext` array for the next sidecar invocation.
+ *
+ * Takes the most recent 2–3 AI-attributed notes (newest first), extracts each
+ * note's executive summary (both layouts), and runs every extracted string
+ * through `sanitizeExecSummary` — the SAME deterministic gate the live output
+ * passes (P0 #2: priorContext strings carry no numbers/time-spans, and never any
+ * paths/commit subjects/repoRefs/appEvents, because only the already-sanitized
+ * narrative prose is taken, never the stats bullets or App Activity section).
+ *
+ * Returns `[]` when fewer than 2 prior AI-attributed notes exist — continuity
+ * needs a thread, and a single prior note isn't worth the context budget.
+ * Entries that sanitize down to the local sentinel are dropped (no signal).
+ */
+export function buildPriorContext(notes: DayNote[]): string[] {
+  const aiNotes = notes.filter(isAiAttributed);
+  if (aiNotes.length < 2) return [];
+  // Newest first, cap at 3.
+  const recent = aiNotes.slice(-3).reverse();
+  const out: string[] = [];
+  for (const note of recent) {
+    const text = extractExecSummaryText(note.body);
+    if (!text) continue;
+    const cleaned = sanitizeExecSummary(text);
+    // Drop entries with no real narrative (sanitizer fell back to the sentinel).
+    if (cleaned === EXEC_SUMMARY_LOCAL) continue;
+    out.push(cleaned);
+  }
+  return out;
 }
 
 /**

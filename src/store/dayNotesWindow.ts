@@ -12,6 +12,12 @@ export interface DayNotesWindow {
   windowStart: string;
   /** ISO timestamp of the window end (== now). */
   windowEnd: string;
+  /**
+   * Human-readable coverage label rendered under the report H1.
+   * Present when the window spans more than 24 h; null otherwise.
+   * Example: "Covering activity since Jun 15, 2026"
+   */
+  coverageLabel: string | null;
 }
 
 /**
@@ -39,24 +45,50 @@ export function shouldSkipAutoRun(
 /**
  * Compute the [windowStart, windowEnd] for a day-notes run. Anchors on the last
  * AI-generated note (ignoring user-written notes) so each note covers "what
- * happened since the previous one"; clamps the start to at most 7 days back. No
- * 1-hour minimum clamp is applied — a recent last note yields a short window
- * and the "no activity" path handles it.
+ * happened since the previous one"; clamps the start to at most 7 days back.
+ *
+ * When `trigger` is `'auto'`, a lower clamp of `now - 30 min` is applied so
+ * that a very recent last note does not produce an absurdly short auto window.
+ * Manual triggers are unclamped (the user explicitly asked for the full window).
  *
  * Anchor priority: use the previous note's windowEnd (the exact timestamp that
  * note's gathering ended), falling back to generatedAt for older notes that lack
  * it. Using generatedAt would silently drop any activity that happened between
  * windowEnd and generatedAt (i.e. the time spent running the sidecar/gather).
+ *
+ * @param notes    the current day-notes list (chronological)
+ * @param now      current epoch ms
+ * @param trigger  `'auto'` applies a 30-min lower clamp; `'manual'` unclamped
  */
-export function computeWindow(notes: DayNote[], now: number): DayNotesWindow {
+export function computeWindow(
+  notes: DayNote[],
+  now: number,
+  trigger?: 'auto' | 'manual',
+): DayNotesWindow {
   const lastMs = lastAiNoteAnchorMs(notes);
   let windowStartMs = Number.isFinite(lastMs) ? lastMs : now - 86400000;
   windowStartMs = Math.max(windowStartMs, now - 7 * 86400000);
+  // Lower clamp for auto runs: never let the window be shorter than 30 min.
+  // This prevents a very recent last note from producing a near-empty auto window.
+  // Manual runs are unclamped — the user explicitly requested the full window.
+  if (trigger === 'auto') {
+    windowStartMs = Math.min(windowStartMs, now - 30 * 60 * 1000);
+  }
   // windowStart is the exclusive lower bound passed to git_commits_since_numstat
   // and all GitHub API calls — nothing before this timestamp is ever included.
+  const durationMs = now - windowStartMs;
+  const coverageLabel =
+    durationMs > 86400000
+      ? `Covering activity since ${new Date(windowStartMs).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })}`
+      : null;
   return {
     windowStart: new Date(windowStartMs).toISOString(),
     windowEnd: new Date(now).toISOString(),
+    coverageLabel,
   };
 }
 

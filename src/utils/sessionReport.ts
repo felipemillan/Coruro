@@ -345,12 +345,16 @@ function appActivityLines(appEvents: ActivityEvent[]): string[] {
  * `executiveSummary` is the AI-written narrative (or a fallback placeholder).
  * `appEvents` (optional) appends a deterministic, secret-free App Activity
  * section after the repo breakdown; omitted/empty renders no section.
+ * `coverageLabel` (optional, default null) renders as an italic line under
+ * the H1 when the window spans more than 24 h — e.g. "Covering activity
+ * since Jun 15, 2026". Existing 3-arg and 4-arg callers are unaffected.
  */
 export function composeSessionReport(
   activities: RepoActivity[],
   executiveSummary: string,
   generatedAt: Date,
   appEvents?: ActivityEvent[],
+  coverageLabel: string | null = null,
 ): string {
   const totalFiles = activities.reduce((n, a) => n + a.filesChanged, 0);
   const totalIns = activities.reduce((n, a) => n + a.insertions, 0);
@@ -371,6 +375,10 @@ export function composeSessionReport(
 
   const md: string[] = [];
   md.push(`# 📅 Daily Session Summary — ${date}`);
+  if (coverageLabel !== null) {
+    md.push('');
+    md.push(`_${coverageLabel}_`);
+  }
   md.push('');
   md.push('## 🚦 Repository Status Breakdown');
   md.push(...tierBreakdownLines(activities));
