@@ -24,8 +24,8 @@ function ScopeChip({ scope }: { scope: 'global' | 'project' }) {
     <span
       className={
         scope === 'global'
-          ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-sage/20 text-sage shrink-0'
-          : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-navy/10 text-navy shrink-0'
+          ? 'nb-chip px-2 py-0.5 text-[10px] font-medium bg-sage/20 text-sage shrink-0'
+          : 'nb-chip px-2 py-0.5 text-[10px] font-medium bg-navy/10 text-navy shrink-0'
       }
     >
       {scope}
@@ -38,7 +38,7 @@ function ScopeChip({ scope }: { scope: 'global' | 'project' }) {
  */
 function TransportChip({ transport }: { transport: string }) {
   return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-tertiary/20 text-tertiary shrink-0">
+    <span className="nb-chip px-2 py-0.5 text-[10px] font-medium bg-tertiary/20 text-tertiary shrink-0">
       {transport}
     </span>
   );
@@ -49,7 +49,7 @@ function TransportChip({ transport }: { transport: string }) {
  */
 function SourceChip({ source }: { source: string }) {
   return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-navy/8 text-navy-light shrink-0">
+    <span className="nb-chip px-2 py-0.5 text-[10px] font-medium bg-navy/8 text-navy-light shrink-0">
       {source}
     </span>
   );
@@ -61,7 +61,7 @@ function SourceChip({ source }: { source: string }) {
  */
 function AiPill() {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-tertiary/20 text-tertiary shrink-0 leading-none">
+    <span className="nb-chip inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-tertiary/20 text-tertiary shrink-0 leading-none">
       AI
     </span>
   );
@@ -135,7 +135,7 @@ export function McpCard({ server, blurb, onOpen }: McpCardProps) {
       tabIndex={onOpen ? 0 : undefined}
       onClick={onOpen}
       onKeyDown={(e) => onCardKey(e, onOpen)}
-      className={`rounded-xl border border-warm-gray bg-cream/60 p-3 flex flex-col gap-2 hover:border-sage/30 transition-colors duration-150 ${onOpen ? cardClickable : ''}`}
+      className={`nb-card-sm p-3 flex flex-col gap-2 hover:border-sage/30 transition-colors duration-150 ${onOpen ? cardClickable : ''}`}
     >
       {/* Title row: name (truncated) + scope chip */}
       <div className="flex items-center gap-2 min-w-0">
@@ -195,7 +195,7 @@ export function SkillCard({ skill, onOpen }: SkillCardProps) {
       tabIndex={onOpen ? 0 : undefined}
       onClick={onOpen}
       onKeyDown={(e) => onCardKey(e, onOpen)}
-      className={`rounded-xl border border-warm-gray bg-cream/60 p-3 flex flex-col gap-2 hover:border-sage/30 transition-colors duration-150 ${onOpen ? cardClickable : ''}`}
+      className={`nb-card-sm p-3 flex flex-col gap-2 hover:border-sage/30 transition-colors duration-150 ${onOpen ? cardClickable : ''}`}
     >
       {/* Name + source chip on same row */}
       <div className="flex items-start justify-between gap-2">
@@ -239,7 +239,7 @@ export function AgentCard({ agent, onOpen }: AgentCardProps) {
       tabIndex={onOpen ? 0 : undefined}
       onClick={onOpen}
       onKeyDown={(e) => onCardKey(e, onOpen)}
-      className={`rounded-xl border border-warm-gray bg-cream/60 p-3 flex flex-col gap-2 hover:border-sage/30 transition-colors duration-150 ${onOpen ? cardClickable : ''}`}
+      className={`nb-card-sm p-3 flex flex-col gap-2 hover:border-sage/30 transition-colors duration-150 ${onOpen ? cardClickable : ''}`}
     >
       {/* Name + source chip on same row */}
       <div className="flex items-start justify-between gap-2">

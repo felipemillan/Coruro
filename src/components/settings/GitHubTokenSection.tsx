@@ -90,16 +90,7 @@ export function GitHubTokenSection() {
             disabled={tokenSaving}
             autoComplete="off"
             spellCheck={false}
-            className="
-              w-full pl-8 pr-3 py-2
-              rounded-lg
-              bg-warm-gray border border-warm-gray/80
-              text-[12px] font-mono text-navy
-              placeholder:text-navy-light/40
-              focus:outline-none focus:border-navy/40 focus:bg-cream
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors duration-150
-            "
+            className="nb-input w-full pl-8 pr-3 py-2 text-[12px] font-mono text-navy placeholder:text-navy-light/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
           />
         </div>
 
@@ -107,17 +98,7 @@ export function GitHubTokenSection() {
           type="button"
           onClick={() => void handleSaveToken()}
           disabled={tokenSaving || tokenInput.trim().length === 0}
-          className="
-            px-4 py-2
-            rounded-full
-            bg-sage text-cream
-            text-[12px] font-medium
-            hover:bg-sage-light hover:text-navy
-            disabled:opacity-40 disabled:cursor-not-allowed
-            transition-colors duration-150
-            cursor-pointer
-            whitespace-nowrap
-          "
+          className="nb-btn px-4 py-2 bg-sage text-cream text-[12px] font-medium hover:bg-sage-light hover:text-navy disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer whitespace-nowrap"
         >
           {tokenSaving ? 'Saving…' : 'Save token'}
         </button>

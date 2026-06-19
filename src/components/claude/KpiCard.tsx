@@ -68,11 +68,9 @@ export function KpiCard({ label, value, total, caption, accent = 'sage' }: KpiCa
 
   return (
     <div
-      className={[
-        'rounded-xl border border-warm-gray bg-cream/60 p-3',
-        'transition-colors duration-150',
-        hoverBorder[accent],
-      ].join(' ')}
+      className={['nb-card-sm p-3', 'transition-colors duration-150', hoverBorder[accent]].join(
+        ' ',
+      )}
     >
       {/* Label */}
       <p className="text-[10px] font-semibold uppercase tracking-widest text-navy-light mb-1.5 leading-none">

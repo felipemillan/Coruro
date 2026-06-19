@@ -75,13 +75,13 @@ function FindingCard({ finding }: { finding: CurateFinding }) {
       : 'border-warm-gray';
 
   return (
-    <div className={`rounded-xl border ${border} bg-cream/60 p-3 flex flex-col gap-2`}>
+    <div className={`nb-card-sm ${border} p-3 flex flex-col gap-2`}>
       <div className="flex items-start gap-2">
         <p className="text-sm font-semibold text-navy leading-snug min-w-0 flex-1">
           {finding.title}
         </p>
         <span
-          className={`px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${CATEGORY_CHIP[finding.category]}`}
+          className={`nb-chip px-2 py-0.5 text-[10px] font-medium shrink-0 ${CATEGORY_CHIP[finding.category]}`}
         >
           {CATEGORY_LABEL[finding.category]}
         </span>
@@ -94,7 +94,7 @@ function FindingCard({ finding }: { finding: CurateFinding }) {
           {finding.items.slice(0, 12).map((it, i) => (
             <span
               key={i}
-              className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-navy/8 text-navy-light truncate max-w-[220px]"
+              className="nb-chip px-1.5 py-0.5 text-[10px] font-mono bg-navy/8 text-navy-light truncate max-w-[220px]"
               title={it}
             >
               {it}
@@ -111,7 +111,7 @@ function FindingCard({ finding }: { finding: CurateFinding }) {
       <button
         type="button"
         onClick={handleFix}
-        className="mt-auto pt-1 self-start flex items-center gap-1 px-2 py-1 rounded-lg border border-warm-gray bg-cream/60 text-navy-light hover:bg-cream hover:text-navy transition-colors cursor-pointer text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+        className="nb-btn mt-auto pt-1 self-start flex items-center gap-1 px-2 py-1 text-navy-light hover:text-navy transition-colors cursor-pointer text-[11px]"
       >
         <Sparkles size={13} strokeWidth={1.75} /> Ask Claude to fix
       </button>
@@ -137,7 +137,7 @@ export function Recommendations({
           type="button"
           onClick={onRegenerate}
           disabled={loading}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg border border-warm-gray bg-cream/60 text-navy-light hover:bg-cream hover:text-navy transition-colors cursor-pointer text-[11px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          className="nb-btn flex items-center gap-1 px-2 py-1 text-navy-light hover:text-navy transition-colors cursor-pointer text-[11px] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <RefreshCw size={12} strokeWidth={2} className={loading ? 'animate-spin' : ''} />{' '}
           Re-curate
@@ -146,7 +146,7 @@ export function Recommendations({
 
       {/* AI narrative banner */}
       {showBanner && (
-        <div className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-3">
+        <div className="nb-card-sm px-4 py-3">
           {loading && (
             <p className="text-sm text-navy-light animate-pulse">Generating narrative&hellip;</p>
           )}

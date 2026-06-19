@@ -131,17 +131,12 @@ export function NoteEditor({
             setTimeout(() => setMention(null), 150);
           }}
           placeholder={placeholder}
-          className="w-full min-h-[120px] rounded-xl border border-warm-gray bg-cream px-3 py-2
-                     font-mono text-sm text-navy leading-relaxed resize-y
-                     focus:outline-none focus:ring-1 focus:ring-navy"
+          className="nb-input w-full min-h-[120px] px-3 py-2 font-mono text-sm text-navy leading-relaxed resize-y"
         />
 
         {/* @mention autocomplete dropdown — anchored just below the textarea */}
         {dropdownOpen && (
-          <div
-            className="absolute left-3 top-full mt-1 z-20 w-56 rounded-xl border border-warm-gray
-                       bg-cream shadow-md overflow-hidden"
-          >
+          <div className="nb-card-sm absolute left-3 top-full mt-1 z-20 w-56 overflow-hidden">
             {matches.map((repo, i) => (
               <button
                 key={repo.path}
@@ -169,8 +164,7 @@ export function NoteEditor({
         <button
           type="button"
           onClick={onCancel}
-          className="px-3 py-1.5 rounded-xl text-sm text-navy-light hover:text-navy
-                     transition-colors cursor-pointer"
+          className="nb-btn px-3 py-1.5 text-sm text-navy-light hover:text-navy transition-colors cursor-pointer"
         >
           Cancel
         </button>
@@ -178,9 +172,7 @@ export function NoteEditor({
           type="button"
           onClick={() => onSave(body)}
           disabled={saveDisabled}
-          className="px-4 py-1.5 rounded-xl bg-navy text-cream text-sm font-medium
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     hover:bg-navy/90 transition-colors cursor-pointer"
+          className="nb-btn px-4 py-1.5 bg-navy text-cream text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {saveLabel}
         </button>

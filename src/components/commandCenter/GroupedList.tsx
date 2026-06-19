@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 
 export function EventChip({ event }: { event: string }) {
   return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-terracotta/15 text-terracotta shrink-0">
+    <span className="nb-chip text-[10px] font-medium bg-terracotta/15 text-terracotta shrink-0">
       {event}
     </span>
   );
@@ -16,7 +16,7 @@ export function EventChip({ event }: { event: string }) {
 
 export function SourceChip({ source }: { source: 'settings' | 'script' }) {
   return (
-    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-navy/8 text-navy-light shrink-0">
+    <span className="nb-chip text-[10px] font-medium bg-navy/8 text-navy-light shrink-0">
       {source}
     </span>
   );
@@ -69,7 +69,7 @@ export function GroupedList<T extends { source: string }>({
 }) {
   const groups = groupBySource(items);
   return (
-    <div className="rounded-xl border border-warm-gray bg-cream/60 overflow-hidden">
+    <div className="nb-card overflow-hidden">
       {groups.map(([source, list]) => (
         <div key={source}>
           <GroupHeader source={source} count={list.length} />

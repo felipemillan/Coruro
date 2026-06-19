@@ -58,14 +58,14 @@ export function AskSidebar({
   return (
     <nav
       aria-label="Sessions"
-      className="w-[clamp(160px,18vw,220px)] min-w-[160px] shrink-0 border-r border-warm-gray flex flex-col bg-cream/30 overflow-y-auto"
+      className="w-[clamp(160px,18vw,220px)] min-w-[160px] shrink-0 border-r-2 border-navy flex flex-col bg-cream/30 overflow-y-auto"
     >
       {/* Pinned Github root-dir shell */}
       <button
         type="button"
         onClick={onOpenGithubShell}
         aria-label="Github shell (root directory)"
-        className={`flex items-center gap-2 px-3 py-2 border-b border-warm-gray/60 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sage ${
+        className={`flex items-center gap-2 px-3 py-2 border-b-2 border-navy text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sage ${
           githubActive
             ? 'bg-sage/20 text-navy'
             : 'text-navy-light/70 hover:text-navy hover:bg-warm-gray/60'
@@ -82,7 +82,7 @@ export function AskSidebar({
       </button>
 
       {/* + start new session — chooser between a plain Shell and a Claude session */}
-      <div className="border-b border-warm-gray/60">
+      <div className="border-b-2 border-navy">
         <button
           type="button"
           onClick={() => setChooserOpen((o) => !o)}
@@ -101,7 +101,7 @@ export function AskSidebar({
               type="button"
               role="menuitem"
               onClick={() => choose(onStartShell)}
-              className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-navy bg-warm-gray hover:bg-warm-gray/70 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+              className="nb-card-sm flex items-center gap-2 px-2 py-1.5 text-[11px] text-navy hover:bg-warm-gray/70 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
             >
               <Terminal size={12} strokeWidth={2} className="text-sage" /> Shell
             </button>
@@ -109,7 +109,7 @@ export function AskSidebar({
               type="button"
               role="menuitem"
               onClick={() => choose(onStartClaude)}
-              className="flex items-center gap-2 px-2 py-1.5 text-[11px] text-navy bg-warm-gray hover:bg-warm-gray/70 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+              className="nb-card-sm flex items-center gap-2 px-2 py-1.5 text-[11px] text-navy hover:bg-warm-gray/70 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
             >
               <Plus size={12} strokeWidth={2.5} className="text-sage" /> Claude session
             </button>
@@ -191,7 +191,7 @@ export function AskSidebar({
         <div
           role="status"
           aria-live="polite"
-          className="sticky bottom-0 mx-2 mb-2 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-navy text-cream text-[11px] shadow-lg"
+          className="sticky bottom-0 mx-2 mb-2 nb-card-sm flex items-center justify-between gap-2 px-2.5 py-1.5 bg-navy text-cream text-[11px]"
         >
           <span className="truncate">Session deleted</span>
           <button

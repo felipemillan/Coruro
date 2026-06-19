@@ -303,7 +303,7 @@ export function TopActionBar({
     <button
       type="button"
       onClick={() => openTo(group)}
-      className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+      className="nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer"
     >
       {label}
       <span className="text-[10px] text-navy-light/40 tabular-nums">{count}</span>
@@ -322,7 +322,7 @@ export function TopActionBar({
   ) => (
     <div
       key={key}
-      className="group relative flex items-start gap-1.5 rounded-lg border border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5 transition-colors"
+      className="nb-card-sm group relative flex items-start gap-1.5 hover:border-sage hover:bg-sage/5 transition-colors"
     >
       <button
         type="button"
@@ -394,7 +394,7 @@ export function TopActionBar({
               aria-haspopup="dialog"
               aria-expanded={favOpen}
               aria-controls="favorites-popover"
-              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+              className="nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer"
             >
               <Star
                 size={11}
@@ -419,7 +419,7 @@ export function TopActionBar({
                 id="favorites-popover"
                 role="dialog"
                 aria-label="Pinned favorites"
-                className="absolute left-0 top-full mt-1.5 z-50 w-[min(320px,90vw)] max-h-[50vh] overflow-y-auto rounded-xl border border-warm-gray/80 bg-cream shadow-lg shadow-navy/10"
+                className="nb-card absolute left-0 top-full mt-1.5 z-50 w-[min(320px,90vw)] max-h-[50vh] overflow-y-auto"
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     setOpenMenu(null);
@@ -441,7 +441,7 @@ export function TopActionBar({
                     favorites.map((f) => (
                       <div
                         key={f.text}
-                        className="group relative flex items-start gap-1.5 rounded-lg border border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5 transition-colors"
+                        className="nb-card-sm group relative flex items-start gap-1.5 hover:border-sage hover:bg-sage/5 transition-colors"
                       >
                         <button
                           type="button"
@@ -483,7 +483,7 @@ export function TopActionBar({
               disabled={disabled}
               onClick={() => insert(b.text, 'builtin')}
               title={`Insert: ${b.text.trim()}`}
-              className="px-2 py-1 text-[11px] font-mono text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy rounded-full transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+              className="nb-chip px-2 py-1 text-[11px] font-mono text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {b.label}
             </button>
@@ -495,7 +495,7 @@ export function TopActionBar({
               disabled={disabled}
               onClick={() => insert(c.text, 'user-quick')}
               title={`Insert: ${c.text.trim()}`}
-              className="px-2 py-1 text-[11px] font-mono text-navy-light/70 border border-dashed border-navy-light/30 hover:border-sage hover:text-navy rounded-full transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+              className="nb-chip px-2 py-1 text-[11px] font-mono text-navy-light/70 border-dashed border-navy-light/30 hover:border-sage hover:text-navy transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {c.label}
             </button>
@@ -507,7 +507,7 @@ export function TopActionBar({
             onClick={() => setEditCmdsOpen(true)}
             aria-label="Edit quick commands"
             title="Edit quick commands"
-            className="flex items-center justify-center w-7 h-7 text-navy-light/40 hover:text-navy hover:bg-warm-gray/70 rounded-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            className="nb-btn flex items-center justify-center w-7 h-7 text-navy-light/40 hover:text-navy hover:bg-warm-gray/70 transition-colors cursor-pointer"
           >
             <Pencil size={11} strokeWidth={2} />
           </button>
@@ -535,7 +535,7 @@ export function TopActionBar({
 
         {/* Search — focusing/typing opens the inventory drawer */}
         <div className="flex items-center gap-1.5 ml-auto">
-          <div className="flex items-center gap-1 px-2 py-1 bg-warm-gray rounded-lg">
+          <div className="nb-input flex items-center gap-1 px-2 py-1">
             <Search size={12} strokeWidth={2} className="text-navy-light/40 shrink-0" />
             <input
               type="text"
@@ -557,7 +557,7 @@ export function TopActionBar({
             aria-label={inventoryOpen ? 'Collapse actions' : 'Expand all actions'}
             aria-expanded={inventoryOpen}
             aria-controls="topbar-drawer"
-            className="flex items-center gap-0.5 px-2 py-1 text-[11px] text-navy-light/60 hover:text-navy hover:bg-warm-gray/70 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            className="nb-btn flex items-center gap-0.5 px-2 py-1 text-[11px] text-navy-light/60 hover:text-navy hover:bg-warm-gray/70 transition-colors cursor-pointer"
           >
             <ChevronDown
               size={14}
@@ -578,7 +578,7 @@ export function TopActionBar({
           id="topbar-drawer"
           role="region"
           aria-label="Claude capabilities"
-          className="max-h-[42vh] overflow-y-auto scroll-pt-10 border-t border-warm-gray/60 bg-cream px-4 pb-3 pt-0"
+          className="nb-flat max-h-[42vh] overflow-y-auto scroll-pt-10 border-t px-4 pb-3 pt-0"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               setOpenMenu(null);
@@ -613,10 +613,8 @@ export function TopActionBar({
                         type="button"
                         onClick={() => setQuery(active ? '' : p.name)}
                         title={active ? 'Clear filter' : `Filter to ${p.name}`}
-                        className={`text-left rounded-lg border px-2.5 py-1.5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage ${
-                          active
-                            ? 'border-sage bg-sage/10'
-                            : 'border-warm-gray/70 bg-cream/40 hover:border-sage hover:bg-sage/5'
+                        className={`nb-card-sm text-left px-2.5 py-1.5 transition-colors cursor-pointer ${
+                          active ? 'border-sage bg-sage/10' : 'hover:border-sage hover:bg-sage/5'
                         }`}
                       >
                         <div className="flex items-baseline gap-1.5">
