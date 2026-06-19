@@ -57,6 +57,21 @@ struct DayNotesRequest: Decodable {
         var name: String
         var commits: [String]
     }
+
+    // A stored-property default is NOT honored by Swift's *synthesized* Decodable
+    // (a missing key throws keyNotFound, not the default). The common payload
+    // omits `priorContext` entirely, so without this explicit initializer every
+    // such request fails to decode → `badInput` → the note falls back to
+    // local-stats and the on-device model is never invoked. decodeIfPresent
+    // restores the documented "absent → []" back-compat contract.
+    enum CodingKeys: String, CodingKey { case mode, repos, priorContext }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try c.decode(String.self, forKey: .mode)
+        repos = try c.decode([RepoEntry].self, forKey: .repos)
+        priorContext = try c.decodeIfPresent([String].self, forKey: .priorContext) ?? []
+    }
 }
 
 struct DayNotesResponse: Encodable {
