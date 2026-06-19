@@ -101,7 +101,10 @@ describe('composeSessionReport', () => {
       new Date('2026-06-13T10:00:00Z'),
     );
     expect(md).toContain('# 📅 Daily Session Summary —');
-    expect(md).toContain('**Executive Summary:** I worked mostly on big.');
+    // WI-1.1: executive summary is a real `##` heading, body on its own line.
+    expect(md).toContain('## Executive Summary');
+    expect(md).toContain('I worked mostly on big.');
+    expect(md).not.toContain('**Executive Summary:**');
     expect(md).toContain('- Repos touched: 4');
     expect(md).toContain('- Files changed: 23');
     expect(md).toContain('- Lines: +1,536 / -1,311');
@@ -116,21 +119,50 @@ describe('composeSessionReport', () => {
     expect(md).toContain(
       '- @big: Major uncommitted refactor. (17 files changed, 1509 insertions(+), 1292 deletions(-), 2 untracked)',
     );
+    // WI-1.3: conventional-commit prefix (`feat:`) is stripped from the subject.
     expect(md).toContain(
-      '- @mid: feat: add tracker. (5 files changed, 23 insertions(+), 16 deletions(-), 1 untracked)',
+      '- @mid: add tracker. (5 files changed, 23 insertions(+), 16 deletions(-), 1 untracked)',
     );
     expect(md).toContain('- @sleepy (3 untracked)');
   });
 
   it('omits empty tiers', () => {
+    // Two low repos so the full skeleton renders (single-repo triggers the
+    // WI-1.6 compact path); only the Low tier should appear.
     const md = composeSessionReport(
-      [act({ name: 'only', filesChanged: 1, insertions: 2, deletions: 1 })],
+      [
+        act({ name: 'only', filesChanged: 1, insertions: 2, deletions: 1 }),
+        act({ name: 'other', filesChanged: 2, insertions: 4, deletions: 3 }),
+      ],
       'x',
       new Date(),
     );
     expect(md).toContain('### 🟢 Low Activity / Minor Tweaks');
     expect(md).not.toContain('### 🔴');
     expect(md).not.toContain('### ⚪');
+  });
+
+  it('WI-1.6: a single low-tier repo gets a compact one-line note (no skeleton)', () => {
+    const md = composeSessionReport(
+      [act({ name: 'only', filesChanged: 1, insertions: 2, deletions: 1 })],
+      'x',
+      new Date(),
+    );
+    expect(md).toContain('# 📅 Daily Session Summary —');
+    expect(md).toContain('@only:');
+    expect(md).not.toContain('## 🚦 Repository Status Breakdown');
+    expect(md).not.toContain('### 🟢');
+    expect(md).not.toContain('## Executive Summary');
+  });
+
+  it('WI-1.6: a single high-tier repo still gets the full skeleton', () => {
+    const md = composeSessionReport(
+      [act({ name: 'big', filesChanged: 17, insertions: 1509, deletions: 1292 })],
+      'x',
+      new Date(),
+    );
+    expect(md).toContain('## 🚦 Repository Status Breakdown');
+    expect(md).toContain('### 🔴 High Activity / Significant Changes');
   });
 
   it('existing 3-arg calls (no appEvents) still pass', () => {

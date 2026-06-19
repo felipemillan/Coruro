@@ -61,12 +61,19 @@ export function classifyActivity(a: RepoActivity): ActivityTier {
   return 'moderate';
 }
 
-/** Brief 2–4 word description derived from real data — never invented. */
-function describe(a: RepoActivity, tier: ActivityTier): string {
-  if (a.commitSubjects.length > 0) {
-    const s = a.commitSubjects[0];
-    return s.length > 60 ? s.slice(0, 57) + '…' : s;
-  }
+/**
+ * Strip conventional-commit prefixes (feat:, fix(scope):, etc.) from a
+ * commit subject, returning the cleaned prose.
+ */
+const CONVENTIONAL_PREFIX_RE =
+  /^(?:feat|fix|chore|docs|refactor|test|style|perf|build|ci|revert)(?:\([^)]*\))?!?:\s*/i;
+
+function stripConventionalPrefix(s: string): string {
+  return s.replace(CONVENTIONAL_PREFIX_RE, '');
+}
+
+/** Fallback description when there are no commit subjects, based on tier + stats. */
+function describeNoCommits(a: RepoActivity, tier: ActivityTier): string {
   const lines = a.insertions + a.deletions;
   if (tier === 'high') {
     if (a.filesChanged === 0) return 'Many new untracked files';
@@ -76,6 +83,78 @@ function describe(a: RepoActivity, tier: ActivityTier): string {
   }
   if (tier === 'moderate') return 'Steady uncommitted progress';
   return 'Minor uncommitted tweaks';
+}
+
+/** Brief 2–4 word description derived from real data — never invented. */
+function describe(a: RepoActivity, tier: ActivityTier): string {
+  if (a.commitSubjects.length >= 2) {
+    const first = stripConventionalPrefix(a.commitSubjects[0]);
+    const second = stripConventionalPrefix(a.commitSubjects[1]);
+    return `${first} and ${second}`;
+  }
+  if (a.commitSubjects.length === 1) {
+    const s = stripConventionalPrefix(a.commitSubjects[0]);
+    return s.length > 60 ? s.slice(0, 57) + '…' : s;
+  }
+  return describeNoCommits(a, tier);
+}
+
+/**
+ * WI-1.6 adaptive scaffold: a single low/idle-tier repo gets a compact one-line
+ * note instead of the full tier/metrics/exec-summary skeleton. Returns null when
+ * the full report should be composed (≠1 repo, or the lone repo is moderate/high).
+ */
+function compactSingleRepoNote(
+  activities: RepoActivity[],
+  date: string,
+  appEvents?: ActivityEvent[],
+): string | null {
+  if (activities.length !== 1) return null;
+  const only = activities[0];
+  const tier = classifyActivity(only);
+  if (tier !== 'low' && tier !== 'idle') return null;
+  const lines: string[] = [];
+  lines.push(`# 📅 Daily Session Summary — ${date}`);
+  lines.push('');
+  lines.push(`@${only.name}: ${describe(only, tier)}. ${statsLabel(only)}`.trimEnd());
+  if (appEvents && appEvents.length > 0) {
+    lines.push('');
+    lines.push(...appActivityLines(appEvents));
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Group activities into tiers and render the per-repo breakdown bullets. Within
+ * each tier, biggest work (by lines touched) leads. Idle repos omit the prose
+ * description (no commit subject to lean on).
+ */
+function tierBreakdownLines(activities: RepoActivity[]): string[] {
+  const byTier = new Map<ActivityTier, RepoActivity[]>();
+  for (const a of activities) {
+    const tier = classifyActivity(a);
+    const list = byTier.get(tier) ?? [];
+    list.push(a);
+    byTier.set(tier, list);
+  }
+
+  const out: string[] = [];
+  for (const tier of TIER_ORDER) {
+    const list = byTier.get(tier);
+    if (!list || list.length === 0) continue;
+    list.sort((x, y) => y.insertions + y.deletions - (x.insertions + x.deletions));
+    out.push('');
+    out.push(TIER_HEADERS[tier]);
+    for (const a of list) {
+      const stats = statsLabel(a);
+      out.push(
+        tier === 'idle'
+          ? `- @${a.name} ${stats}`.trimEnd()
+          : `- @${a.name}: ${describe(a, tier)}. ${stats}`.trimEnd(),
+      );
+    }
+  }
+  return out;
 }
 
 /** "(X files changed, Y insertions(+), Z deletions(-), W untracked)" — zero parts omitted. */
@@ -112,12 +191,11 @@ export function qualitativeDigest(a: RepoActivity): string | null {
 }
 
 /**
- * Placeholder used when the AI executive summary is unavailable or fails the
- * deterministic anti-hallucination gate below. Identical to the spawn-failure
- * fallback in dayNotesSlice so the composed report reads consistently.
+ * Neutral placeholder used when no AI executive summary is available: the
+ * sidecar never ran (single-repo / app-only / spawn failure) or the sanitizer
+ * rejected the output. Intentionally copy-neutral — no product-name references.
  */
-export const EXEC_SUMMARY_FALLBACK =
-  '_Apple Intelligence summary unavailable — stats compiled locally._';
+export const EXEC_SUMMARY_LOCAL = 'Stats compiled from local git data.';
 
 /**
  * Time-span phrases the small on-device model is told (3× over) never to emit,
@@ -166,7 +244,7 @@ export function sanitizeExecSummary(input: string): string {
     .replace(/^[\s,.;:!?-]+/, '') // orphaned leading punctuation
     .trim();
   // No letters left means the model's contribution was entirely noise.
-  if (!/[A-Za-z]/.test(out)) return EXEC_SUMMARY_FALLBACK;
+  if (!/[A-Za-z]/.test(out)) return EXEC_SUMMARY_LOCAL;
   return out;
 }
 
@@ -257,42 +335,28 @@ export function composeSessionReport(
     year: 'numeric',
   });
 
+  // WI-1.6: adaptive scaffold. A single light-activity repo doesn't warrant the
+  // full tier / metrics / exec-summary skeleton — emit a compact one-line note so
+  // a tiny session reads as a note, not a broken report. High-tier single repos
+  // still get the full skeleton below.
+  const compact = compactSingleRepoNote(activities, date, appEvents);
+  if (compact !== null) return compact;
+
   const md: string[] = [];
   md.push(`# 📅 Daily Session Summary — ${date}`);
   md.push('');
-  md.push(`**Executive Summary:** ${executiveSummary}`);
+  md.push('## 🚦 Repository Status Breakdown');
+  md.push(...tierBreakdownLines(activities));
+
   md.push('');
-  md.push('**Global Activity Metrics:**');
+  md.push('## Global Activity Metrics');
   md.push(`- Repos touched: ${activities.length}`);
   md.push(`- Files changed: ${totalFiles}`);
   md.push(`- Lines: +${totalIns.toLocaleString()} / -${totalDel.toLocaleString()}`);
   md.push('');
-  md.push('## 🚦 Repository Status Breakdown');
-
-  // Within each tier, sort by lines touched descending so the biggest work leads.
-  const byTier = new Map<ActivityTier, RepoActivity[]>();
-  for (const a of activities) {
-    const tier = classifyActivity(a);
-    const list = byTier.get(tier) ?? [];
-    list.push(a);
-    byTier.set(tier, list);
-  }
-
-  for (const tier of TIER_ORDER) {
-    const list = byTier.get(tier);
-    if (!list || list.length === 0) continue;
-    list.sort((x, y) => y.insertions + y.deletions - (x.insertions + x.deletions));
-    md.push('');
-    md.push(TIER_HEADERS[tier]);
-    for (const a of list) {
-      const stats = statsLabel(a);
-      if (tier === 'idle') {
-        md.push(`- @${a.name} ${stats}`.trimEnd());
-      } else {
-        md.push(`- @${a.name}: ${describe(a, tier)}. ${stats}`.trimEnd());
-      }
-    }
-  }
+  md.push('## Executive Summary');
+  md.push('');
+  md.push(executiveSummary);
 
   if (appEvents && appEvents.length > 0) {
     md.push('');
