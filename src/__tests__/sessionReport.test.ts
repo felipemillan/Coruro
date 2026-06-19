@@ -173,6 +173,57 @@ describe('composeSessionReport', () => {
   });
 });
 
+describe('composeSessionReport — coverageLabel (WI-3.5)', () => {
+  // Use a multi-repo set so the full skeleton is always rendered
+  const twoRepos: RepoActivity[] = [
+    act({ name: 'alpha', filesChanged: 5, insertions: 80, deletions: 20 }),
+    act({ name: 'beta', filesChanged: 2, insertions: 10, deletions: 5 }),
+  ];
+
+  it('renders italic coverage label on the 2nd non-empty line when non-null', () => {
+    const md = composeSessionReport(
+      twoRepos,
+      'Good session.',
+      new Date(),
+      undefined,
+      'Covering activity since Jun 15, 2026',
+    );
+    const lines = md.split('\n');
+    const nonEmpty = lines.filter((l) => l.trim() !== '');
+    // Line 0 = H1, line 1 = italic label (2nd non-empty line, index 1)
+    expect(nonEmpty[0]).toMatch(/^# 📅 Daily Session Summary —/);
+    expect(nonEmpty[1]).toBe('_Covering activity since Jun 15, 2026_');
+  });
+
+  it('output is unchanged when coverageLabel is null (explicit)', () => {
+    const withNull = composeSessionReport(twoRepos, 'Good session.', new Date(), undefined, null);
+    const withoutParam = composeSessionReport(twoRepos, 'Good session.', new Date());
+    // Both should produce the same structure (dates may differ if date boundary crossed,
+    // so compare structural absence of italic line rather than byte equality)
+    expect(withNull).not.toMatch(/_Covering activity since/);
+    expect(withoutParam).not.toMatch(/_Covering activity since/);
+  });
+
+  it('output is unchanged when coverageLabel is omitted (default null)', () => {
+    const md = composeSessionReport(twoRepos, 'Good session.', new Date());
+    expect(md).not.toMatch(/_Covering activity since/);
+    // H1 should be immediately followed by an empty line then the breakdown heading
+    const lines = md.split('\n');
+    const h1Index = lines.findIndex((l) => l.startsWith('# 📅'));
+    expect(lines[h1Index + 1]).toBe('');
+    expect(lines[h1Index + 2]).toBe('## 🚦 Repository Status Breakdown');
+  });
+
+  it('existing 4-arg callers (with appEvents, no coverageLabel) are unaffected', () => {
+    const events: ActivityEvent[] = [
+      { id: 'e1', ts: 1000, kind: 'ask_session_started', repoName: 'alpha' },
+    ];
+    const md = composeSessionReport(twoRepos, 'Good session.', new Date(), events);
+    expect(md).toContain('## App Activity');
+    expect(md).not.toMatch(/_Covering activity since/);
+  });
+});
+
 describe('composeSessionReport — App Activity section', () => {
   const sampleEvents = (): ActivityEvent[] => [
     { id: 'e1', ts: 1000, kind: 'ask_session_started', repoName: 'myapp' },
