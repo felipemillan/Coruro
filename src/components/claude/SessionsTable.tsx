@@ -98,7 +98,7 @@ function ActivityBar({ value, max }: ActivityBarProps) {
 
 function AiPill() {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-sage/15 text-sage shrink-0 leading-none">
+    <span className="nb-chip inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold tracking-wide bg-sage/15 text-sage shrink-0 leading-none">
       AI
     </span>
   );
@@ -149,7 +149,7 @@ export function SessionsTable({ sessions, blurbs = {} }: SessionsTableProps) {
   // ── Empty state ───────────────────────────────────────────────────────────
   if (sorted.length === 0) {
     return (
-      <div className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-6 text-center">
+      <div className="nb-card-sm px-4 py-6 text-center">
         <p className="text-sm text-navy-light">No session data found.</p>
       </div>
     );
@@ -157,7 +157,7 @@ export function SessionsTable({ sessions, blurbs = {} }: SessionsTableProps) {
 
   // ── Table ─────────────────────────────────────────────────────────────────
   return (
-    <div className="rounded-xl border border-warm-gray bg-cream/60 overflow-hidden">
+    <div className="nb-card-sm overflow-hidden">
       <table className="w-full text-left border-collapse">
         <thead>
           <tr className="bg-warm-gray">

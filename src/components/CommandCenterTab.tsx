@@ -291,9 +291,7 @@ export function CommandCenterTab() {
             <button
               type="button"
               onClick={() => void scanClaude()}
-              className="px-4 py-2 rounded-xl bg-navy text-cream text-sm font-medium
-                         hover:bg-navy/90 transition-colors cursor-pointer
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage/50 focus-visible:ring-offset-1"
+              className="nb-btn px-4 py-2 bg-navy text-cream text-sm font-medium hover:bg-navy/90 transition-colors cursor-pointer"
             >
               Scan ~/.claude
             </button>
@@ -386,7 +384,7 @@ export function CommandCenterTab() {
             {inventory.errors.length > 0 && (
               <section>
                 <SectionHeader label="Scan Warnings" />
-                <div className="rounded-xl border border-terracotta/30 bg-terracotta/8 px-3 py-2 flex flex-col gap-1">
+                <div className="nb-card-sm px-3 py-2 flex flex-col gap-1 border-terracotta/30 bg-terracotta/8">
                   {inventory.errors.map((err, i) => (
                     <p key={i} className="text-xs text-terracotta font-mono">
                       {err}

@@ -18,8 +18,8 @@ function EnabledBadge({ enabled }: { enabled: boolean }) {
     <span
       className={
         enabled
-          ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-sage/20 text-sage shrink-0'
-          : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-warm-gray text-navy-light shrink-0'
+          ? 'nb-chip text-[10px] font-medium bg-sage/20 text-sage shrink-0'
+          : 'nb-chip text-[10px] font-medium bg-warm-gray text-navy-light shrink-0'
       }
     >
       {enabled ? 'enabled' : 'disabled'}
@@ -30,14 +30,10 @@ function EnabledBadge({ enabled }: { enabled: boolean }) {
 /** One plugin rendered as a card: description, enabled state, content counts. */
 export function PluginCard({ plugin, counts }: { plugin: ClaudePlugin; counts?: PluginCounts }) {
   const pills = counts ? buildPills(counts) : [];
-  const borderCls = plugin.enabled
-    ? 'border-warm-gray hover:border-sage/30'
-    : 'border-warm-gray/60 opacity-75';
+  const borderCls = plugin.enabled ? 'hover:border-sage/30' : 'opacity-75';
 
   return (
-    <div
-      className={`rounded-xl border bg-cream/60 p-3 flex flex-col gap-2 transition-colors ${borderCls}`}
-    >
+    <div className={`nb-card-sm p-3 flex flex-col gap-2 transition-colors ${borderCls}`}>
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-navy flex-1 truncate">{plugin.name}</span>
         {plugin.version !== null && (
@@ -58,10 +54,7 @@ export function PluginCard({ plugin, counts }: { plugin: ClaudePlugin; counts?: 
         )}
         {pills.length > 0 && <span className="text-navy-light/30 text-[10px]">·</span>}
         {pills.map((p) => (
-          <span
-            key={p}
-            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-navy/8 text-navy-light"
-          >
+          <span key={p} className="nb-chip text-[10px] font-medium bg-navy/8 text-navy-light">
             {p}
           </span>
         ))}

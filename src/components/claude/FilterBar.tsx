@@ -95,16 +95,7 @@ export function FilterBar({
           placeholder={placeholder}
           spellCheck={false}
           autoComplete="off"
-          className={[
-            'w-56 pl-8 pr-3 py-1.5',
-            'rounded-full',
-            'bg-warm-gray border border-warm-gray/80',
-            'text-[12px] text-navy',
-            'placeholder:text-navy-light/40',
-            'focus:outline-none focus:border-navy/40 focus:bg-cream',
-            'focus-visible:ring-2 focus-visible:ring-sage/50 focus-visible:ring-offset-1',
-            'transition-colors duration-150',
-          ].join(' ')}
+          className="nb-input w-56 pl-8 pr-3 py-1.5 text-[12px] text-navy placeholder:text-navy-light/40 transition-colors duration-150"
         />
       </div>
 
@@ -123,11 +114,7 @@ export function FilterBar({
 /** @internal */
 function SegmentedGroup({ group }: { group: FilterGroup }) {
   return (
-    <div
-      role="group"
-      aria-label={group.label}
-      className="flex items-center bg-warm-gray border border-warm-gray/80 rounded-lg p-1 gap-0.5"
-    >
+    <div role="group" aria-label={group.label} className="nb-flat flex items-center p-1 gap-0.5">
       {group.options.map((option) => {
         const isActive = option === group.value;
         return (
@@ -137,17 +124,11 @@ function SegmentedGroup({ group }: { group: FilterGroup }) {
             onClick={() => group.onChange(option)}
             aria-pressed={isActive}
             className={[
-              // base geometry
-              'px-2.5 py-1 rounded-md leading-none',
-              // text
+              'nb-chip nb-btn px-2.5 py-1 leading-none',
               'text-[11px] font-bold uppercase tracking-wide',
-              // transitions
               'transition-colors duration-150 cursor-pointer',
-              // focus ring (a11y)
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage/60 focus-visible:ring-offset-1',
-              // active vs inactive
               isActive
-                ? 'bg-sage text-cream shadow-sm'
+                ? 'bg-sage text-cream'
                 : 'text-navy-light hover:text-navy hover:bg-warm-gray/50',
             ].join(' ')}
           >

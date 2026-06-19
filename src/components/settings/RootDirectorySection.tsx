@@ -44,16 +44,7 @@ export function RootDirectorySection() {
       </p>
 
       {/* Current path display */}
-      <div
-        className="
-          flex items-center
-          px-3 py-2 mb-3
-          rounded-lg
-          bg-warm-gray border border-warm-gray/80
-          text-[12px] font-mono text-navy-light
-          overflow-hidden
-        "
-      >
+      <div className="nb-card-sm flex items-center px-3 py-2 mb-3 text-[12px] font-mono text-navy-light overflow-hidden">
         {rootDirectory !== null ? (
           <span className="truncate select-all">{rootDirectory}</span>
         ) : (
@@ -65,17 +56,7 @@ export function RootDirectorySection() {
         type="button"
         onClick={() => void handlePickDirectory()}
         disabled={dirPicking}
-        className="
-          flex items-center gap-2
-          px-4 py-2
-          rounded-full
-          bg-navy text-cream
-          text-[12px] font-medium
-          hover:bg-navy-light
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors duration-150
-          cursor-pointer
-        "
+        className="nb-btn flex items-center gap-2 px-4 py-2 bg-navy text-cream text-[12px] font-medium hover:bg-navy-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer"
       >
         <FolderOpen size={13} strokeWidth={1.5} />
         {dirPicking ? 'Picking…' : 'Choose folder'}

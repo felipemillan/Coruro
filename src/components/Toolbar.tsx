@@ -53,12 +53,11 @@ export function Toolbar() {
           spellCheck={false}
           autoComplete="off"
           className="
+            nb-input
             w-64 pl-8 pr-3 py-1.5
-            rounded-full
-            bg-warm-gray border border-warm-gray/80
+            bg-warm-gray
             text-[12px] font-mono text-navy
             placeholder:text-navy-light/40
-            focus:outline-none focus:border-navy/40 focus:bg-cream
             transition-colors duration-150
           "
         />
@@ -74,8 +73,8 @@ export function Toolbar() {
               type="button"
               onClick={() => toggleFilter(key)}
               className={[
-                'text-[11px] px-2 py-1 leading-none font-medium',
-                'rounded-full transition-colors duration-150 cursor-pointer',
+                'nb-chip text-[11px] px-2 py-1 leading-none font-medium',
+                'transition-colors duration-150 cursor-pointer',
                 active
                   ? 'bg-sage text-cream'
                   : 'bg-warm-gray text-navy-light hover:bg-warm-gray/70',
@@ -97,11 +96,10 @@ export function Toolbar() {
             useViewStore.getState().setSort(val);
           }}
           className="
-            rounded-lg
-            bg-warm-gray border border-warm-gray/80
+            nb-input
+            bg-warm-gray
             text-[12px] text-navy
             px-2 py-1.5
-            focus:outline-none focus:border-navy/40
             transition-colors duration-150
             cursor-pointer
           "

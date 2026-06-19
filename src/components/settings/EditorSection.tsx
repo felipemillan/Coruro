@@ -37,15 +37,7 @@ export function EditorSection() {
         placeholder="code"
         spellCheck={false}
         autoComplete="off"
-        className="
-          w-full px-3 py-2 mb-3
-          rounded-lg
-          bg-warm-gray border border-warm-gray/80
-          text-[12px] font-mono text-navy
-          placeholder:text-navy-light/40
-          focus:outline-none focus:border-navy/40 focus:bg-cream
-          transition-colors duration-150
-        "
+        className="nb-input w-full px-3 py-2 mb-3 text-[12px] font-mono text-navy placeholder:text-navy-light/40 transition-colors duration-150"
       />
 
       <label className="block text-[11px] text-navy-light mb-1">macOS app name (fallback)</label>
@@ -59,15 +51,7 @@ export function EditorSection() {
         placeholder="Visual Studio Code"
         spellCheck={false}
         autoComplete="off"
-        className="
-          w-full px-3 py-2
-          rounded-lg
-          bg-warm-gray border border-warm-gray/80
-          text-[12px] font-mono text-navy
-          placeholder:text-navy-light/40
-          focus:outline-none focus:border-navy/40 focus:bg-cream
-          transition-colors duration-150
-        "
+        className="nb-input w-full px-3 py-2 text-[12px] font-mono text-navy placeholder:text-navy-light/40 transition-colors duration-150"
       />
       <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">
         Examples — CLI: <span className="font-mono">code</span>,{' '}

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useBoardStore } from '../store/useBoardStore';
-import { useViewStore } from '../store/useViewStore';
 import { NoteEditor } from './NoteEditor';
+import { DailyNoteBentoCard } from './DailyNoteBento';
+import { parseDailyNote } from '../utils/parseDailyNote';
 import type { Repo } from '../types';
 import type { Components } from 'react-markdown';
 
@@ -133,7 +134,12 @@ function injectMentions(
   });
 }
 
-export function NotesTab() {
+interface NotesTabProps {
+  /** Open a repo's detail (switches to Board, where the modal lives). */
+  onOpenRepoDetail: (path: string) => void;
+}
+
+export function NotesTab({ onOpenRepoDetail }: NotesTabProps) {
   const dayNotes = useBoardStore((s) => s.dayNotes);
   const generatingNotes = useBoardStore((s) => s.generatingNotes);
   const notesError = useBoardStore((s) => s.notesError);
@@ -147,7 +153,6 @@ export function NotesTab() {
   const autoNotesIntervalMin = useBoardStore((s) => s.settings.autoNotesIntervalMin);
   const setAutoNotesEnabled = useBoardStore((s) => s.setAutoNotesEnabled);
   const setAutoNotesIntervalMin = useBoardStore((s) => s.setAutoNotesIntervalMin);
-  const setDetail = useViewStore((s) => s.setDetail);
 
   // Local state for the interval input so we can show inline validation without
   // touching the store on invalid keystrokes.
@@ -162,7 +167,13 @@ export function NotesTab() {
   const sorted = [...dayNotes.notes].reverse(); // newest first
 
   const handleRepoClick = (repo: Repo) => {
-    setDetail(repo.path);
+    onOpenRepoDetail(repo.path);
+  };
+
+  // Bento repo chips are keyed by name; resolve to a repo and open its detail.
+  const handleRepoName = (name: string) => {
+    const repo = repos.find((r) => r.name === name || r.path.endsWith('/' + name));
+    if (repo) onOpenRepoDetail(repo.path);
   };
 
   const handleIntervalChange = (raw: string) => {
@@ -194,16 +205,15 @@ export function NotesTab() {
           type="button"
           onClick={() => void generateDayNotes('manual')}
           disabled={generatingNotes}
-          className="px-4 py-2 rounded-xl bg-navy text-cream text-sm font-medium
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     hover:bg-navy/90 transition-colors cursor-pointer"
+          className="nb-btn px-4 py-2 bg-navy text-cream text-sm font-medium
+                     disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {generatingNotes ? 'Generating…' : 'Generate Day Notes'}
         </button>
       </div>
 
       {/* Fix 5: Auto Notes settings row */}
-      <div className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-3 flex flex-col gap-2">
+      <div className="nb-card px-4 py-3 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-navy">Auto Notes</span>
           {/* Toggle */}
@@ -242,10 +252,9 @@ export function NotesTab() {
             disabled={!autoNotesEnabled}
             onChange={(e) => handleIntervalChange(e.target.value)}
             className={[
-              'w-16 rounded-lg border px-2 py-1 text-xs text-navy bg-cream',
-              'focus:outline-none focus:ring-1 focus:ring-navy',
+              'nb-input w-16 px-2 py-1 text-xs text-navy bg-cream',
               'disabled:opacity-40 disabled:cursor-not-allowed',
-              intervalError ? 'border-red-400' : 'border-warm-gray',
+              intervalError ? 'border-red-400' : '',
             ].join(' ')}
           />
           <span className="text-xs text-navy-light">minutes</span>
@@ -256,7 +265,7 @@ export function NotesTab() {
 
       {/* Composer: human-written notes (trigger 'user') */}
       {composing ? (
-        <div className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-3 flex flex-col gap-2">
+        <div className="nb-card px-4 py-3 flex flex-col gap-2">
           <span className="text-sm font-medium text-navy">Write a note</span>
           <NoteEditor
             repos={repos}
@@ -271,7 +280,7 @@ export function NotesTab() {
         <button
           type="button"
           onClick={() => setComposing(true)}
-          className="rounded-xl border border-warm-gray bg-cream/60 px-4 py-3 text-left text-sm
+          className="nb-flat px-4 py-3 text-left text-sm
                      text-navy-light hover:text-navy hover:bg-cream transition-colors cursor-pointer"
         >
           + Write a note
@@ -280,7 +289,7 @@ export function NotesTab() {
 
       {/* Fix 7: Error banner with dismiss button */}
       {notesError && (
-        <div className="flex items-start justify-between gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="nb-flat flex items-start justify-between gap-2 border-red-400 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span>{notesError}</span>
           <button
             type="button"
@@ -308,79 +317,93 @@ export function NotesTab() {
       )}
 
       {/* Note cards */}
-      {sorted.map((note) => (
-        <div
-          key={note.id}
-          className="rounded-2xl border border-warm-gray bg-cream shadow-sm p-5 flex flex-col gap-2"
-        >
-          <div className="flex items-center gap-2">
-            {/* Fix 8: use undefined locale so the device locale is respected */}
-            <span className="text-xs text-navy-light">
-              {new Date(note.generatedAt).toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-            {/* Subtle hint when the note body was edited after creation */}
-            {note.editedAt && <span className="text-xs text-navy-light/60 italic">(edited)</span>}
-            <span
-              className={
-                note.trigger === 'user'
-                  ? 'px-2 py-0.5 rounded-full text-xs bg-terracotta/15 text-terracotta font-medium'
-                  : note.trigger === 'auto'
-                    ? 'px-2 py-0.5 rounded-full text-xs bg-sage/20 text-sage font-medium'
-                    : 'px-2 py-0.5 rounded-full text-xs bg-navy/10 text-navy font-medium'
-              }
-            >
-              {note.trigger}
-            </span>
-            <button
-              type="button"
-              aria-label="Edit note"
-              title="Edit note"
-              onClick={() => setEditingId(editingId === note.id ? null : note.id)}
-              className="ml-auto flex-shrink-0 px-1.5 text-navy-light/60 hover:text-navy
-                         transition-colors leading-none text-sm cursor-pointer"
-            >
-              &#9998;
-            </button>
-            <button
-              type="button"
-              aria-label="Delete note"
-              title="Delete note"
-              onClick={() => deleteDayNote(note.id)}
-              className="flex-shrink-0 px-1.5 text-navy-light/60 hover:text-red-600
-                         transition-colors leading-none text-base cursor-pointer"
-            >
-              &times;
-            </button>
-          </div>
-          {editingId === note.id ? (
-            <NoteEditor
-              initialBody={note.body}
-              repos={repos}
-              onSave={(body) => {
-                updateDayNote(note.id, body);
-                setEditingId(null);
-              }}
-              onCancel={() => setEditingId(null)}
+      {sorted.map((note) => {
+        // Deterministic daily-summary notes (auto/manual) render as a bento grid;
+        // user notes and compact single-repo notes fall back to markdown.
+        const bento = note.trigger !== 'user' ? parseDailyNote(note.body) : null;
+
+        if (bento && editingId !== note.id) {
+          return (
+            <DailyNoteBentoCard
+              key={note.id}
+              note={note}
+              data={bento}
+              onEdit={() => setEditingId(note.id)}
+              onDelete={() => deleteDayNote(note.id)}
+              onRepoClick={handleRepoName}
             />
-          ) : (
-            <div className="text-sm text-navy leading-relaxed">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={makeComponents(repos, handleRepoClick)}
+          );
+        }
+
+        return (
+          <div key={note.id} className="nb-card p-5 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              {/* Fix 8: use undefined locale so the device locale is respected */}
+              <span className="text-xs text-navy-light">
+                {new Date(note.generatedAt).toLocaleString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+              {/* Subtle hint when the note body was edited after creation */}
+              {note.editedAt && <span className="text-xs text-navy-light/60 italic">(edited)</span>}
+              <span
+                className={
+                  note.trigger === 'user'
+                    ? 'px-2 py-0.5 rounded-full text-xs bg-terracotta/15 text-terracotta font-medium'
+                    : note.trigger === 'auto'
+                      ? 'px-2 py-0.5 rounded-full text-xs bg-sage/20 text-sage font-medium'
+                      : 'px-2 py-0.5 rounded-full text-xs bg-navy/10 text-navy font-medium'
+                }
               >
-                {cleanMarkdown(note.body)}
-              </ReactMarkdown>
+                {note.trigger}
+              </span>
+              <button
+                type="button"
+                aria-label="Edit note"
+                title="Edit note"
+                onClick={() => setEditingId(editingId === note.id ? null : note.id)}
+                className="nb-btn ml-auto flex-shrink-0 px-1.5 text-navy-light/60 hover:text-navy transition-colors leading-none text-sm cursor-pointer"
+              >
+                &#9998;
+              </button>
+              <button
+                type="button"
+                aria-label="Delete note"
+                title="Delete note"
+                onClick={() => deleteDayNote(note.id)}
+                className="nb-btn flex-shrink-0 px-1.5 text-navy-light/60 hover:text-red-600 transition-colors leading-none text-base cursor-pointer"
+              >
+                &times;
+              </button>
             </div>
-          )}
-          <span className="text-xs text-navy-light/70">{note.model}</span>
-        </div>
-      ))}
+            {editingId === note.id ? (
+              <NoteEditor
+                initialBody={note.body}
+                repos={repos}
+                onSave={(body) => {
+                  updateDayNote(note.id, body);
+                  setEditingId(null);
+                }}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : (
+              <div className="text-sm text-navy leading-relaxed">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={makeComponents(repos, handleRepoClick)}
+                >
+                  {cleanMarkdown(note.body)}
+                </ReactMarkdown>
+              </div>
+            )}
+            <span className="text-xs text-navy-light/70">{note.model}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
