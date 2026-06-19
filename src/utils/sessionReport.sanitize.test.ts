@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeExecSummary, EXEC_SUMMARY_FALLBACK } from './sessionReport';
+import { sanitizeExecSummary, EXEC_SUMMARY_LOCAL } from './sessionReport';
 
 describe('sanitizeExecSummary — deterministic anti-hallucination gate', () => {
   it('passes a clean qualitative summary through unchanged', () => {
@@ -43,12 +43,12 @@ describe('sanitizeExecSummary — deterministic anti-hallucination gate', () => 
   });
 
   it('returns the fallback sentinel when nothing usable survives', () => {
-    expect(sanitizeExecSummary('Today. 3 7 1,209.')).toBe(EXEC_SUMMARY_FALLBACK);
-    expect(sanitizeExecSummary('   ')).toBe(EXEC_SUMMARY_FALLBACK);
-    expect(sanitizeExecSummary('')).toBe(EXEC_SUMMARY_FALLBACK);
+    expect(sanitizeExecSummary('Today. 3 7 1,209.')).toBe(EXEC_SUMMARY_LOCAL);
+    expect(sanitizeExecSummary('   ')).toBe(EXEC_SUMMARY_LOCAL);
+    expect(sanitizeExecSummary('')).toBe(EXEC_SUMMARY_LOCAL);
   });
 
   it('keeps the fallback placeholder untouched (idempotent on its own sentinel)', () => {
-    expect(sanitizeExecSummary(EXEC_SUMMARY_FALLBACK)).toBe(EXEC_SUMMARY_FALLBACK);
+    expect(sanitizeExecSummary(EXEC_SUMMARY_LOCAL)).toBe(EXEC_SUMMARY_LOCAL);
   });
 });
