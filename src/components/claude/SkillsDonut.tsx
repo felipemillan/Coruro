@@ -74,7 +74,7 @@ export function SkillsDonut({ groups }: SkillsDonutProps) {
   // Empty state — nothing to chart.
   if (total <= 0 || sorted.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-warm-gray bg-cream/60 px-4 py-8 gap-2">
+      <div className="nb-card-sm flex flex-col items-center justify-center px-4 py-8 gap-2">
         <Sparkles size={14} strokeWidth={1.75} className="text-navy-light" />
         <span className="text-sm text-navy-light">No skills</span>
       </div>

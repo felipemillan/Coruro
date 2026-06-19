@@ -20,14 +20,7 @@ export function AutoRefreshSection() {
         onChange={(e) => {
           void setRefreshInterval(Number(e.target.value));
         }}
-        className="
-          w-full px-3 py-2
-          rounded-lg
-          bg-warm-gray border border-warm-gray/80
-          text-[12px] text-navy
-          focus:outline-none focus:border-navy/40 focus:bg-cream
-          transition-colors duration-150 cursor-pointer
-        "
+        className="nb-input w-full px-3 py-2 text-[12px] text-navy transition-colors duration-150 cursor-pointer"
       >
         <option value={0}>Off</option>
         <option value={5}>Every 5 minutes</option>

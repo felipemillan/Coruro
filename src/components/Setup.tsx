@@ -59,7 +59,7 @@ export function Setup(): React.JSX.Element {
       {/* Logo / wordmark area                                                */}
       {/* ------------------------------------------------------------------ */}
       <div className="mb-10 flex flex-col items-center gap-3 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-warm-gray shadow-sm">
+        <div className="nb-card-sm flex h-14 w-14 items-center justify-center bg-warm-gray">
           <GitBranch size={28} className="text-navy" strokeWidth={1.5} />
         </div>
 
@@ -79,7 +79,7 @@ export function Setup(): React.JSX.Element {
         onClick={() => void handleChooseDirectory()}
         disabled={scanning}
         className={[
-          'flex items-center gap-2 rounded-full bg-sage px-6 py-3',
+          'nb-btn flex items-center gap-2 bg-sage px-6 py-3',
           'text-sm font-medium text-cream transition-colors',
           scanning ? 'cursor-not-allowed opacity-50' : 'hover:bg-sage-light',
         ].join(' ')}

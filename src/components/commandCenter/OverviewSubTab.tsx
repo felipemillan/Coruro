@@ -17,7 +17,7 @@ function HooksSection({ hooks }: { hooks: ClaudeInventory['hooks'] }) {
   return (
     <section>
       <SectionHeader label={`Hooks (${hooks.length})`} />
-      <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
+      <div className="nb-card divide-y divide-warm-gray/50">
         {hooks.map((hook, i) => (
           <div key={`${hook.event}-${i}`} className="flex items-start gap-2 px-3 py-2 flex-wrap">
             <EventChip event={hook.event} />
@@ -36,7 +36,7 @@ function SettingsSection({ settings }: { settings: NonNullable<ClaudeInventory['
   return (
     <section>
       <SectionHeader label="Settings" />
-      <div className="rounded-xl border border-warm-gray bg-cream/60 divide-y divide-warm-gray/50">
+      <div className="nb-card divide-y divide-warm-gray/50">
         {settings.model !== null && (
           <div className="flex items-center gap-2 px-3 py-2">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light w-20 shrink-0">
@@ -68,10 +68,7 @@ function SettingsSection({ settings }: { settings: NonNullable<ClaudeInventory['
             </span>
             <div className="flex flex-wrap gap-1">
               {settings.envKeys.map((key) => (
-                <span
-                  key={key}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-navy/8 text-navy-light"
-                >
+                <span key={key} className="nb-chip text-[10px] font-mono bg-navy/8 text-navy-light">
                   {key}
                 </span>
               ))}
@@ -91,12 +88,12 @@ function GlobalMemorySection({
   return (
     <section>
       <SectionHeader label="Global Memory (CLAUDE.md)" />
-      <div className="rounded-xl border border-warm-gray bg-cream/60 px-3 py-2 flex items-center gap-3">
+      <div className="nb-card px-3 py-2 flex items-center gap-3">
         <span
           className={
             globalMemory.present
-              ? 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-sage/20 text-sage'
-              : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-warm-gray text-navy-light'
+              ? 'nb-chip text-[10px] font-medium bg-sage/20 text-sage'
+              : 'nb-chip text-[10px] font-medium bg-warm-gray text-navy-light'
           }
         >
           {globalMemory.present ? 'present' : 'absent'}
@@ -145,7 +142,7 @@ export function OverviewSubTab({
       {/* Skills donut */}
       <section>
         <SectionHeader label="Skills by Source" />
-        <div className="rounded-xl border border-warm-gray bg-cream/60 p-4">
+        <div className="nb-card p-4">
           <SkillsDonut groups={skillGroups} />
         </div>
       </section>

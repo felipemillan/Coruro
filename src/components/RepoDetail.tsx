@@ -303,8 +303,8 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Modal panel — M3: rounded-2xl shadow-lg */}
-      <div className="relative w-[85vw] h-[85vh] bg-cream border border-warm-gray shadow-lg rounded-2xl flex flex-col overflow-hidden">
+      {/* Modal panel */}
+      <div className="nb-card relative w-[85vw] h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 bg-warm-gray border-b border-warm-gray/60 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -312,12 +312,12 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
             <span className="text-[13px] font-semibold text-navy truncate">{repo.name}</span>
             <span className="text-[11px] font-mono text-navy-light/60 truncate">{repo.path}</span>
           </div>
-          {/* Icon-only close button — M3: rounded-full */}
+          {/* Icon-only close button */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex items-center justify-center w-7 h-7 text-navy-light hover:text-navy hover:bg-navy/8 rounded-full transition-colors cursor-pointer shrink-0"
+            className="nb-btn flex items-center justify-center w-7 h-7 text-navy-light hover:text-navy hover:bg-navy/8 transition-colors cursor-pointer shrink-0"
           >
             <X size={15} strokeWidth={1.5} />
           </button>
@@ -338,7 +338,7 @@ export function RepoDetail({ repo, onClose }: RepoDetailProps) {
         {/* Body: md tree / activity | (preview / timeline) */}
         <div className="flex flex-1 min-h-0 mt-1.5">
           {/* Left pane: Files | Activity tabs */}
-          <aside className="w-[280px] shrink-0 border-r border-warm-gray bg-cream/60 flex flex-col min-h-0 rounded-xl mx-2 mb-2">
+          <aside className="nb-card-sm w-[280px] shrink-0 flex flex-col min-h-0 mx-2 mb-2">
             {/* Tab bar */}
             <div className="shrink-0 flex border-b border-warm-gray">
               <button

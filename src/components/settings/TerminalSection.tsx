@@ -39,15 +39,7 @@ export function TerminalSection() {
           placeholder="Terminal"
           spellCheck={false}
           autoComplete="off"
-          className="
-            w-full pl-8 pr-3 py-2
-            rounded-lg
-            bg-warm-gray border border-warm-gray/80
-            text-[12px] font-mono text-navy
-            placeholder:text-navy-light/40
-            focus:outline-none focus:border-navy/40 focus:bg-cream
-            transition-colors duration-150
-          "
+          className="nb-input w-full pl-8 pr-3 py-2 text-[12px] font-mono text-navy placeholder:text-navy-light/40 transition-colors duration-150"
         />
       </div>
       <p className="mt-2 text-[11px] text-navy-light/60 leading-snug">

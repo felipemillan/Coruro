@@ -36,15 +36,7 @@ export function AutoNotesSection() {
               const v = parseInt(e.target.value, 10);
               if (v > 0) void setAutoNotesIntervalMin(v);
             }}
-            className="
-              flex-1 px-3 py-2
-              rounded-lg
-              bg-warm-gray border border-warm-gray/80
-              text-[12px] text-navy
-              placeholder:text-navy-light/40
-              focus:outline-none focus:border-navy/40 focus:bg-cream
-              transition-colors duration-150
-            "
+            className="nb-input flex-1 px-3 py-2 text-[12px] text-navy placeholder:text-navy-light/40 transition-colors duration-150"
           />
         </label>
       )}
