@@ -120,7 +120,7 @@ async function gatherOneRepo(r: Repo, ctx: OneRepoCtx): Promise<RepoDayNotesData
   };
   const contextLines = buildContextLines(entry, issueRefSet, ghCommitLines, dirtyStat);
   const activity = computeActivity(r.name, localCommits, dirtyStat);
-  const aiLines = buildAiLines(entry, activity);
+  const aiLines = buildAiLines(entry, activity, r.branch);
 
   return { name: r.name, commits: contextLines, activity, aiLines };
 }
@@ -187,9 +187,13 @@ function computeActivity(
 /**
  * Number-free lines for the AI executive summary — the on-device model parrots
  * (and miscomputes) any digits it is shown, so it gets only commit subjects,
- * PR/CI/event titles, and a qualitative digest. Pure.
+ * PR/CI/event titles, a qualitative digest, and the WI-2.3 intent hints. Pure.
  */
-function buildAiLines(entry: EnrichedRepoEntry, activity: RepoActivity): string[] {
+export function buildAiLines(
+  entry: EnrichedRepoEntry,
+  activity: RepoActivity,
+  branch?: string,
+): string[] {
   const aiLines: string[] = [
     ...activity.commitSubjects.map((s) => 'commit: ' + s),
     ...entry.prs.map((p) => p.replace(/\s*\(\+\d+\/-\d+,\s*\d+\s*files?\)/g, '')),
@@ -198,7 +202,61 @@ function buildAiLines(entry: EnrichedRepoEntry, activity: RepoActivity): string[
   ];
   const digest = qualitativeDigest(activity);
   if (digest) aiLines.push(digest);
+  aiLines.push(...buildAiHints(entry, branch));
   return aiLines;
+}
+
+/** Remove every digit so a hint can never feed a parroted number to the model. */
+function digitFree(s: string): string {
+  return s
+    .replace(/\d+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .trim();
+}
+
+/**
+ * WI-2.3: extra digit-free hints drawn from data already gathered — they give
+ * the model intent signal (branch name, touched directories, a PR-title
+ * excerpt, a failed CI workflow) without ever introducing a bare digit.
+ * Returns only the hints that have content; empty repos add nothing.
+ */
+function buildAiHints(entry: EnrichedRepoEntry, branch?: string): string[] {
+  const hints: string[] = [];
+
+  // branch — encodes intent (feat/fix/chore/…); skip the uninformative defaults.
+  if (branch && !/^(?:main|master|develop|trunk)$/i.test(branch)) {
+    const b = digitFree(branch);
+    if (b) hints.push('branch: ' + b);
+  }
+
+  // dirs — top-level directories touched, deduped, no counts.
+  const topDirs = [
+    ...new Set(
+      entry.commits
+        .flatMap((c) => c.folders)
+        .map((f) => f.split('/')[0].trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (topDirs.length > 0) hints.push('dirs: ' + digitFree(topDirs.join(', ')));
+
+  // pr-context — a number-stripped excerpt of the first PR title (≤80 chars).
+  if (entry.prs.length > 0) {
+    const excerpt = digitFree(entry.prs[0]).slice(0, 80).trim();
+    if (excerpt) hints.push('pr-context: ' + excerpt);
+  }
+
+  // ci-failure — workflow name(s) of any failed run ('[CI] FAIL: <name> on <branch>').
+  for (const line of entry.ciLines) {
+    const m = line.match(/FAIL:\s*(.+?)\s+on\s/);
+    if (m) {
+      const name = digitFree(m[1]);
+      if (name) hints.push('ci-failure: ' + name);
+    }
+  }
+
+  return hints;
 }
 
 /**

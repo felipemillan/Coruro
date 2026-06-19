@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Added the command ", "branch: feat/x"],
+  "rawSidecarOutput": "Added the command center scanner.",
+  "gated": false
+}

@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Upgraded to React ", "branch: feat/x"],
+  "rawSidecarOutput": "Upgraded to React 19 and cleaned the store.",
+  "gated": false
+}

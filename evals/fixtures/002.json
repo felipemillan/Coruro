@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Hardened the sidec", "branch: feat/x"],
+  "rawSidecarOutput": "Hardened the sidecar and tightened the gate.",
+  "gated": false
+}
