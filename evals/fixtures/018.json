@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: nums"],
+  "rawSidecarOutput": "1,234 5,678 9.",
+  "gated": true
+}

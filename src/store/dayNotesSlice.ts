@@ -324,9 +324,14 @@ async function gatherUserEvents(
  */
 async function fetchExecSummary(
   cappedRepoData: Array<{ name: string; commits: string[] }>,
-): Promise<{ execSummary: string; model: string }> {
+): Promise<{ execSummary: string; model: string; wasGated: boolean }> {
   let execSummary = EXEC_SUMMARY_LOCAL;
   let model = 'local-stats';
+  // wasGated = the sidecar ran and returned a body, but the deterministic
+  // sanitizer rejected all of it (model='ai-gated-fallback'). Instrumentation
+  // for the eval harness: lets us measure the real gate-rejection rate without
+  // logging anything (no-console) — callers/tests read this off the return.
+  let wasGated = false;
   try {
     const raw = await invoke<string>('ai_day_notes', { repos: cappedRepoData });
     const parsed = JSON.parse(raw) as {
@@ -343,13 +348,11 @@ async function fetchExecSummary(
       // from 'local-stats' (sidecar never ran / spawn-or-parse failure).
       const cleaned = sanitizeExecSummary(parsed.body);
       execSummary = cleaned;
-      model =
-        cleaned === EXEC_SUMMARY_LOCAL
-          ? 'ai-gated-fallback'
-          : (parsed.model ?? 'apple/foundation-models');
+      wasGated = cleaned === EXEC_SUMMARY_LOCAL;
+      model = wasGated ? 'ai-gated-fallback' : (parsed.model ?? 'apple/foundation-models');
     }
   } catch {
     // Sidecar spawn/parse failure — keep the fallback summary.
   }
-  return { execSummary, model };
+  return { execSummary, model, wasGated };
 }

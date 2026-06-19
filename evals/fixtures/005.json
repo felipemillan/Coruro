@@ -1,0 +1,5 @@
+{
+  "aiLines": ["commit: Closed P1 and S3 i", "branch: feat/x"],
+  "rawSidecarOutput": "Closed P1 and S3 issues in the board view.",
+  "gated": false
+}

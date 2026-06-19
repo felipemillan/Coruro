@@ -110,7 +110,12 @@ struct CurateResponse: Encodable {
 // is delegated to it.
 @Generable
 struct SessionSummary {
-    @Guide(description: "One or two sentences summarizing the overall narrative of this work session: name the 2-4 repositories with the most significant work and characterize it qualitatively (heavy refactoring, new features, bug fixes, work in progress). NEVER repeat, sum, or compute any numbers — the report already shows exact stats. First person, past tense. Plain repo names without brackets. Never invent details, never claim a time span (day, week), no concluding wrap-up phrases.")
+    // WI-2.4: the @Guide says only what to write + the format. All prohibitions
+    // (numbers, time spans, invention) live in the deterministic sanitizer, which
+    // is authoritative — a small quantized model drops hard constraints past the
+    // first few, so over-loading the guide degraded output. Prompt shapes; the
+    // gate enforces.
+    @Guide(description: "One or two sentences summarizing this work session: name the 2-4 repositories with the most significant work and characterize it qualitatively — refactoring, new features, bug fixes, work in progress. First person, past tense. Plain repo names.")
     var executiveSummary: String
 }
 
@@ -188,9 +193,7 @@ func buildDayNotesPrompt(_ req: DayNotesRequest) -> String {
     lines.append("""
     Write the executive summary of this work session: 1-2 sentences naming the 2-4 repos with the most \
     significant work and characterizing it qualitatively (refactoring, fixing, new features, work in progress). \
-    Do NOT repeat or compute any numbers — the report shows exact stats separately. \
-    First-person past tense. Synthesize — do not repeat the raw lines verbatim. \
-    Only facts present in the input; never invent details or claim a time span.
+    First-person past tense. Synthesize — do not repeat the raw lines verbatim.
     """)
     return lines.joined(separator: "\n")
 }

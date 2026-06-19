@@ -52,3 +52,28 @@ describe('sanitizeExecSummary — deterministic anti-hallucination gate', () => 
     expect(sanitizeExecSummary(EXEC_SUMMARY_LOCAL)).toBe(EXEC_SUMMARY_LOCAL);
   });
 });
+
+describe('sanitizeExecSummary — number preservation (WI-2.2)', () => {
+  it('preserves version tags and issue/PR refs verbatim', () => {
+    expect(sanitizeExecSummary('Worked on v2 API and #42 PR fix')).toBe(
+      'Worked on v2 API and #42 PR fix',
+    );
+  });
+
+  it('strips bare count numbers but keeps the surrounding prose', () => {
+    const out = sanitizeExecSummary('Shipped 3 bug fixes across 7 files');
+    expect(out).not.toMatch(/\b\d/);
+    expect(out).toContain('bug fixes');
+    expect(out).toContain('files');
+  });
+
+  it('keeps a version number in an explicit version context (React 19 upgrade)', () => {
+    expect(sanitizeExecSummary('React 19 upgrade landed')).toContain('19');
+  });
+
+  it('preserves letter-glued identifiers P1 and S3', () => {
+    const out = sanitizeExecSummary('Closed P1 and S3 issues');
+    expect(out).toContain('P1');
+    expect(out).toContain('S3');
+  });
+});
