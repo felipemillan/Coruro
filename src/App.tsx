@@ -252,12 +252,12 @@ export default function App() {
         ) : (
           /* Normal: tab bar + content */
           <>
-            {/* Top-level tab bar — Notes | Board | Ask | Claude + gear */}
-            <div className="shrink-0 flex items-center border-b border-warm-gray bg-cream/60">
+            {/* Top-level tab bar — Notes | Board | Code | Claude + gear */}
+            <div className="shrink-0 flex items-center gap-1.5 px-1.5 py-1 border-b border-warm-gray bg-cream/60">
               <button
                 type="button"
                 onClick={() => setActiveTab('notes')}
-                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                className={`nb-btn px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
                   activeTab === 'notes'
                     ? 'text-navy bg-cream'
                     : 'text-navy-light/60 hover:text-navy'
@@ -268,7 +268,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setActiveTab('board')}
-                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                className={`nb-btn px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
                   activeTab === 'board'
                     ? 'text-navy bg-cream'
                     : 'text-navy-light/60 hover:text-navy'
@@ -279,11 +279,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setActiveTab('ask')}
-                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                className={`nb-btn px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
                   activeTab === 'ask' ? 'text-navy bg-cream' : 'text-navy-light/60 hover:text-navy'
                 }`}
               >
-                Ask
+                Code
               </button>
               <button
                 type="button"
@@ -296,7 +296,7 @@ export default function App() {
                     repoName: null,
                   });
                 }}
-                className={`px-4 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                className={`nb-btn px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
                   activeTab === 'claude'
                     ? 'text-navy bg-cream'
                     : 'text-navy-light/60 hover:text-navy'

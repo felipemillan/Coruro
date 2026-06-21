@@ -109,7 +109,7 @@ export function Board() {
             return (
               <section
                 key={columnId}
-                className="flex flex-col min-h-0 bg-cream/60 backdrop-blur-sm border border-navy/10 rounded-xl shadow-sm"
+                className="nb-flat flex flex-col min-h-0 bg-cream/60 backdrop-blur-sm"
               >
                 <header className="px-3 py-2 border-b border-navy/15 shrink-0">
                   <h2 className="text-navy font-semibold text-sm uppercase tracking-wide flex items-center justify-between">

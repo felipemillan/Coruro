@@ -39,7 +39,7 @@ export function CommandCenterHeader({
               aria-label={qa.label}
               onClick={qa.run}
               disabled={!inventoryLoaded}
-              className="nb-btn flex items-center gap-1 px-2 py-1 text-navy-light
+              className="nb-btn flex items-center gap-1 px-3.5 py-2 whitespace-nowrap text-navy-light
                          hover:bg-cream hover:text-navy disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors cursor-pointer"
             >
@@ -54,7 +54,7 @@ export function CommandCenterHeader({
           title="Re-scan ~/.claude"
           onClick={onRefresh}
           disabled={scanning}
-          className="nb-btn flex items-center gap-1.5 px-3 py-1.5 text-xs text-navy
+          className="nb-btn flex items-center gap-1.5 px-3.5 py-2 whitespace-nowrap text-xs text-navy
                      hover:bg-cream/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           <RefreshCw size={12} strokeWidth={2} />

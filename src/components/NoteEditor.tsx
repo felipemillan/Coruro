@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Repo } from '../types';
 
 interface NoteEditorProps {
@@ -40,6 +40,15 @@ export function NoteEditor({
   const [body, setBody] = useState(initialBody);
   const [mention, setMention] = useState<MentionState | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow: start at one row and expand to fit content as the user types.
+  // Reset to 'auto' first so the textarea can also shrink when text is removed.
+  useLayoutEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${ta.scrollHeight}px`;
+  }, [body]);
 
   const matches = mention
     ? repos
@@ -121,6 +130,7 @@ export function NoteEditor({
       <div className="relative">
         <textarea
           ref={textareaRef}
+          rows={1}
           value={body}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -131,7 +141,7 @@ export function NoteEditor({
             setTimeout(() => setMention(null), 150);
           }}
           placeholder={placeholder}
-          className="nb-input w-full min-h-[120px] px-3 py-2 font-mono text-sm text-navy leading-relaxed resize-y"
+          className="nb-input w-full px-3 py-2 font-mono text-sm text-navy leading-relaxed resize-none overflow-hidden"
         />
 
         {/* @mention autocomplete dropdown — anchored just below the textarea */}

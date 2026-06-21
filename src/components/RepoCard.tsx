@@ -64,9 +64,9 @@ function RepoCardImpl({ repo, selected = false }: RepoCardProps) {
   return (
     <article
       className={[
-        'bg-white border flex flex-col shadow-sm transition-shadow rounded-xl overflow-hidden',
+        'nb-card nb-hover bg-white flex flex-col overflow-hidden',
         d.stale ? 'opacity-70' : '',
-        selected ? 'border-sage ring-2 ring-sage' : 'border-navy/10',
+        selected ? 'border-sage ring-2 ring-sage' : '',
       ].join(' ')}
       data-path={repo.path}
     >

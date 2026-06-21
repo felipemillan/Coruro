@@ -240,34 +240,6 @@ function NotablesSidebar({ data, onRepoClick }: { data: DailyNoteData } & RepoCl
   );
 }
 
-function IdleSidebar({ data, onRepoClick }: { data: DailyNoteData } & RepoClick) {
-  const idle = data.tiers.idle;
-  if (idle.length === 0) return null;
-  return (
-    <aside className={`${CARD} p-5 lg:col-span-2`}>
-      <div className="mb-3 flex items-center justify-center gap-2">
-        <TrafficLight dot="bg-navy/30" />
-        <h3 className="text-sm font-bold uppercase tracking-widest text-navy">Idle / Untracked</h3>
-      </div>
-      <ul className="flex flex-col gap-1.5 text-sm">
-        {idle.map((r, i) => (
-          <li key={`${r.name}-${i}`} className="flex items-baseline justify-between gap-2">
-            <span className="flex min-w-0 items-baseline gap-1">
-              <span className="text-navy/40" aria-hidden="true">
-                ◷
-              </span>
-              <RepoName name={r.name} onRepoClick={onRepoClick} />
-            </span>
-            {r.untracked > 0 && (
-              <span className="flex-shrink-0 font-mono text-xs text-navy/55">({r.untracked})</span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </aside>
-  );
-}
-
 function AppActivityCard({ data }: { data: DailyNoteData }) {
   if (data.appActivity.length === 0) return null;
   return (
@@ -304,7 +276,6 @@ export function DailyNoteBento({ data, trigger, generatedAt, onRepoClick }: Bent
       <ExecutiveSummary data={data} />
       <NotablesSidebar data={data} onRepoClick={onRepoClick} />
       <RepositoryBreakdown data={data} onRepoClick={onRepoClick} />
-      <IdleSidebar data={data} onRepoClick={onRepoClick} />
       <AppActivityCard data={data} />
     </div>
   );
