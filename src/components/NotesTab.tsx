@@ -139,6 +139,103 @@ interface NotesTabProps {
   onOpenRepoDetail: (path: string) => void;
 }
 
+interface NotesHeaderProps {
+  generatingNotes: boolean;
+  autoNotesEnabled: boolean;
+  intervalDraft: string;
+  intervalError: string | null;
+  onToggleAuto: () => void;
+  onIntervalChange: (raw: string) => void;
+  onGenerate: () => void;
+}
+
+/**
+ * Header row: title + loading badge on the left, and a right-aligned control
+ * group with the Auto Notes toggle, interval input, and Generate Day Notes
+ * button inline together.
+ */
+function NotesHeader({
+  generatingNotes,
+  autoNotesEnabled,
+  intervalDraft,
+  intervalError,
+  onToggleAuto,
+  onIntervalChange,
+  onGenerate,
+}: NotesHeaderProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-navy">Day Notes</h2>
+        {/* Fix 6: loading badge shown whenever generatingNotes is true,
+            regardless of whether notes already exist. */}
+        {generatingNotes && (
+          <span className="px-2 py-0.5 rounded-full text-xs bg-sage/20 text-sage font-medium animate-pulse">
+            Updating…
+          </span>
+        )}
+      </div>
+      {/* Right-aligned controls: Auto Notes (toggle + interval) inline with Generate */}
+      <div className="flex items-center gap-4">
+        {/* Auto Notes toggle */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-navy">Auto Notes</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoNotesEnabled}
+            onClick={onToggleAuto}
+            className={[
+              'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full',
+              'transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy',
+              autoNotesEnabled ? 'bg-navy' : 'bg-warm-gray',
+            ].join(' ')}
+          >
+            <span
+              aria-hidden="true"
+              className={[
+                'pointer-events-none inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow',
+                'transform transition-transform',
+                autoNotesEnabled ? 'translate-x-4' : 'translate-x-0.5',
+              ].join(' ')}
+            />
+          </button>
+        </div>
+        {/* Interval input — only meaningful when auto is enabled */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-navy-light" htmlFor="auto-notes-interval">
+            Every
+          </label>
+          <input
+            id="auto-notes-interval"
+            type="number"
+            min={1}
+            step={1}
+            value={intervalDraft}
+            disabled={!autoNotesEnabled}
+            onChange={(e) => onIntervalChange(e.target.value)}
+            className={[
+              'nb-input w-16 px-2 py-1 text-xs text-navy bg-cream',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+              intervalError ? 'border-red-400' : '',
+            ].join(' ')}
+          />
+          <span className="text-xs text-navy-light">minutes</span>
+        </div>
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={generatingNotes}
+          className="nb-btn px-4 py-2 bg-navy text-cream text-sm font-medium
+                     disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        >
+          {generatingNotes ? 'Generating…' : 'Generate Day Notes'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function NotesTab({ onOpenRepoDetail }: NotesTabProps) {
   const dayNotes = useBoardStore((s) => s.dayNotes);
   const generatingNotes = useBoardStore((s) => s.generatingNotes);
@@ -189,79 +286,18 @@ export function NotesTab({ onOpenRepoDetail }: NotesTabProps) {
 
   return (
     <div className="flex flex-col h-full overflow-auto p-6 gap-4">
-      {/* Header row — includes persistent loading indicator (Fix 6) */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-navy">Day Notes</h2>
-          {/* Fix 6: loading badge shown whenever generatingNotes is true,
-              regardless of whether notes already exist. */}
-          {generatingNotes && (
-            <span className="px-2 py-0.5 rounded-full text-xs bg-sage/20 text-sage font-medium animate-pulse">
-              Updating…
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => void generateDayNotes('manual')}
-          disabled={generatingNotes}
-          className="nb-btn px-4 py-2 bg-navy text-cream text-sm font-medium
-                     disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          {generatingNotes ? 'Generating…' : 'Generate Day Notes'}
-        </button>
-      </div>
+      <NotesHeader
+        generatingNotes={generatingNotes}
+        autoNotesEnabled={autoNotesEnabled}
+        intervalDraft={intervalDraft}
+        intervalError={intervalError}
+        onToggleAuto={() => setAutoNotesEnabled(!autoNotesEnabled)}
+        onIntervalChange={handleIntervalChange}
+        onGenerate={() => void generateDayNotes('manual')}
+      />
 
-      {/* Fix 5: Auto Notes settings row */}
-      <div className="nb-card px-4 py-3 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-navy">Auto Notes</span>
-          {/* Toggle */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={autoNotesEnabled}
-            onClick={() => setAutoNotesEnabled(!autoNotesEnabled)}
-            className={[
-              'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full',
-              'transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-navy',
-              autoNotesEnabled ? 'bg-navy' : 'bg-warm-gray',
-            ].join(' ')}
-          >
-            <span
-              aria-hidden="true"
-              className={[
-                'pointer-events-none inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow',
-                'transform transition-transform',
-                autoNotesEnabled ? 'translate-x-4' : 'translate-x-0.5',
-              ].join(' ')}
-            />
-          </button>
-        </div>
-        {/* Interval input — only meaningful when auto is enabled */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-navy-light" htmlFor="auto-notes-interval">
-            Every
-          </label>
-          <input
-            id="auto-notes-interval"
-            type="number"
-            min={1}
-            step={1}
-            value={intervalDraft}
-            disabled={!autoNotesEnabled}
-            onChange={(e) => handleIntervalChange(e.target.value)}
-            className={[
-              'nb-input w-16 px-2 py-1 text-xs text-navy bg-cream',
-              'disabled:opacity-40 disabled:cursor-not-allowed',
-              intervalError ? 'border-red-400' : '',
-            ].join(' ')}
-          />
-          <span className="text-xs text-navy-light">minutes</span>
-        </div>
-        {/* Inline validation error */}
-        {intervalError && <p className="text-xs text-red-600">{intervalError}</p>}
-      </div>
+      {/* Inline validation error for the Auto Notes interval */}
+      {intervalError && <p className="-mt-2 text-xs text-red-600">{intervalError}</p>}
 
       {/* Composer: human-written notes (trigger 'user') */}
       {composing ? (

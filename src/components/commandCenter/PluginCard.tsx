@@ -18,8 +18,8 @@ function EnabledBadge({ enabled }: { enabled: boolean }) {
     <span
       className={
         enabled
-          ? 'nb-chip text-[10px] font-medium bg-sage/20 text-sage shrink-0'
-          : 'nb-chip text-[10px] font-medium bg-warm-gray text-navy-light shrink-0'
+          ? 'nb-chip px-2 py-0.5 whitespace-nowrap text-[10px] font-medium bg-sage/20 text-sage shrink-0'
+          : 'nb-chip px-2 py-0.5 whitespace-nowrap text-[10px] font-medium bg-warm-gray text-navy-light shrink-0'
       }
     >
       {enabled ? 'enabled' : 'disabled'}
@@ -54,7 +54,10 @@ export function PluginCard({ plugin, counts }: { plugin: ClaudePlugin; counts?: 
         )}
         {pills.length > 0 && <span className="text-navy-light/30 text-[10px]">·</span>}
         {pills.map((p) => (
-          <span key={p} className="nb-chip text-[10px] font-medium bg-navy/8 text-navy-light">
+          <span
+            key={p}
+            className="nb-chip px-2 py-0.5 whitespace-nowrap text-[10px] font-medium bg-navy/8 text-navy-light"
+          >
             {p}
           </span>
         ))}

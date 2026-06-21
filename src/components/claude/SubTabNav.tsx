@@ -84,8 +84,8 @@ export function SubTabNav({ active, onChange, counts = {} }: SubTabNavProps) {
             onClick={() => onChange(id)}
             className={[
               // Base layout
-              'nb-chip relative flex items-center gap-1.5 px-3 py-2.5 cursor-pointer',
-              'text-[10px] font-semibold uppercase tracking-widest',
+              'nb-chip relative flex items-center gap-1.5 px-4 py-2.5 cursor-pointer',
+              'text-[11px] font-semibold uppercase tracking-widest',
               'transition-colors select-none whitespace-nowrap',
               // Bottom border indicator (active)
               'border-b-2',
