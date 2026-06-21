@@ -114,7 +114,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
         if (e.target === dialogRef.current) handleClose();
       }}
       className="
-        nb-card m-auto p-0
+        nb-card m-auto p-0 overflow-hidden
         backdrop:bg-navy/30 backdrop:backdrop-blur-sm
         open:flex open:flex-col
         w-[340px] max-h-[70vh]
@@ -122,7 +122,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
       "
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b-2 border-navy shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-navy/15 shrink-0">
         <h2 id={dialogId} className="text-[13px] font-semibold text-navy">
           Quick commands
         </h2>
@@ -137,7 +137,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
       </div>
 
       {/* Existing commands */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 pt-3 pb-2 min-h-0">
         {cmds.length === 0 ? (
           <p className="text-[11px] text-navy-light/40 italic py-3">
             No custom commands yet. Add one below.
@@ -168,7 +168,7 @@ export function QuickCmdsDialog({ triggerRef, onClose, cmds, onChange }: QuickCm
       </div>
 
       {/* Add form */}
-      <div className="px-4 py-3 border-t-2 border-navy shrink-0 flex flex-col gap-2">
+      <div className="px-4 py-3 border-t border-navy/15 shrink-0 flex flex-col gap-2">
         <input
           ref={firstInputRef}
           type="text"
