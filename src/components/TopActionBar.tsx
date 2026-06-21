@@ -141,6 +141,18 @@ export interface TopActionBarProps {
 
 type GroupKey = 'favorites' | 'skills' | 'agents' | 'commands' | 'mcp' | 'plugins';
 
+/** The five insertable/provenance categories reachable from the single "Insert ▾" button. */
+type Category = 'plugins' | 'mcp' | 'commands' | 'agents' | 'skills';
+
+/** Ordered tab list for the combined popover. First entry is the default. */
+const CATEGORY_TABS: { key: Category; label: string }[] = [
+  { key: 'plugins', label: 'Plugins' },
+  { key: 'mcp', label: 'MCP' },
+  { key: 'commands', label: 'Commands' },
+  { key: 'agents', label: 'Agents' },
+  { key: 'skills', label: 'Skills' },
+];
+
 /**
  * Which menu (if any) is currently open.
  *   'favorites'  — compact popover below the Favorites pill
@@ -162,6 +174,8 @@ export function TopActionBar({
 
   // Single enum replaces the old `open: boolean`.
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+  // Which category tab the combined "Insert ▾" popover is showing.
+  const [activeCategory, setActiveCategory] = useState<Category>('plugins');
   const [query, setQuery] = useState('');
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites());
   const [userCmds, setUserCmds] = useState<UserCmd[]>(() => loadUserCmds());
@@ -275,17 +289,13 @@ export function TopActionBar({
   );
 
   /**
-   * Open the INVENTORY drawer and scroll to a specific group.
-   * Category pills call this; Favorites pill calls openFavoritesMenu instead.
+   * Open the combined INVENTORY drawer. Optionally jump straight to a category
+   * tab (used by the single "Insert ▾" button's default, and could be reused if
+   * a deep-link to a category is ever needed).
    */
-  const openTo = (group: GroupKey): void => {
-    setOpenMenu('inventory');
-    // Defer to next frame so the drawer exists before we scroll to the group.
-    requestAnimationFrame(() => {
-      document
-        .getElementById(`tab-group-${group}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+  const openInventory = (category?: Category): void => {
+    if (category) setActiveCategory(category);
+    setOpenMenu((prev) => (prev === 'inventory' ? null : 'inventory'));
   };
 
   /** Toggle the compact Favorites popover. */
@@ -295,21 +305,24 @@ export function TopActionBar({
 
   // ── Render helpers ──────────────────────────────────────────────────────
 
-  /**
-   * Category pill that opens the INVENTORY drawer and scrolls to `group`.
-   * The Favorites pill is rendered separately (it opens the popover, not the drawer).
-   */
-  const inventoryPill = (label: string, count: number, group: GroupKey) => (
-    <button
-      type="button"
-      onClick={() => openTo(group)}
-      className="nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer"
-    >
-      {label}
-      <span className="text-[10px] text-navy-light/40 tabular-nums">{count}</span>
-      <ChevronDown size={11} strokeWidth={2} className="text-navy-light/40" />
-    </button>
-  );
+  /** Live item count for a given category (post-filter counts are used in tabs). */
+  const categoryCount = (cat: Category): number => {
+    switch (cat) {
+      case 'plugins':
+        return plugins.length;
+      case 'mcp':
+        return mcpServers.length;
+      case 'commands':
+        return commands.length;
+      case 'agents':
+        return agents.length;
+      case 'skills':
+        return skills.length;
+    }
+  };
+
+  const totalInventory =
+    plugins.length + mcpServers.length + commands.length + agents.length + skills.length;
 
   // One insertable card in the drawer grid.
   const card = (
@@ -523,14 +536,25 @@ export function TopActionBar({
 
         <div className="w-px h-4 bg-warm-gray mx-0.5" />
 
-        {/* Category pills — open INVENTORY drawer */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {inventoryPill('Plugins', plugins.length, 'plugins')}
-          {inventoryPill('MCP', mcpServers.length, 'mcp')}
-          <span className="w-px h-3.5 bg-warm-gray mx-0.5" />
-          {inventoryPill('Commands', commands.length, 'commands')}
-          {inventoryPill('Agents', agents.length, 'agents')}
-          {inventoryPill('Skills', skills.length, 'skills')}
+        {/* Single "Insert ▾" button — opens the combined INVENTORY drawer whose
+            tab row reaches Plugins / MCP / Commands / Agents / Skills. */}
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => openInventory()}
+            aria-haspopup="dialog"
+            aria-expanded={inventoryOpen}
+            aria-controls="topbar-drawer"
+            className="nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer"
+          >
+            Insert
+            <span className="text-[10px] text-navy-light/40 tabular-nums">{totalInventory}</span>
+            <ChevronDown
+              size={11}
+              strokeWidth={2}
+              className={`text-navy-light/40 transition-transform ${inventoryOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
         </div>
 
         {/* Search — focusing/typing opens the inventory drawer */}
@@ -586,8 +610,38 @@ export function TopActionBar({
             }
           }}
         >
+          {/* ── Category selector — one tab row gating the five lists below ──── */}
+          <div
+            role="tablist"
+            aria-label="Insert category"
+            className="flex items-center gap-1 flex-wrap sticky top-0 z-20 -mx-4 px-4 pt-2 pb-2 bg-cream border-b border-warm-gray/70"
+          >
+            {CATEGORY_TABS.map((t) => {
+              const selected = activeCategory === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setActiveCategory(t.key)}
+                  className={`nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+                    selected
+                      ? 'bg-sage/15 border-sage text-navy'
+                      : 'bg-warm-gray text-navy-light/70 hover:bg-warm-gray/70 hover:text-navy'
+                  }`}
+                >
+                  {t.label}
+                  <span className="text-[10px] text-navy-light/40 tabular-nums">
+                    {categoryCount(t.key)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           {disabled && (
-            <p className="mb-2 text-[11px] text-terracotta/80 italic">
+            <p className="mt-2 mb-2 text-[11px] text-terracotta/80 italic">
               Start a session (New) to insert into the prompt.
             </p>
           )}
@@ -596,10 +650,10 @@ export function TopActionBar({
               Scanning Claude setup…
             </p>
           ) : (
-            <div className="flex gap-4 items-start">
-              {/* ── SOURCES zone (providers — filter / context) ─────────────── */}
-              <div className="flex gap-3 shrink-0 w-[clamp(200px,24vw,320px)]">
-                {groupCol(
+            <div className="pt-1">
+              {/* ── Plugins (providers — filter / context, not directly insertable) ── */}
+              {activeCategory === 'plugins' &&
+                groupCol(
                   'plugins',
                   'Plugins',
                   fPlugins.length,
@@ -629,8 +683,12 @@ export function TopActionBar({
                       </button>
                     );
                   }),
+                  true, // 2-column grid — plugins list can be long
                 )}
-                {groupCol(
+
+              {/* ── MCP (reference scaffold insert) ─────────────────────────── */}
+              {activeCategory === 'mcp' &&
+                groupCol(
                   'mcp',
                   'MCP',
                   fMcp.length,
@@ -644,15 +702,12 @@ export function TopActionBar({
                       'mcp',
                     ),
                   ),
+                  true,
                 )}
-              </div>
 
-              {/* divider */}
-              <div className="w-px self-stretch bg-warm-gray shrink-0" />
-
-              {/* ── INVOCABLES zone (insert into prompt) ────────────────────── */}
-              <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1.2fr_2.4fr] gap-4 items-start">
-                {groupCol(
+              {/* ── Commands (slash insert) ─────────────────────────────────── */}
+              {activeCategory === 'commands' &&
+                groupCol(
                   'commands',
                   'Commands',
                   fCommands.length,
@@ -666,8 +721,12 @@ export function TopActionBar({
                       'command',
                     ),
                   ),
+                  true,
                 )}
-                {groupCol(
+
+              {/* ── Agents (natural-language scaffold insert) ───────────────── */}
+              {activeCategory === 'agents' &&
+                groupCol(
                   'agents',
                   'Agents',
                   fAgents.length,
@@ -681,8 +740,12 @@ export function TopActionBar({
                       'agent',
                     ),
                   ),
+                  true,
                 )}
-                {groupCol(
+
+              {/* ── Skills (slash insert) ───────────────────────────────────── */}
+              {activeCategory === 'skills' &&
+                groupCol(
                   'skills',
                   'Skills',
                   fSkills.length,
@@ -698,7 +761,6 @@ export function TopActionBar({
                   ),
                   true, // 2-column card grid — tames the 221-item list
                 )}
-              </div>
             </div>
           )}
         </div>

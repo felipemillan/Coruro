@@ -22,11 +22,6 @@
       "count": 1
     }
   },
-  "src/components/NotesTab.tsx": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/RepoCard.tsx": {
     "complexity": {
       "count": 1
