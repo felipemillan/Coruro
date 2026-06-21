@@ -116,10 +116,11 @@ html {
  * Daily Notes bento that seeded the style.
  */
 :root {
-  --nb-border: 2px solid var(--color-navy);
-  --nb-shadow: 4px 4px 0 0 var(--color-navy);
-  --nb-shadow-sm: 3px 3px 0 0 var(--color-navy);
-  --nb-shadow-lg: 6px 6px 0 0 var(--color-navy);
+  --nb-border: 1.2px solid var(--color-navy);
+  --nb-border-strong: 2px solid var(--color-navy);
+  --nb-shadow: 2px 2px 0 0 var(--color-navy);
+  --nb-shadow-sm: 2px 2px 0 0 var(--color-navy);
+  --nb-shadow-lg: 3px 3px 0 0 var(--color-navy);
   --nb-radius: 12px;
   --nb-radius-sm: 10px;
 }
@@ -137,6 +138,24 @@ html {
   border-radius: var(--nb-radius-sm);
   box-shadow: var(--nb-shadow-sm);
 }
+/* Opt-in hero lift: one elevated card per screen (e.g. Daily Session Summary). */
+.nb-card.nb-pop {
+  border: var(--nb-border-strong);
+  box-shadow: var(--nb-shadow-lg);
+}
+/* Hover lift for interactive content cards (repo cards, day-note panels).
+   Opt-in so static panels (settings, KPI) stay still. */
+.nb-card.nb-hover,
+.nb-card-sm.nb-hover {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.nb-card.nb-hover:hover,
+.nb-card-sm.nb-hover:hover {
+  box-shadow: var(--nb-shadow-lg);
+  transform: translate(-1px, -1px);
+}
 /* Flat bordered surface, no shadow (rows, inset wells). */
 .nb-flat {
   border: var(--nb-border);
@@ -147,14 +166,14 @@ html {
 .nb-btn {
   border: var(--nb-border);
   border-radius: var(--nb-radius-sm);
-  box-shadow: var(--nb-shadow-sm);
+  box-shadow: var(--nb-shadow);
   font-weight: 600;
   transition:
     transform 0.04s ease,
     box-shadow 0.04s ease;
 }
 .nb-btn:hover:not(:disabled) {
-  box-shadow: var(--nb-shadow);
+  box-shadow: var(--nb-shadow-lg);
   transform: translate(-1px, -1px);
 }
 .nb-btn:active:not(:disabled) {
