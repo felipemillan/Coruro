@@ -1,40 +1,33 @@
 /**
- * TopActionBar.tsx — global, always-visible action bar for the Ask tab.
+ * TopActionBar.tsx — global, always-visible action bar for the Code (Ask) tab.
  *
- * Collapsed: a quick row of favorites + built-in slash commands, then category
- * pills (Skills / Agents / Commands / MCP / Plugins) with live counts, a search
- * box, and a ⌄ expander.
+ * Collapsed: a quick row of Favorites + built-in slash commands + user quick
+ * commands, then a single "Insert" trigger, a search box, and a ⌄ expander.
  *
- * TWO independent menus (v2 split):
+ * TWO drawers share one full-width region below the bar (`openMenu`):
  *
  *   openMenu === 'favorites'
- *     A compact popover absolutely positioned below the Favorites pill.
- *     Width: min(320px, 90vw), max-height: 50vh.
- *     No search box. Pinned items only. Escape / click-outside closes and
- *     returns focus to `favTriggerRef`.
+ *     A column megamenu of pinned favorites, bucketed by inferred category
+ *     (Skills / Agents / Commands / MCP). Escape closes and returns focus to
+ *     `favTriggerRef`.
  *
  *   openMenu === 'inventory'
- *     The existing full-width drawer below the bar (everything except
- *     Favorites: Plugins / MCP / Commands / Agents / Skills). The ⌄ expander
- *     button and the category pills both open this drawer. Escape closes and
- *     returns focus to `expanderRef`.
+ *     A five-column megamenu: Plugins | MCP | Commands | Agents | Skills.
+ *     Clicking a PLUGIN pivots — the other four columns filter to items whose
+ *     `source` matches that plugin name (click again / ✕ to clear). Clicking a
+ *     leaf (MCP / Command / Agent / Skill) inserts its invocation. Escape
+ *     closes and returns focus to `expanderRef`.
  *
- * ## closeAll contract (task #5 binding point)
+ * ## closeAll contract
  *
  *   Pass a `closeAllRef` prop of type `React.MutableRefObject<(() => void) | null>`.
  *   This component writes its `closeAll` function into that ref on every render,
- *   so the parent (AskTab / App) can call `closeAllRef.current?.()` to close
- *   whichever menu is open — e.g. when the PTY terminal gains focus.
- *
- *   Example (task #5):
- *     const closeAllMenusRef = useRef<(() => void) | null>(null);
- *     <TopActionBar closeAllRef={closeAllMenusRef} ... />
- *     // inside terminal focus handler:
- *     closeAllMenusRef.current?.();
+ *   so the parent can call `closeAllRef.current?.()` to close whichever menu is
+ *   open — e.g. when the PTY terminal gains focus.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Star, Search, Pencil } from 'lucide-react';
+import { ChevronDown, Star, Search, Pencil, X } from 'lucide-react';
 import { QuickCmdsDialog, loadUserCmds, type UserCmd } from './ask/QuickCmdsDialog';
 import { useClaudeStore } from '../store/useClaudeStore';
 import { useBoardStore } from '../store/useBoardStore';
@@ -88,6 +81,16 @@ interface Favorite {
   text: string;
 }
 
+/** Favorite buckets, mirroring the four insertable leaf categories. */
+type FavCategory = 'skills' | 'agents' | 'commands' | 'mcp';
+
+const FAV_COLS: { key: FavCategory; label: string }[] = [
+  { key: 'skills', label: 'Skills' },
+  { key: 'agents', label: 'Agents' },
+  { key: 'commands', label: 'Commands' },
+  { key: 'mcp', label: 'MCP' },
+];
+
 function loadFavorites(): Favorite[] {
   try {
     const raw = localStorage.getItem(FAV_KEY);
@@ -124,41 +127,14 @@ export interface TopActionBarProps {
   /** Name slug of the currently selected repo, for activity logging. */
   currentRepoName?: string | null;
   /**
-   * Task #5 binding point — closeAll contract.
-   *
-   * If provided, this component writes its `closeAll` function into the ref on
-   * every render. The parent can call `closeAllRef.current?.()` at any time
-   * (e.g. on terminal focus) to close whichever menu is currently open.
-   *
-   * Usage:
-   *   const closeAllMenusRef = useRef<(() => void) | null>(null);
-   *   <TopActionBar closeAllRef={closeAllMenusRef} ... />
-   *   // somewhere in parent:
-   *   closeAllMenusRef.current?.();
+   * closeAll contract — if provided, this component writes its `closeAll`
+   * function into the ref on every render so the parent can close whichever
+   * menu is open (e.g. on terminal focus).
    */
   closeAllRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-type GroupKey = 'favorites' | 'skills' | 'agents' | 'commands' | 'mcp' | 'plugins';
-
-/** The five insertable/provenance categories reachable from the single "Insert ▾" button. */
-type Category = 'plugins' | 'mcp' | 'commands' | 'agents' | 'skills';
-
-/** Ordered tab list for the combined popover. First entry is the default. */
-const CATEGORY_TABS: { key: Category; label: string }[] = [
-  { key: 'plugins', label: 'Plugins' },
-  { key: 'mcp', label: 'MCP' },
-  { key: 'commands', label: 'Commands' },
-  { key: 'agents', label: 'Agents' },
-  { key: 'skills', label: 'Skills' },
-];
-
-/**
- * Which menu (if any) is currently open.
- *   'favorites'  — compact popover below the Favorites pill
- *   'inventory'  — full-width drawer (all capability groups except Favorites)
- *   null         — both closed
- */
+/** Which drawer (if any) is open below the bar. */
 type OpenMenu = 'favorites' | 'inventory' | null;
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -172,21 +148,18 @@ export function TopActionBar({
   const inventory = useClaudeStore((s) => s.inventory);
   const scanClaude = useClaudeStore((s) => s.scanClaude);
 
-  // Single enum replaces the old `open: boolean`.
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
-  // Which category tab the combined "Insert ▾" popover is showing.
-  const [activeCategory, setActiveCategory] = useState<Category>('plugins');
+  // Plugin pivot: when set, the MCP/Commands/Agents/Skills columns filter to
+  // items whose `source` matches this plugin name. null = no plugin filter.
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [favorites, setFavorites] = useState<Favorite[]>(() => loadFavorites());
   const [userCmds, setUserCmds] = useState<UserCmd[]>(() => loadUserCmds());
   const [editCmdsOpen, setEditCmdsOpen] = useState(false);
 
-  // Two independent focus-return refs — one per trigger.
+  // Focus-return refs — one per trigger.
   const favTriggerRef = useRef<HTMLButtonElement>(null); // Favorites pill
-  const expanderRef = useRef<HTMLButtonElement>(null); // ⌄ expander
-
-  // Ref for the favorites popover itself (click-outside handling).
-  const favPopoverRef = useRef<HTMLDivElement>(null);
+  const expanderRef = useRef<HTMLButtonElement>(null); // ⌄ expander / Insert
 
   // Ref for the pencil (edit quick commands) button — focus-return for QuickCmdsDialog.
   const pencilRef = useRef<HTMLButtonElement>(null);
@@ -201,31 +174,9 @@ export function TopActionBar({
     setOpenMenu(null);
   }, []);
 
-  // Keep the ref current on every render so the parent always has the latest
-  // closure without needing to re-subscribe.
   useEffect(() => {
     if (closeAllRef) closeAllRef.current = closeAll;
   });
-
-  // ── Click-outside for favorites popover ──────────────────────────────
-  useEffect(() => {
-    if (openMenu !== 'favorites') return;
-
-    const handler = (e: MouseEvent): void => {
-      const target = e.target as Node;
-      if (
-        favPopoverRef.current &&
-        !favPopoverRef.current.contains(target) &&
-        favTriggerRef.current &&
-        !favTriggerRef.current.contains(target)
-      ) {
-        setOpenMenu(null);
-        favTriggerRef.current?.focus();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [openMenu]);
 
   const skills = inventory?.skills ?? [];
   const agents = inventory?.agents ?? [];
@@ -237,6 +188,7 @@ export function TopActionBar({
   const match = (s: string | null | undefined): boolean =>
     q === '' || (s ?? '').toLowerCase().includes(q);
 
+  // Text-search filters (applied to every column).
   const fSkills = useMemo(
     () =>
       skills.filter(
@@ -260,6 +212,15 @@ export function TopActionBar({
     () => plugins.filter((p) => match(p.name) || match(p.description)),
     [plugins, q],
   );
+
+  // Plugin-pivot filter — applied to leaf columns on top of the text search.
+  const bySource = <T extends { source: string }>(arr: T[]): T[] =>
+    selectedSource === null ? arr : arr.filter((i) => i.source === selectedSource);
+
+  const colMcp = bySource(fMcp);
+  const colCommands = bySource(fCommands);
+  const colAgents = bySource(fAgents);
+  const colSkills = bySource(fSkills);
 
   const isFav = (text: string): boolean => favorites.some((f) => f.text === text);
 
@@ -288,43 +249,63 @@ export function TopActionBar({
     [disabled, onInsert, currentRepoName],
   );
 
-  /**
-   * Open the combined INVENTORY drawer. Optionally jump straight to a category
-   * tab (used by the single "Insert ▾" button's default, and could be reused if
-   * a deep-link to a category is ever needed).
-   */
-  const openInventory = (category?: Category): void => {
-    if (category) setActiveCategory(category);
+  /** Toggle the inventory megamenu. */
+  const openInventory = (): void => {
     setOpenMenu((prev) => (prev === 'inventory' ? null : 'inventory'));
   };
 
-  /** Toggle the compact Favorites popover. */
+  /** Toggle the favorites megamenu. */
   const openFavoritesMenu = (): void => {
     setOpenMenu((prev) => (prev === 'favorites' ? null : 'favorites'));
   };
 
-  // ── Render helpers ──────────────────────────────────────────────────────
+  // ── Favorite category inference (no schema change — computed at render) ────
+  // Pins store only {label, text}; we bucket them by parsing the invocation:
+  //   "Use the X subagent to" → agents · "Use the X MCP to" → mcp
+  //   "/foo" that exactly matches a known skill insert → skills · else commands
+  const favCategory = useCallback(
+    (text: string): FavCategory => {
+      const t = text.trim();
+      if (t.startsWith('Use the ') && t.includes('subagent')) return 'agents';
+      if (t.startsWith('Use the ') && / MCP\b/.test(t)) return 'mcp';
+      if (t.startsWith('/')) {
+        if (skills.some((s) => skillInsert(s).trim() === t)) return 'skills';
+        return 'commands';
+      }
+      return 'commands';
+    },
+    [skills],
+  );
 
-  /** Live item count for a given category (post-filter counts are used in tabs). */
-  const categoryCount = (cat: Category): number => {
-    switch (cat) {
-      case 'plugins':
-        return plugins.length;
-      case 'mcp':
-        return mcpServers.length;
-      case 'commands':
-        return commands.length;
-      case 'agents':
-        return agents.length;
-      case 'skills':
-        return skills.length;
-    }
-  };
+  const favBuckets = useMemo(() => {
+    const b: Record<FavCategory, Favorite[]> = { skills: [], agents: [], commands: [], mcp: [] };
+    for (const f of favorites) b[favCategory(f.text)].push(f);
+    return b;
+  }, [favorites, favCategory]);
 
   const totalInventory =
     plugins.length + mcpServers.length + commands.length + agents.length + skills.length;
 
-  // One insertable card in the drawer grid.
+  // ── Render helpers ──────────────────────────────────────────────────────
+
+  /** One megamenu column: heading + count + independently-scrolling body. */
+  const megaCol = (id: string, heading: string, count: number, children: React.ReactNode) => (
+    <div key={id} className="min-w-0 flex flex-col">
+      <div className="flex items-center justify-between gap-1.5 px-1 pb-2 mb-2 border-b-2 border-navy/15">
+        <span className="text-[10px] font-bold text-sage uppercase tracking-widest">{heading}</span>
+        <span className="text-[10px] text-navy-light/40 tabular-nums">{count}</span>
+      </div>
+      <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 max-h-[38vh] min-h-0">
+        {count === 0 ? (
+          <p className="text-[10px] text-navy-light/35 italic px-1 py-2">none</p>
+        ) : (
+          children
+        )}
+      </div>
+    </div>
+  );
+
+  // One insertable leaf card (MCP / Command / Agent / Skill).
   const card = (
     key: string,
     name: string,
@@ -342,7 +323,7 @@ export function TopActionBar({
         disabled={disabled}
         onClick={() => insert(text, commandType)}
         title={disabled ? 'Start a session first' : `Insert: ${text.trim()}`}
-        className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
+        className="flex-1 min-w-0 text-left px-2.5 py-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
       >
         <div className="flex items-baseline gap-1.5">
           <span className="text-[12px] font-semibold text-navy truncate">{name}</span>
@@ -369,125 +350,99 @@ export function TopActionBar({
     </div>
   );
 
-  const groupCol = (
-    id: GroupKey,
-    heading: string,
-    count: number,
-    children: React.ReactNode,
-    twoCol = false,
-  ) => (
-    <div id={`tab-group-${id}`} className="min-w-0">
-      <div className="flex items-center gap-1.5 px-1 pt-3 pb-2.5 mb-1.5 sticky top-0 z-10 bg-cream border-b border-warm-gray/70 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.12)]">
-        <span className="text-[10px] font-semibold text-sage uppercase tracking-widest">
-          {heading}
-        </span>
-        <span className="text-[10px] text-navy-light/40 tabular-nums">{count}</span>
-      </div>
-      <div className={twoCol ? 'grid grid-cols-2 gap-1' : 'flex flex-col gap-1'}>{children}</div>
+  // Plugin pivot card — clicking filters the other columns by `source`.
+  const pluginCard = (p: ClaudePlugin) => {
+    const active = selectedSource === p.name;
+    return (
+      <button
+        key={p.name}
+        type="button"
+        onClick={() => setSelectedSource(active ? null : p.name)}
+        title={active ? 'Clear filter' : `Show ${p.name}'s items`}
+        className={`nb-card-sm text-left px-2.5 py-2 transition-colors cursor-pointer ${
+          active ? 'border-sage bg-sage/15 ring-1 ring-sage' : 'hover:border-sage hover:bg-sage/5'
+        }`}
+      >
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[12px] font-semibold text-navy truncate">{p.name}</span>
+          {!p.enabled && <span className="text-[9px] text-navy-light/40">off</span>}
+        </div>
+        <div className="text-[10px] text-navy-light/45 truncate">
+          {p.description ?? p.marketplace ?? 'plugin'}
+        </div>
+      </button>
+    );
+  };
+
+  // One favorite card (used in the favorites megamenu columns).
+  const favCard = (f: Favorite) => (
+    <div
+      key={f.text}
+      className="nb-card-sm group relative flex items-start gap-1.5 hover:border-sage hover:bg-sage/5 transition-colors"
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          insert(f.text, 'favorite');
+          setOpenMenu(null);
+        }}
+        title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
+        className="flex-1 min-w-0 text-left px-2.5 py-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
+      >
+        <span className="text-[12px] font-semibold text-navy truncate block">{f.label}</span>
+        <div className="text-[10px] font-mono text-navy-light/45 truncate">{f.text.trim()}</div>
+      </button>
+      <button
+        type="button"
+        onClick={() => toggleFav(f.label, f.text)}
+        aria-label={`Unpin ${f.label}`}
+        className="shrink-0 p-1 mt-1 mr-0.5 transition-opacity cursor-pointer focus-visible:outline-none"
+      >
+        <Star size={12} strokeWidth={2} className="fill-sage text-sage" />
+      </button>
     </div>
   );
 
   const favOpen = openMenu === 'favorites';
   const inventoryOpen = openMenu === 'inventory';
+  const drawerOpen = openMenu !== null;
 
   // ── Collapsed bar ─────────────────────────────────────────────────────────
 
   return (
     <div className="shrink-0 border-b border-warm-gray bg-cream/60">
-      {/* Quick row + pills */}
+      {/* Quick row */}
       <div className="flex items-center gap-2 px-4 py-1.5 flex-wrap">
         {/* Favorites pill + built-in quick commands + user quick commands */}
         <div className="flex items-center gap-1">
-          {/* ── Favorites pill — opens compact popover, NOT the drawer ── */}
-          <div className="relative">
-            <button
-              ref={favTriggerRef}
-              type="button"
-              onClick={openFavoritesMenu}
-              aria-haspopup="dialog"
-              aria-expanded={favOpen}
-              aria-controls="favorites-popover"
-              className="nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer"
-            >
-              <Star
-                size={11}
-                strokeWidth={2}
-                className={favorites.length > 0 ? 'text-sage' : 'text-navy-light/40'}
-              />
-              Favorites
-              <span className="text-[10px] text-navy-light/40 tabular-nums">
-                {favorites.length}
-              </span>
-              <ChevronDown
-                size={11}
-                strokeWidth={2}
-                className={`text-navy-light/40 transition-transform ${favOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {/* ── Favorites compact popover ─────────────────────────────── */}
-            {favOpen && (
-              <div
-                ref={favPopoverRef}
-                id="favorites-popover"
-                role="dialog"
-                aria-label="Pinned favorites"
-                className="nb-card absolute left-0 top-full mt-1.5 z-50 w-[min(320px,90vw)] max-h-[50vh] overflow-y-auto"
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setOpenMenu(null);
-                    favTriggerRef.current?.focus();
-                  }
-                }}
-              >
-                <div className="px-3 py-2 border-b border-warm-gray/60">
-                  <span className="text-[10px] font-semibold text-sage uppercase tracking-widest">
-                    Pinned
-                  </span>
-                </div>
-                <div className="px-2 py-2 flex flex-col gap-1">
-                  {favorites.length === 0 ? (
-                    <p className="text-[11px] text-navy-light/40 italic px-1 py-3 text-center">
-                      No favorites yet. Tap ★ on any item to pin it.
-                    </p>
-                  ) : (
-                    favorites.map((f) => (
-                      <div
-                        key={f.text}
-                        className="nb-card-sm group relative flex items-start gap-1.5 hover:border-sage hover:bg-sage/5 transition-colors"
-                      >
-                        <button
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => {
-                            insert(f.text, 'favorite');
-                            setOpenMenu(null);
-                          }}
-                          title={disabled ? 'Start a session first' : `Insert: ${f.text.trim()}`}
-                          className="flex-1 min-w-0 text-left px-2.5 py-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none"
-                        >
-                          <span className="text-[12px] font-semibold text-navy truncate block">
-                            {f.label}
-                          </span>
-                          <div className="text-[10px] font-mono text-navy-light/45 truncate">
-                            {f.text.trim()}
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleFav(f.label, f.text)}
-                          aria-label={`Unpin ${f.label}`}
-                          className="shrink-0 p-1 mt-1 mr-0.5 transition-opacity cursor-pointer focus-visible:outline-none"
-                        >
-                          <Star size={12} strokeWidth={2} className="fill-sage text-sage" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          {/* ── Favorites pill — opens the favorites megamenu ── */}
+          <button
+            ref={favTriggerRef}
+            type="button"
+            onClick={openFavoritesMenu}
+            aria-haspopup="dialog"
+            aria-expanded={favOpen}
+            aria-controls="topbar-drawer"
+            className={`nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+              favOpen
+                ? 'bg-sage/15 border-sage text-navy'
+                : 'bg-warm-gray text-navy-light/70 hover:bg-warm-gray/70 hover:text-navy'
+            }`}
+          >
+            <Star
+              size={11}
+              strokeWidth={2}
+              className={favorites.length > 0 ? 'text-sage' : 'text-navy-light/40'}
+            />
+            Favorites
+            <span className="text-[10px] text-navy-light/40 tabular-nums">{favorites.length}</span>
+            <ChevronDown
+              size={11}
+              strokeWidth={2}
+              className={`text-navy-light/40 transition-transform ${favOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
 
           {BUILTIN_QUICK.map((b) => (
             <button
@@ -536,28 +491,29 @@ export function TopActionBar({
 
         <div className="w-px h-4 bg-warm-gray mx-0.5" />
 
-        {/* Single "Insert ▾" button — opens the combined INVENTORY drawer whose
-            tab row reaches Plugins / MCP / Commands / Agents / Skills. */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => openInventory()}
-            aria-haspopup="dialog"
-            aria-expanded={inventoryOpen}
-            aria-controls="topbar-drawer"
-            className="nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-light/70 bg-warm-gray hover:bg-warm-gray/70 hover:text-navy transition-colors cursor-pointer"
-          >
-            Insert
-            <span className="text-[10px] text-navy-light/40 tabular-nums">{totalInventory}</span>
-            <ChevronDown
-              size={11}
-              strokeWidth={2}
-              className={`text-navy-light/40 transition-transform ${inventoryOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-        </div>
+        {/* Single "Insert ▾" button — opens the five-column inventory megamenu. */}
+        <button
+          type="button"
+          onClick={openInventory}
+          aria-haspopup="dialog"
+          aria-expanded={inventoryOpen}
+          aria-controls="topbar-drawer"
+          className={`nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
+            inventoryOpen
+              ? 'bg-sage/15 border-sage text-navy'
+              : 'bg-warm-gray text-navy-light/70 hover:bg-warm-gray/70 hover:text-navy'
+          }`}
+        >
+          Insert
+          <span className="text-[10px] text-navy-light/40 tabular-nums">{totalInventory}</span>
+          <ChevronDown
+            size={11}
+            strokeWidth={2}
+            className={`text-navy-light/40 transition-transform ${inventoryOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-        {/* Search — focusing/typing opens the inventory drawer */}
+        {/* Search — focusing/typing opens the inventory megamenu */}
         <div className="flex items-center gap-1.5 ml-auto">
           <div className="nb-input flex items-center gap-1 px-2 py-1">
             <Search size={12} strokeWidth={2} className="text-navy-light/40 shrink-0" />
@@ -573,11 +529,11 @@ export function TopActionBar({
               className="w-[clamp(80px,10vw,160px)] bg-transparent text-[11px] text-navy placeholder:text-navy-light/40 focus:outline-none"
             />
           </div>
-          {/* ⌄ expander — opens INVENTORY drawer */}
+          {/* ⌄ expander — opens INVENTORY megamenu */}
           <button
             ref={expanderRef}
             type="button"
-            onClick={() => setOpenMenu((prev) => (prev === 'inventory' ? null : 'inventory'))}
+            onClick={openInventory}
             aria-label={inventoryOpen ? 'Collapse actions' : 'Expand all actions'}
             aria-expanded={inventoryOpen}
             aria-controls="topbar-drawer"
@@ -593,106 +549,79 @@ export function TopActionBar({
         </div>
       </div>
 
-      {/* ── Inventory Drawer ──────────────────────────────────────────────────
-          Contains: Plugins / MCP / Commands / Agents / Skills.
-          Favorites are NOT shown here — they live in the compact popover above.
-       ──────────────────────────────────────────────────────────────────────── */}
-      {inventoryOpen && (
+      {/* ── Megamenu drawer (favorites OR inventory) ───────────────────────── */}
+      {drawerOpen && (
         <div
           id="topbar-drawer"
           role="region"
-          aria-label="Claude capabilities"
-          className="nb-flat max-h-[42vh] overflow-y-auto scroll-pt-10 border-t px-4 pb-3 pt-0"
+          aria-label={favOpen ? 'Pinned favorites' : 'Claude capabilities'}
+          className="nb-flat max-h-[48vh] overflow-y-auto border-t px-5 pb-5 pt-3"
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
+              const trigger = favOpen ? favTriggerRef : expanderRef;
               setOpenMenu(null);
-              expanderRef.current?.focus();
+              trigger.current?.focus();
             }
           }}
         >
-          {/* ── Category selector — one tab row gating the five lists below ──── */}
-          <div
-            role="tablist"
-            aria-label="Insert category"
-            className="flex items-center gap-1 flex-wrap sticky top-0 z-20 -mx-4 px-4 pt-2 pb-2 bg-cream border-b border-warm-gray/70"
-          >
-            {CATEGORY_TABS.map((t) => {
-              const selected = activeCategory === t.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => setActiveCategory(t.key)}
-                  className={`nb-chip flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
-                    selected
-                      ? 'bg-sage/15 border-sage text-navy'
-                      : 'bg-warm-gray text-navy-light/70 hover:bg-warm-gray/70 hover:text-navy'
-                  }`}
-                >
-                  {t.label}
-                  <span className="text-[10px] text-navy-light/40 tabular-nums">
-                    {categoryCount(t.key)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
           {disabled && (
-            <p className="mt-2 mb-2 text-[11px] text-terracotta/80 italic">
+            <p className="mb-3 text-[11px] text-terracotta/80 italic">
               Start a session (New) to insert into the prompt.
             </p>
           )}
+
           {inventory === null ? (
             <p className="text-[12px] text-navy-light/50 italic py-4 text-center">
               Scanning Claude setup…
             </p>
+          ) : favOpen ? (
+            // ── Favorites megamenu — columns by inferred category ──────────
+            favorites.length === 0 ? (
+              <p className="text-[11px] text-navy-light/40 italic px-1 py-6 text-center">
+                No favorites yet. Tap ★ on any item in Insert to pin it.
+              </p>
+            ) : (
+              <div className="grid grid-cols-4 gap-4">
+                {FAV_COLS.map((col) =>
+                  megaCol(
+                    `fav-${col.key}`,
+                    col.label,
+                    favBuckets[col.key].length,
+                    favBuckets[col.key].map((f) => favCard(f)),
+                  ),
+                )}
+              </div>
+            )
           ) : (
-            <div className="pt-1">
-              {/* ── Plugins (providers — filter / context, not directly insertable) ── */}
-              {activeCategory === 'plugins' &&
-                groupCol(
+            // ── Inventory megamenu — five live columns + plugin pivot ──────
+            <>
+              {selectedSource !== null && (
+                <div className="flex items-center gap-2 pb-3">
+                  <span className="text-[10px] text-navy-light/50 uppercase tracking-widest">
+                    Filtered to
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSource(null)}
+                    className="nb-chip flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium bg-sage/15 border-sage text-navy cursor-pointer"
+                  >
+                    {selectedSource}
+                    <X size={11} strokeWidth={2.5} />
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-5 gap-4">
+                {megaCol(
                   'plugins',
                   'Plugins',
                   fPlugins.length,
-                  fPlugins.map((p: ClaudePlugin) => {
-                    // Plugins aren't directly invocable — clicking filters every
-                    // column to that plugin's items by setting the search query.
-                    const active = q !== '' && p.name.toLowerCase() === q;
-                    return (
-                      <button
-                        key={p.name}
-                        type="button"
-                        onClick={() => setQuery(active ? '' : p.name)}
-                        title={active ? 'Clear filter' : `Filter to ${p.name}`}
-                        className={`nb-card-sm text-left px-2.5 py-1.5 transition-colors cursor-pointer ${
-                          active ? 'border-sage bg-sage/10' : 'hover:border-sage hover:bg-sage/5'
-                        }`}
-                      >
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-[12px] font-semibold text-navy truncate">
-                            {p.name}
-                          </span>
-                          {!p.enabled && <span className="text-[9px] text-navy-light/40">off</span>}
-                        </div>
-                        <div className="text-[10px] text-navy-light/45 truncate">
-                          {p.description ?? p.marketplace ?? 'plugin'}
-                        </div>
-                      </button>
-                    );
-                  }),
-                  true, // 2-column grid — plugins list can be long
+                  fPlugins.map((p) => pluginCard(p)),
                 )}
-
-              {/* ── MCP (reference scaffold insert) ─────────────────────────── */}
-              {activeCategory === 'mcp' &&
-                groupCol(
+                {megaCol(
                   'mcp',
                   'MCP',
-                  fMcp.length,
-                  fMcp.map((m) =>
+                  colMcp.length,
+                  colMcp.map((m) =>
                     card(
                       `${m.scope}:${m.name}`,
                       m.name,
@@ -702,16 +631,12 @@ export function TopActionBar({
                       'mcp',
                     ),
                   ),
-                  true,
                 )}
-
-              {/* ── Commands (slash insert) ─────────────────────────────────── */}
-              {activeCategory === 'commands' &&
-                groupCol(
+                {megaCol(
                   'commands',
                   'Commands',
-                  fCommands.length,
-                  fCommands.map((c) =>
+                  colCommands.length,
+                  colCommands.map((c) =>
                     card(
                       c.path,
                       c.name,
@@ -721,35 +646,27 @@ export function TopActionBar({
                       'command',
                     ),
                   ),
-                  true,
                 )}
-
-              {/* ── Agents (natural-language scaffold insert) ───────────────── */}
-              {activeCategory === 'agents' &&
-                groupCol(
+                {megaCol(
                   'agents',
                   'Agents',
-                  fAgents.length,
-                  fAgents.map((a) =>
+                  colAgents.length,
+                  colAgents.map((a) =>
                     card(
                       a.path,
                       a.name,
-                      `subagent`,
+                      'subagent',
                       agentInsert(a),
                       a.source !== 'local' ? a.source : undefined,
                       'agent',
                     ),
                   ),
-                  true,
                 )}
-
-              {/* ── Skills (slash insert) ───────────────────────────────────── */}
-              {activeCategory === 'skills' &&
-                groupCol(
+                {megaCol(
                   'skills',
                   'Skills',
-                  fSkills.length,
-                  fSkills.map((s) =>
+                  colSkills.length,
+                  colSkills.map((s) =>
                     card(
                       s.path,
                       s.name,
@@ -759,9 +676,9 @@ export function TopActionBar({
                       'skill',
                     ),
                   ),
-                  true, // 2-column card grid — tames the 221-item list
                 )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}

@@ -131,3 +131,31 @@ duplicate-check → setup → insert (no TOCTOU window).
 - Agent invocation: scaffold text only — no auto-spawn of a chat session when
   none is active.
 - Favorites are global (not per-repo).
+
+---
+
+## 6. Megamenu redesign (2026-06-23)
+
+The Insert and Favorites triggers now open **column megamenus** in one shared
+full-width drawer below the bar (`openMenu: 'inventory' | 'favorites' | null` —
+opening one closes the other; the old compact favorites popover is gone).
+
+**Insert** — five always-on columns: `Plugins | MCP | Commands | Agents | Skills`
+(category pill/tab row removed). Clicking a **Plugin** sets `selectedSource` and
+**cross-filters** the other four columns to items whose `source` equals that
+plugin name (click again, or the ✕ "Filtered to" chip, to clear). Clicking a
+leaf (MCP/Command/Agent/Skill) inserts its invocation as before. Each column
+scrolls independently with a live count.
+
+**Favorites** — four columns (`Skills | Agents | Commands | MCP`). Pins still
+persist as `{label, text}` only (no schema change); the category column is
+**inferred at render** from the invocation text (`Use the X subagent`→agents,
+`Use the X MCP`→mcp, `/x` matching a known skill insert→skills, else commands).
+
+**Cross-filter source of truth:** every `ClaudeSkill/Agent/Command/McpServer`
+carries `source` = `'local'`/`'user'` or the providing plugin's `name`; that is
+the plugin→children link.
+
+Companion polish: Code-tab control row (`AskTerminalPanel.tsx`) controls share a
+fixed `h-9` (equal height); the Cmd+K palette (`index.css` `[cmdk-*]`) got more
+padding/width.
