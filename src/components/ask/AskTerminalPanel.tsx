@@ -61,7 +61,7 @@ export function AskTerminalPanel({
         <select
           value={repoPath}
           onChange={(e) => onRepoChange(e.target.value)}
-          className="nb-input px-2 py-1 text-[12px] font-mono text-navy cursor-pointer max-w-[180px]"
+          className="nb-input h-9 px-2 text-[12px] font-mono text-navy cursor-pointer max-w-[180px]"
           aria-label="Repository"
         >
           {rootDirectory !== null && <option value={rootDirectory}>All repos</option>}
@@ -83,13 +83,13 @@ export function AskTerminalPanel({
               ? 'Ask across all repos… e.g. "which repos use Tailwind v4?"'
               : 'Ask something… (optional — blank opens a plain session)'
           }
-          className="nb-input flex-1 px-3 py-1.5 text-[12px] text-navy placeholder:text-navy-light/40"
+          className="nb-input h-9 flex-1 px-3 text-[12px] text-navy placeholder:text-navy-light/40"
         />
         {activeRunning && (
           <button
             type="button"
             onClick={() => activeSession && onStop(activeSession.id)}
-            className="nb-btn flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-terracotta bg-terracotta/10 hover:bg-terracotta/20 transition-colors cursor-pointer"
+            className="nb-btn h-9 flex items-center gap-1.5 px-3 text-[12px] font-medium text-terracotta bg-terracotta/10 hover:bg-terracotta/20 transition-colors cursor-pointer"
           >
             <Square size={12} strokeWidth={2} /> End
           </button>
@@ -99,7 +99,7 @@ export function AskTerminalPanel({
           <button
             type="button"
             onClick={onRunBuild}
-            className="nb-btn flex flex-col items-start px-3 py-1 text-[11px] font-medium text-sage bg-sage/10 hover:bg-sage/20 transition-colors cursor-pointer leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            className="nb-btn h-9 flex flex-col items-start justify-center px-3 text-[11px] font-medium text-sage bg-sage/10 hover:bg-sage/20 transition-colors cursor-pointer leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
           >
             <span>Run</span>
             <span className="text-[9px] font-mono text-sage/70">{repoDetection.label}</span>
@@ -111,7 +111,7 @@ export function AskTerminalPanel({
           type="button"
           onClick={onOpenPalette}
           aria-label="Open command palette (⌘K)"
-          className="nb-btn px-2 py-1 text-[10px] font-mono text-navy-light/50 bg-warm-gray hover:bg-warm-gray/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          className="nb-btn h-9 flex items-center px-2.5 text-[10px] font-mono text-navy-light/50 bg-warm-gray hover:bg-warm-gray/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage"
         >
           ⌘K
         </button>
@@ -121,7 +121,7 @@ export function AskTerminalPanel({
           type="button"
           onClick={onStart}
           disabled={repoPath === ''}
-          className="nb-btn flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-cream bg-navy hover:bg-navy-light transition-colors cursor-pointer disabled:opacity-40"
+          className="nb-btn h-9 flex items-center gap-1.5 px-3 text-[12px] font-medium text-cream bg-navy hover:bg-navy-light transition-colors cursor-pointer disabled:opacity-40"
         >
           <Plus size={12} strokeWidth={2.5} /> New
         </button>
