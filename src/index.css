@@ -359,10 +359,10 @@ html {
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
-  width: min(560px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
   background: var(--color-surface-container-lowest);
   border: 1px solid var(--color-outline-variant);
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow:
     0 24px 48px rgba(0, 0, 0, 0.22),
     0 4px 12px rgba(0, 0, 0, 0.12);
@@ -373,9 +373,9 @@ html {
 [cmdk-input-wrapper] {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--color-outline-variant);
-  gap: 10px;
+  gap: 12px;
 }
 
 [cmdk-input] {
@@ -394,11 +394,11 @@ html {
 }
 
 [cmdk-list] {
-  max-height: 360px;
+  max-height: 440px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 6px;
-  scroll-padding-block: 6px;
+  padding: 10px;
+  scroll-padding-block: 10px;
 }
 
 [cmdk-list]::-webkit-scrollbar {
@@ -417,7 +417,7 @@ html {
 }
 
 [cmdk-group-heading] {
-  padding: 8px 10px 4px;
+  padding: 12px 12px 6px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -429,9 +429,9 @@ html {
 [cmdk-item] {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  gap: 3px;
+  padding: 11px 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background 80ms ease;
   outline: none;

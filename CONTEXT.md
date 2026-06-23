@@ -1,14 +1,15 @@
 # Context
 
-**Current Task:** Clean baseline. Perf audit shipped to `main`; app rebuilt + installed. Ready for new bug work.
+**Current Task:** Code-tab nav redesign — Insert & Favorites became column megamenus with plugin cross-filter; navbar equal-height; Cmd+K palette padding. Built, installed to /Applications, launched. Committed on branch `ui/code-megamenu-columns` (NOT merged/pushed).
 
 **Key Decisions:**
 
-- Perf P1–P6 merged to `main` (`88a223c`): async git commands, concurrent subprocesses, pty.rs mutex release, RepoCard memo, enrichAi bounded pool. `/Applications/Coruro.app` rebuilt from release + launched (tauri-app + sidecar verified running).
-- Repo cleaned: merged branches `hardening/phase3` + `perf/audit-p1-p6` deleted. Only `main` + `security/audit-s1-s2-csp` (unmerged, parked) remain.
-- Security branch `security/audit-s1-s2-csp` parked: CSP runtime-unverified; S1 fs-glob not applied (audit premise wrong). Revisit before merge.
+- Insert = 5 live columns (Plugins|MCP|Commands|Agents|Skills); click a Plugin → `selectedSource` cross-filters the other 4 by `item.source === plugin.name` (✕ chip clears). Leaves still insert. Category pills removed.
+- Favorites = 4-column megamenu (Skills|Agents|Commands|MCP); category inferred at render from invocation text — no localStorage schema change. Both share one drawer (old compact popover gone).
+- Navbar controls unified to `h-9`; cmdk palette (`index.css` `[cmdk-*]`) roomier. Doc: `docs/ask-work-center.md` §6.
 
 **Next Steps:**
 
-- Start clean on new bugs from `main`.
-- Before merging security branch: runtime-verify CSP (DevTools console) + S1 fs-scoping product decision.
+- Merge `ui/code-megamenu-columns` → main + push when ready; delete branch.
+- Decide: should Favorites drawer also show a Plugins column (currently leaf-only)?
+- Old app rollback backup `/tmp/Coruro-old-1782199964.app` — delete once new build confirmed good.
