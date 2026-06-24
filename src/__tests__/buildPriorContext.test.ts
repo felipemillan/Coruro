@@ -175,10 +175,7 @@ describe('buildPriorContext', () => {
       '- Run commands fired: 7',
     ].join('\n');
 
-    const notes = [
-      mkNote({ body }),
-      mkNote({ body: headingBody('A second AI note narrative.') }),
-    ];
+    const notes = [mkNote({ body }), mkNote({ body: headingBody('A second AI note narrative.') })];
     const ctx = buildPriorContext(notes);
     const joined = ctx.join('\n');
 

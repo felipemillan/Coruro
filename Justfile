@@ -1,5 +1,5 @@
 # Project recipes — add your own below this import
-import 'Justfile.crew'
+import? 'Justfile.crew'
 
 # ── Quality gate ─────────────────────────────────────────────────────────────
 # `just gate` is the one-command cross-language gate. Run it before every commit.

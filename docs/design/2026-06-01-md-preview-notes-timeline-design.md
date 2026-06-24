@@ -1,7 +1,7 @@
 # Design — Markdown preview + notes timeline in RepoDetail
 
 **Date:** 2026-06-01
-**Status:** Approved (design), pending implementation plan
+**Status:** Implemented (shipped)
 **Area:** `src/components/RepoDetail.tsx`, `src/utils/repoDetail.ts`, new `src/utils/notesTimeline.ts`, `src/types.ts`
 
 ## Goal
