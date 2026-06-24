@@ -1,7 +1,7 @@
 # Repo Dashboard Card — Design Spec
 
 **Date:** 2026-06-08
-**Status:** Approved (design), pending implementation plan
+**Status:** Implemented (shipped)
 **Slice:** 1 of N (card restyle). First slice of the larger "Apple Intelligence repo context" initiative.
 
 ---
@@ -61,7 +61,7 @@ energy of a brutalist reference card, but with the soft M3 skin.
 │ ⬤Rust   ↑2 ↓1 ●dirty    │  header: lang dot + tint, sync state, CI dot
 │  ▓ MG (watermark)        │
 ├─────────────────────────┤
-│ @felipemillan            │  owner handle (parsed from remoteUrl)
+│ @octocat            │  owner handle (parsed from remoteUrl)
 │ Coruro          🔒     │  name (condensed) + private/fork/archive icon
 │ ▌Git dashboard, Tauri…   │  description ── AI-BIO SLOT
 │ [rust][tauri][cli]       │  topics chips ── AI-TAGS SLOT

@@ -2,6 +2,17 @@
   "name": "coruro",
   "private": true,
   "version": "0.1.0",
+  "description": "A local-first desktop dashboard for your Git repositories — a Kanban board enriched with GitHub data and on-device Apple Intelligence summaries.",
+  "license": "MIT",
+  "author": "Felipe Millán Assler",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felipemillan/Coruro.git"
+  },
+  "homepage": "https://github.com/felipemillan/Coruro#readme",
+  "bugs": {
+    "url": "https://github.com/felipemillan/Coruro/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

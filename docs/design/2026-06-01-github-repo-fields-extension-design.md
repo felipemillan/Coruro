@@ -1,7 +1,7 @@
 # Design — Extended /repos fields on cards & overview
 
 **Date:** 2026-06-01
-**Status:** Approved (design), pending implementation plan
+**Status:** Implemented (shipped)
 **Builds on:** `2026-06-01-github-data-cards-modal-design.md` (RepoGitHub / fetchRepoCard / RepoCard / RepoDetail overview band).
 **Area:** `src/types.ts`, `src/utils/github.ts` (+ test), `src/components/RepoCard.tsx`, `src/components/RepoDetail.tsx`
 
