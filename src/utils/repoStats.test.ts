@@ -17,9 +17,9 @@ function baseRepo(over: Partial<Repo> = {}): Repo {
 
 describe('parseHandle', () => {
   it('extracts owner from ssh and https remotes', () => {
-    expect(parseHandle('git@github.com:felipemillan/Coruro.git')).toBe('@felipemillan');
-    expect(parseHandle('https://github.com/felipemillan/Coruro.git')).toBe('@felipemillan');
-    expect(parseHandle('https://github.com/felipemillan/Coruro')).toBe('@felipemillan');
+    expect(parseHandle('git@github.com:octocat/Coruro.git')).toBe('@octocat');
+    expect(parseHandle('https://github.com/octocat/Coruro.git')).toBe('@octocat');
+    expect(parseHandle('https://github.com/octocat/Coruro')).toBe('@octocat');
   });
   it('returns null for missing or unparseable remotes', () => {
     expect(parseHandle(null)).toBeNull();
@@ -39,7 +39,7 @@ describe('relativeAge', () => {
 describe('deriveCardData', () => {
   it('uses GitHub metadata (description/tags/language) when enriched, with git-activity stats', () => {
     const repo = baseRepo({
-      remoteUrl: 'git@github.com:felipemillan/Coruro.git',
+      remoteUrl: 'git@github.com:octocat/Coruro.git',
       commitCount: 200,
       branchCount: 5,
       gh: {
@@ -57,7 +57,7 @@ describe('deriveCardData', () => {
         license: 'MIT',
         defaultBranch: 'main',
         pushedAt: '2026-06-07T00:00:00Z',
-        htmlUrl: 'https://github.com/felipemillan/Coruro',
+        htmlUrl: 'https://github.com/octocat/Coruro',
         watchers: 3,
         updatedAt: '2026-06-07T00:00:00Z',
         disabled: false,
@@ -72,7 +72,7 @@ describe('deriveCardData', () => {
     });
     const d = deriveCardData(repo, FIXED_NOW);
     expect(d.isLocalOnly).toBe(false);
-    expect(d.handle).toBe('@felipemillan');
+    expect(d.handle).toBe('@octocat');
     // The 3-stat grid always shows local git activity; the LAST age falls back
     // to gh.pushedAt (2026-06-07 → 1d) when lastCommitAt is absent.
     expect(d.displayStats.map((s) => s.label)).toEqual(['COMMITS', 'BRANCHES', 'LAST']);

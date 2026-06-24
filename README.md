@@ -12,8 +12,7 @@ leaves it.
 Coruro scans a folder of Git repositories and lays them out as cards on a
 five-column Kanban board (Inbox · Backlog · Active · Review · Done). Each card is
 an information-dashboard: language, sync state, stats, and an AI-generated summary
-
-- tags — so you can read a project at a glance without opening it.
+and tags — so you can read a project at a glance without opening it.
 
 ## Features
 
@@ -64,7 +63,7 @@ an information-dashboard: language, sync state, stats, and an AI-generated summa
 
 **Prerequisites**
 
-- [Node.js](https://nodejs.org/) 20+ and npm
+- [Node.js](https://nodejs.org/) 22+ and npm
 - [Rust](https://rustup.rs/) (stable) + the Tauri 2 prerequisites
 - **Xcode 26** (for the Swift AI sidecar; macOS 26 SDK with FoundationModels)
 

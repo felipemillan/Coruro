@@ -1,7 +1,7 @@
 # AI Repo Analysis (auto on scan) — Design Spec
 
 **Date:** 2026-06-08
-**Status:** Approved (design), pending implementation plan
+**Status:** Implemented (shipped)
 **Cycle:** 2 of the Apple Intelligence repo-context initiative. Builds on the
 slice-1 card's `aiSummary` / `aiTags` slots.
 
