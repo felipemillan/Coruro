@@ -28,7 +28,13 @@ function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
 }
 
 function applyBooleanSettings(s: Record<string, unknown>, base: Settings): void {
-  for (const k of ['hasToken', 'debugBannerEnabled', 'autoNotesEnabled'] as const) {
+  for (const k of [
+    'hasToken',
+    'debugBannerEnabled',
+    'autoNotesEnabled',
+    'bellAudioEnabled',
+    'bellVisualEnabled',
+  ] as const) {
     if (typeof s[k] === 'boolean') base[k] = s[k] as boolean;
   }
   const tt = s.terminalTheme;
