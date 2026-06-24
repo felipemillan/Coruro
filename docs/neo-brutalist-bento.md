@@ -69,14 +69,14 @@ the parser uses a greedy `\((.+)\)\s*$` to grab the whole outer group.
 One contract, applied everywhere. Components use these classes and keep their own
 padding / layout / color utilities:
 
-| Class | Use |
-|-------|-----|
-| `.nb-card` | card / panel / modal — `2px` navy border, `12px` radius, cream bg, hard `4px 4px` offset shadow |
-| `.nb-card-sm` | nested panel / list item / grid tile — `3px` shadow |
-| `.nb-flat` | bordered surface, no shadow (rows, wells) |
-| `.nb-btn` | button chrome — border + hard shadow, presses on `:active`. Keep the element's own bg/text/padding |
-| `.nb-input` | text input / textarea / select — border + focus hard-shadow |
-| `.nb-chip` | pill / badge — border + full radius |
+| Class         | Use                                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------------- |
+| `.nb-card`    | card / panel / modal — `2px` navy border, `12px` radius, cream bg, hard `4px 4px` offset shadow    |
+| `.nb-card-sm` | nested panel / list item / grid tile — `3px` shadow                                                |
+| `.nb-flat`    | bordered surface, no shadow (rows, wells)                                                          |
+| `.nb-btn`     | button chrome — border + hard shadow, presses on `:active`. Keep the element's own bg/text/padding |
+| `.nb-input`   | text input / textarea / select — border + focus hard-shadow                                        |
+| `.nb-chip`    | pill / badge — border + full radius                                                                |
 
 Driven by `--nb-border` / `--nb-shadow*` / `--nb-radius*` CSS variables: tune the
 look in one place and it propagates app-wide. Palette is inferred from the design

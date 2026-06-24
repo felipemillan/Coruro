@@ -1,7 +1,7 @@
 # Design — GitHub data on cards & modal
 
 **Date:** 2026-06-01
-**Status:** Approved (design), pending implementation plan
+**Status:** Implemented (shipped)
 **Area:** `src/types.ts`, `src/utils/scanner.ts`, `src/utils/github.ts`, new `src/utils/githubClient.ts`, new `src/utils/githubActivity.ts`, `src/store/useBoardStore.ts`, `src/components/RepoCard.tsx`, `src/components/RepoDetail.tsx`
 
 ## Goal

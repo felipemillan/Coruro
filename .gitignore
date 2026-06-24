@@ -32,3 +32,10 @@ dist-ssr
 
 # Local agent config
 .claude/
+
+# Local-only / session-scratch / regenerated state (kept on disk, not published)
+/CLAUDE.md
+/Justfile.crew
+/CONTEXT.md
+/coruro_notes.md
+/coruro_notes.json

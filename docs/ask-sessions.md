@@ -1,6 +1,6 @@
 # ASK sessions: persistence, delete, favorites card
 
-Shipped `98f9b30` (2026-06-14). Crew-reviewed (Howard + Raj), Leonard-decomposed.
+Shipped 2026-06-14.
 
 ## What changed
 
@@ -59,5 +59,3 @@ Three user-facing fixes to the **Ask** tab:
   on `#1A1C16` + cream (SC 1.4.11).
 - Full **transcript replay** (would need a separate per-session file store, not the
   shared state JSON — size + secrets).
-
-Crew synthesis: `.scratch/ask-sessions-favorites-review-2026-06-14/sheldon-synthesis.md`.
