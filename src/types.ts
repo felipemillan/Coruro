@@ -59,6 +59,17 @@ export interface Settings {
    * 'mocha' = dark, 'latte' = light. Defaults to 'mocha'.
    */
   terminalTheme: 'mocha' | 'latte';
+  /**
+   * Play a short audio beep when the Code-tab terminal receives a bell
+   * (Claude Code rings the terminal bell on task-done). Defaults false so the
+   * app is silent unless the user opts in.
+   */
+  bellAudioEnabled: boolean;
+  /**
+   * Flash the Code-tab terminal border when it receives a bell. Defaults true —
+   * a quiet, glanceable "task done" cue that replaces the audio bell.
+   */
+  bellVisualEnabled: boolean;
 }
 
 /**
@@ -306,6 +317,8 @@ export function createEmptyAppState(): AppState {
       autoNotesEnabled: false,
       autoNotesIntervalMin: 60,
       terminalTheme: 'mocha',
+      bellAudioEnabled: false,
+      bellVisualEnabled: true,
     },
     board: {
       inbox: [],

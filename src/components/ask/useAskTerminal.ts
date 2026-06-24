@@ -10,6 +10,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import type { ChatSession } from '../../types';
 import { useBoardStore } from '../../store/useBoardStore';
 import { CATPPUCCIN_MOCHA, CATPPUCCIN_LATTE } from './termThemes';
+import { createBellFilter, playBeep, flashTerminal, type BellFilter } from './bellFilter';
 
 interface PtyOutput {
   id: string;
@@ -171,6 +172,34 @@ export function useAskTerminal({
   // Pending quick-action sequencing timers, keyed by session id, so they can be
   // cancelled if the session ends or the component unmounts before they fire.
   const quickActionTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>[]>>(new Map());
+  // Per-session OSC-safe bell stripper. Claude Code rings the terminal bell on
+  // task-done; we strip the bare BEL byte from the stream (so xterm/webview
+  // never beeps) and raise our own opt-in notification instead.
+  const bellFiltersRef = useRef<Map<string, BellFilter>>(new Map());
+
+  // Audio beep and/or border flash on a terminal bell, gated by user settings.
+  const notifyBell = useCallback(() => {
+    const { bellAudioEnabled, bellVisualEnabled } = useBoardStore.getState().settings;
+    if (bellAudioEnabled) playBeep();
+    if (bellVisualEnabled) flashTerminal(containerRef.current);
+  }, [containerRef]);
+
+  // Routes one PTY output chunk to the buffer + live terminal, stripping bells.
+  // `notify` is false for build/shell sessions (only Claude task-done chimes).
+  const pumpOutput = useCallback(
+    (id: string, raw: string, notify: boolean): void => {
+      let filter = bellFiltersRef.current.get(id);
+      if (filter === undefined) {
+        filter = createBellFilter();
+        bellFiltersRef.current.set(id, filter);
+      }
+      const { text, bells } = filter(raw);
+      buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + text);
+      if (displayedIdRef.current === id) termRef.current?.write(text);
+      if (notify && bells > 0) notifyBell();
+    },
+    [notifyBell],
+  );
 
   // Creates the Terminal once; sets up the single onData handler that routes
   // keyboard input to whichever session is currently displayed.
@@ -317,9 +346,7 @@ export function useAskTerminal({
 
       const unOut = await listen<PtyOutput>('pty-output', (e) => {
         if (e.payload.id !== id) return;
-        const chunk = e.payload.data;
-        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
-        if (displayedIdRef.current === id) term.write(chunk);
+        pumpOutput(id, e.payload.data, true);
         // Fire once claude itself is up (banner/❯ in the cumulative buffer),
         // never on dgc's earlier boot logs.
         if (CLAUDE_READY.test(buffersRef.current.get(id) ?? '')) {
@@ -375,6 +402,7 @@ export function useAskTerminal({
       setActiveSessionId,
       updateChatSessionStatus,
       setQuestion,
+      pumpOutput,
     ],
   );
 
@@ -420,9 +448,7 @@ export function useAskTerminal({
 
       const unOut = await listen<PtyOutput>('pty-output', (e) => {
         if (e.payload.id !== id) return;
-        const chunk = e.payload.data;
-        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
-        if (displayedIdRef.current === id) term.write(chunk);
+        pumpOutput(id, e.payload.data, false);
       });
 
       const unExit = await listen<PtyExit>('pty-exit', (e) => {
@@ -460,6 +486,7 @@ export function useAskTerminal({
       setActiveSessionId,
       updateChatSessionStatus,
       switchToSession,
+      pumpOutput,
     ],
   );
 
@@ -501,9 +528,7 @@ export function useAskTerminal({
 
       const unOut = await listen<PtyOutput>('pty-output', (e) => {
         if (e.payload.id !== id) return;
-        const chunk = e.payload.data;
-        buffersRef.current.set(id, (buffersRef.current.get(id) ?? '') + chunk);
-        if (displayedIdRef.current === id) term.write(chunk);
+        pumpOutput(id, e.payload.data, false);
       });
 
       const unExit = await listen<PtyExit>('pty-exit', (e) => {
@@ -542,6 +567,7 @@ export function useAskTerminal({
       setActiveSessionId,
       updateChatSessionStatus,
       switchToSession,
+      pumpOutput,
     ],
   );
 

@@ -88,6 +88,10 @@ export interface BoardStore extends AppState {
   setTerminalApp: (app: string) => Promise<void>;
   /** Set the Catppuccin terminal colour theme ('mocha' | 'latte') and persist. */
   setTerminalTheme: (theme: 'mocha' | 'latte') => Promise<void>;
+  /** Toggle the terminal bell audio beep and persist. */
+  setBellAudioEnabled: (enabled: boolean) => Promise<void>;
+  /** Toggle the terminal bell visual flash and persist. */
+  setBellVisualEnabled: (enabled: boolean) => Promise<void>;
 
   /** Append a DayNote; trims the list to 90 entries and persists. */
   addDayNote: (note: DayNote) => void;
