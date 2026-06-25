@@ -8,6 +8,8 @@ vi.mock('../store/useBoardStore', () => ({
   useBoardStore: (sel: (s: unknown) => unknown) =>
     sel({
       settings: { editorCommand: 'code', editorApp: 'VS Code', terminalApp: 'Terminal' },
+      repoMetadata: {},
+      setRepoCustomName: () => {},
       enrichOne: () => {},
       analyzingPaths: new Set(),
       enrichAiOne: () => {},

@@ -79,7 +79,7 @@ export interface Settings {
 export type Board = Record<ColumnId, string[]>;
 
 /** Per-repo user-authored metadata, keyed by repo absolute path. */
-export type RepoMetadata = Record<string, { notes: string }>;
+export type RepoMetadata = Record<string, { notes: string; customName?: string }>;
 
 /**
  * One cached GitHub enrichment, keyed by repo path in AppState.ghCache.

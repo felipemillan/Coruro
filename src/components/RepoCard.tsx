@@ -8,7 +8,7 @@
 // description); tags render repo.aiTags when present (else GitHub topics).
 // Both are produced by deriveCardData — later AI cycles just populate fields.
 
-import { memo, useState } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import {
   Code2,
   FolderOpen,
@@ -18,6 +18,10 @@ import {
   Lock,
   GitFork,
   Archive,
+  Pencil,
+  RotateCcw,
+  Check,
+  X,
 } from 'lucide-react';
 import { Command } from '@tauri-apps/plugin-shell';
 import { invoke } from '@tauri-apps/api/core';
@@ -37,13 +41,38 @@ interface RepoCardProps {
 function RepoCardImpl({ repo, selected = false }: RepoCardProps) {
   const editorCommand = useBoardStore((s) => s.settings.editorCommand);
   const editorApp = useBoardStore((s) => s.settings.editorApp);
+  const customName = useBoardStore((s) => s.repoMetadata[repo.path]?.customName);
+  const setRepoCustomName = useBoardStore((s) => s.setRepoCustomName);
   const setDetail = useViewStore((s) => s.setDetail);
   const requestAsk = useViewStore((s) => s.requestAsk);
 
   const [openError, setOpenError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const d = deriveCardData(repo);
+  useEffect(() => {
+    if (isEditing) inputRef.current?.focus();
+  }, [isEditing]);
+
+  const d = deriveCardData(repo, undefined, { customName });
   const htmlUrl = repo.gh?.htmlUrl ?? null;
+  const hasCustomName = customName !== undefined && customName !== repo.name;
+
+  function startEdit() {
+    setDraftName(d.name);
+    setIsEditing(true);
+  }
+
+  function saveName() {
+    const trimmed = draftName.trim();
+    setRepoCustomName(repo.path, trimmed.length > 0 ? trimmed : null);
+    setIsEditing(false);
+  }
+
+  function cancelEdit() {
+    setIsEditing(false);
+  }
 
   async function openInEditor() {
     setOpenError(null);
@@ -75,18 +104,71 @@ function RepoCardImpl({ repo, selected = false }: RepoCardProps) {
       {/* Identity block */}
       <div className="px-3 pt-2 pb-2 flex flex-col gap-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             {d.handle && (
               <p className="text-[10px] font-bold tracking-wider text-navy-light uppercase truncate">
                 {d.handle}
               </p>
             )}
-            <h3
-              className="text-navy font-bold text-base leading-tight tracking-tight break-words"
-              title={repo.path}
-            >
-              {d.name}
-            </h3>
+            {isEditing ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <input
+                  ref={inputRef}
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveName();
+                    if (e.key === 'Escape') cancelEdit();
+                  }}
+                  className="flex-1 text-navy font-bold text-base leading-tight tracking-tight border border-sage rounded px-1 py-0.5 outline-none min-w-0"
+                  aria-label="Edit project name"
+                />
+                <button
+                  type="button"
+                  onClick={saveName}
+                  className="p-0.5 text-sage hover:text-sage/80"
+                  aria-label="Save name"
+                >
+                  <Check size={13} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="p-0.5 text-navy-light hover:text-terracotta"
+                  aria-label="Cancel edit"
+                >
+                  <X size={13} strokeWidth={2} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 group/name">
+                <h3
+                  className="text-navy font-bold text-base leading-tight tracking-tight break-words"
+                  title={repo.path}
+                >
+                  {d.name}
+                </h3>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="opacity-0 group-hover/name:opacity-100 p-0.5 text-navy-light hover:text-sage transition-opacity"
+                  aria-label="Rename project"
+                >
+                  <Pencil size={11} strokeWidth={2} />
+                </button>
+                {hasCustomName && (
+                  <button
+                    type="button"
+                    onClick={() => setRepoCustomName(repo.path, null)}
+                    className="opacity-0 group-hover/name:opacity-100 p-0.5 text-navy-light hover:text-terracotta transition-opacity"
+                    title={`Reset to original: ${repo.name}`}
+                    aria-label="Reset to original name"
+                  >
+                    <RotateCcw size={11} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-0.5 shrink-0 text-navy-light">
             {d.isPrivate && <Lock size={12} strokeWidth={2} aria-label="Private" />}

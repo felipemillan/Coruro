@@ -41,6 +41,8 @@ export interface BoardStore extends AppState {
   moveCard: (repoPath: string, from: ColumnId, to: ColumnId, index: number) => void;
   /** Update a repo's notes; persists after a 500ms debounce. */
   updateNotes: (repoPath: string, notes: string) => void;
+  /** Set a custom display name for a repo (null = reset to the original git folder name). */
+  setRepoCustomName: (repoPath: string, name: string | null) => void;
   /** Replace the runtime repo list (from a scan). Not persisted. */
   setRepos: (repos: Repo[]) => void;
   /**

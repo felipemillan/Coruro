@@ -76,7 +76,7 @@ export function validateBoard(raw: unknown, base: AppState['board']): AppState['
   return base;
 }
 
-/** Keep only entries shaped { notes: string }. */
+/** Keep only entries shaped { notes: string; customName?: string }. */
 export function validateRepoMetadata(
   raw: unknown,
   base: AppState['repoMetadata'],
@@ -84,8 +84,11 @@ export function validateRepoMetadata(
   if (typeof raw !== 'object' || raw === null) return base;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof value === 'object' && value !== null) {
-      const notes = (value as Record<string, unknown>).notes;
-      base[key] = { notes: typeof notes === 'string' ? notes : '' };
+      const v = value as Record<string, unknown>;
+      const notes = typeof v.notes === 'string' ? v.notes : '';
+      const customName =
+        typeof v.customName === 'string' && v.customName.length > 0 ? v.customName : undefined;
+      base[key] = customName !== undefined ? { notes, customName } : { notes };
     }
   }
   return base;
