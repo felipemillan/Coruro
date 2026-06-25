@@ -5,7 +5,7 @@ your local repos, enriched with GitHub data and **on-device AI summaries** power
 by Apple Intelligence. Everything runs on your machine; nothing about your code
 leaves it.
 
-![Coruro board](docs/screenshots/board.png)
+![Coruro board](docs/screenshots/board.webp)
 
 ## What it is
 
