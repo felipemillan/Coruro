@@ -13,6 +13,10 @@ release. Everything below the `[Unreleased]` heading is the current state of
 
 ### Added
 
+- **Custom project names** — hover a repo card name and click the pencil icon
+  to set a local display name. A reset button (↺) restores the original git
+  folder name. Persisted in `~/.repo_dashboard_state.json`; survives restarts
+  and scans.
 - **Terminal bell notifications** — the Code-tab terminal no longer beeps
   implicitly on Claude Code task-done. An OSC-safe filter strips the bare bell
   from the PTY stream and raises an opt-in notification instead: a short audio

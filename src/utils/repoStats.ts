@@ -52,7 +52,11 @@ export function relativeAge(iso: string | null | undefined, now: number = Date.n
 }
 
 /** Derive all card-display data from a repo. `now` is injectable for tests. */
-export function deriveCardData(repo: Repo, now: number = Date.now()): CardData {
+export function deriveCardData(
+  repo: Repo,
+  now: number = Date.now(),
+  opts?: { customName?: string },
+): CardData {
   const gh = repo.gh ?? null;
   const isLocalOnly = gh === null;
 
@@ -69,7 +73,7 @@ export function deriveCardData(repo: Repo, now: number = Date.now()): CardData {
     (now - new Date(staleSource).getTime()) / 86400000 > STALE_DAYS;
 
   return {
-    name: repo.name,
+    name: opts?.customName ?? repo.name,
     handle: parseHandle(repo.remoteUrl),
     description: repo.aiSummary ?? gh?.description ?? null,
     tags: repo.aiTags ?? gh?.topics ?? [],

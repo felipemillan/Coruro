@@ -29,6 +29,10 @@ and tags — so you can read a project at a glance without opening it.
 - **Kanban workflow** — drag repos between columns; per-repo notes timeline
   stored alongside the repo.
 - **Quick actions** — open in editor, terminal, Finder, or on GitHub.
+- **Custom project names** — hover a card name and click the pencil to rename it
+  locally. A reset button restores the original git folder name. Names persist
+  across launches; stored in `~/.repo_dashboard_state.json` alongside other
+  per-repo metadata.
 - **Claude Command Center** — a "Claude" tab that scans your local `~/.claude`
   setup and inventories your MCP servers, skills, plugins, subagents, slash
   commands, hooks, settings, and session counts, with an on-device AI health

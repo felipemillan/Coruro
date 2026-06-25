@@ -25,6 +25,7 @@ type PersistenceSlice = Pick<
   | 'setRootDirectory'
   | 'moveCard'
   | 'updateNotes'
+  | 'setRepoCustomName'
   | 'setRepos'
   | 'scanAndDistribute'
   | 'storeToken'
@@ -125,6 +126,20 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
       void get().save();
     },
 
+    setRepoCustomName: (repoPath: string, name: string | null) => {
+      set((s) => {
+        const existing = s.repoMetadata[repoPath] ?? { notes: '' };
+        let updated: typeof existing;
+        if (name !== null && name.trim().length > 0) {
+          updated = { ...existing, customName: name.trim() };
+        } else {
+          updated = { notes: existing.notes };
+        }
+        return { repoMetadata: { ...s.repoMetadata, [repoPath]: updated } };
+      });
+      void get().save();
+    },
+
     updateNotes: (repoPath, notes) => {
       set((s) => ({
         repoMetadata: {
@@ -200,7 +215,7 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
       set((s) => {
         const repoMetadata = { ...s.repoMetadata };
         for (const [path, notes] of notesEntries) {
-          if (notes !== null) repoMetadata[path] = { notes };
+          if (notes !== null) repoMetadata[path] = { ...repoMetadata[path], notes };
         }
         return { repoMetadata };
       });
