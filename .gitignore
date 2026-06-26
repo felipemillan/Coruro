@@ -30,11 +30,13 @@ dist-ssr
 .scratch/*
 !.scratch/.gitkeep
 
-# Local agent config
-.claude/
+# Claude Code local tooling (personal; not for contributors)
+.claude/rules/
+.claude/workflows/
+.claude/settings.json
+.claude/settings.local.json
 
 # Local-only / session-scratch / regenerated state (kept on disk, not published)
-/CLAUDE.md
 /Justfile.crew
 /CONTEXT.md
 /coruro_notes.md
