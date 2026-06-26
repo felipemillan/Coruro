@@ -1,10 +1,13 @@
 # Coruro
 
+Built by **[Felipe Millán](https://fmillan.com)** · [LinkedIn](https://www.linkedin.com/in/felipemillan/)
+
+---
+
 A local-first desktop dashboard for your Git repositories — a Kanban board of
 your local repos, enriched with GitHub data and **on-device AI summaries** powered
 by Apple Intelligence. Everything runs on your machine; nothing about your code
 leaves it.
-
 
 ## What it is
 
@@ -32,11 +35,24 @@ and tags — so you can read a project at a glance without opening it.
   locally. A reset button restores the original git folder name. Names persist
   across launches; stored in `~/.repo_dashboard_state.json` alongside other
   per-repo metadata.
+- **Per-repo notes** — a Notes tab with a typed timeline (thoughts, ideas, todos,
+  bugs, questions) stored in a `coruro_notes.json` file alongside each repo, so
+  notes travel with the project via git.
+- **AI daily notes** — a digest of recent commit activity, generated on-device by
+  Apple FoundationModels. Runs manually or on a configurable timer; gated against
+  hallucinations before display.
+- **Ask / Code terminal** — a PTY-based tab with full Claude Code and shell
+  sessions inside the app. Sessions are tracked (with metadata only — transcripts
+  are never stored), grouped by repo in a sidebar, and can be pinned or revisited.
+  Includes a command palette (⌘K) and a run/build button that auto-detects the
+  repo type.
+- **Terminal bell notifications** — opt-in audio beep and/or border flash when
+  Claude Code signals task-done (OSC-safe; both toggleable in Settings).
 - **Claude Command Center** — a "Claude" tab that scans your local `~/.claude`
   setup and inventories your MCP servers, skills, plugins, subagents, slash
   commands, hooks, settings, and session counts, with an on-device AI health
-  summary and terminal quick-actions. Read-only and secret-free. See
-  [docs/command-center.md](docs/command-center.md).
+  summary and a Setup Curator for actionable cleanup recommendations. Read-only
+  and secret-free. See [docs/command-center.md](docs/command-center.md).
 
 ## Requirements
 
