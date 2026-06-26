@@ -36,6 +36,9 @@ dist-ssr
 .claude/settings.json
 .claude/settings.local.json
 
+# Hook runtime logs (contain personal paths + session data)
+src/logs/
+
 # Local-only / session-scratch / regenerated state (kept on disk, not published)
 /Justfile.crew
 /CONTEXT.md
