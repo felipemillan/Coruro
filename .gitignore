@@ -44,3 +44,7 @@ src/logs/
 /CONTEXT.md
 /coruro_notes.md
 /coruro_notes.json
+
+# Internal build plans and personal marketing copy (not contributor docs)
+/PLAN.md
+/docs/marketing/
