@@ -1,5 +1,6 @@
 mod commands;
 mod pty;
+mod publisher;
 
 /// Build and run the Tauri application: register the plugins, manage the PTY
 /// session state, wire up every `#[tauri::command]` (the React → Rust boundary;
@@ -36,7 +37,9 @@ pub fn run() {
             pty::pty_kill,
             commands::detect_repo_type,
             pty::pty_spawn_cmd,
-            pty::pty_spawn_shell
+            pty::pty_spawn_shell,
+            publisher::publisher_open_compose,
+            publisher::publisher_generate
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -298,6 +298,8 @@ const KIND_LABELS = {
   command_center_opened: 'Command Center opens',
   curator_run: 'Setup Curator runs',
   user_note_written: 'Notes written',
+  publisher_draft_generated: 'Publisher drafts generated',
+  publisher_published: 'Publisher posts opened',
 } satisfies Record<ActivityEventKind, string>;
 
 /** Deterministic render order for the per-kind bullets. */
@@ -308,6 +310,8 @@ const KIND_ORDER: ActivityEventKind[] = [
   'command_center_opened',
   'curator_run',
   'user_note_written',
+  'publisher_draft_generated',
+  'publisher_published',
 ];
 
 /**

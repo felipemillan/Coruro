@@ -18,6 +18,125 @@ export const COLUMN_IDS: readonly ColumnId[] = [
 ] as const;
 
 /**
+ * Assisted-manual publishing target. Drives the compose URL opened in the
+ * user's real browser and the draft formatting. No automated posting — the
+ * human pastes and clicks.
+ */
+export type PublisherTarget = 'linkedin' | 'x' | 'instagram' | 'tiktok' | 'facebook' | 'reddit';
+
+/**
+ * The shape a generated post takes for a given network. Drives how segments
+ * are composed and how the compose UI presents them.
+ */
+export type PostFormat = 'single' | 'thread' | 'carousel' | 'story' | 'script';
+
+/**
+ * Editorial angle the generated post takes. Drives prompt framing only — never
+ * any model arg. Persisted as the default-intent setting and per-history entry.
+ */
+export type PublisherIntent =
+  | 'story'
+  | 'lesson'
+  | 'launch'
+  | 'behind_scenes'
+  | 'deep_dive'
+  | 'feedback'
+  | 'milestone'
+  | 'hot_take';
+
+/** Ordered list of all publisher intents — single source of truth for iteration. */
+export const PUBLISHER_INTENTS: readonly PublisherIntent[] = [
+  'story',
+  'lesson',
+  'launch',
+  'behind_scenes',
+  'deep_dive',
+  'feedback',
+  'milestone',
+  'hot_take',
+] as const;
+
+/**
+ * Generation model id. This is only ever a MATCH KEY — the Rust backend maps it
+ * to a whitelisted 'static str via resolve_model; the raw string is never
+ * interpolated into claude args. An unknown id is rejected, never spawned.
+ */
+export type PublisherModel = 'claude-opus-4-8' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
+
+/** Ordered list of all publisher models — single source of truth for iteration. */
+export const PUBLISHER_MODELS: readonly PublisherModel[] = [
+  'claude-opus-4-8',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5',
+] as const;
+
+/** One unit of post copy (a single post, thread tweet, slide, or beat). */
+export interface PublisherSegment {
+  text: string;
+}
+
+/**
+ * One generated take on a post. RUNTIME-ONLY. `segments` holds the ordered
+ * copy units; `title` is an optional headline (null when the format has none).
+ */
+export interface PublisherVariation {
+  id: string;
+  title: string | null;
+  segments: PublisherSegment[];
+}
+
+/**
+ * A composed-but-unpublished post. RUNTIME-ONLY — holds the repo slug, target,
+ * format, and the generated variations. Never persisted; only the resulting
+ * activity event (a `repoName` slug) lands in the activity log.
+ */
+export interface PublisherDraft {
+  repoName: string;
+  target: PublisherTarget;
+  format: PostFormat;
+  /** Editorial angle for this draft. RUNTIME-ONLY — never persisted in the draft. */
+  intent: PublisherIntent;
+  /** Free-text per-draft steering. RUNTIME-ONLY — NEVER persisted in history. */
+  guidance: string;
+  /** Generation model match key. RUNTIME-ONLY — resolved to a whitelist in Rust. */
+  model: PublisherModel;
+  count: 1 | 2 | 3 | 4 | 5;
+  variations: PublisherVariation[];
+  selectedVariation: number;
+  status: 'idle' | 'generating' | 'ready' | 'error';
+}
+
+/**
+ * One persisted Publisher generation. Metadata + generated copy only — the
+ * free-text `guidance` steering box is DELIBERATELY NOT stored here (P0).
+ * `repoName` is a slug (display name), never an absolute filesystem path; the
+ * validator rejects path-shaped values on load. Mirrors the metadata-only
+ * contract of {@link ActivityEvent}.
+ */
+export interface PublisherHistoryEntry {
+  id: string;
+  repoName: string;
+  target: PublisherTarget;
+  format: PostFormat;
+  intent: PublisherIntent;
+  model: PublisherModel;
+  generatedAt: string; // ISO 8601
+  variations: PublisherVariation[];
+}
+
+/** Persisted collection of Publisher generations (capped on load). */
+export interface PublisherHistoryState {
+  entries: PublisherHistoryEntry[];
+}
+
+/**
+ * Hard cap on persisted Publisher history entries; oldest are evicted first.
+ * Single source of truth shared by the slice (append-trim) and the validator
+ * (on-load tail-trim) so the two limits cannot silently drift.
+ */
+export const MAX_PUBLISHER_HISTORY = 200;
+
+/**
  * Persisted user settings.
  * `rootDirectory` is the absolute path of the folder scanned for repos
  * (null until the user picks one). `hasToken` mirrors Keychain presence —
@@ -70,6 +189,19 @@ export interface Settings {
    * a quiet, glanceable "task done" cue that replaces the audio bell.
    */
   bellVisualEnabled: boolean;
+  /**
+   * Author voice/style guidance prepended to the Publisher generation prompt.
+   * Free text, capped on load (see validateSettings). Defaults to ''.
+   */
+  publisherAuthorVoice: string;
+  /** Default Publisher target preselected in the compose UI. Defaults 'linkedin'. */
+  publisherDefaultTarget: PublisherTarget;
+  /** Default Publisher post format preselected in the compose UI. Defaults 'single'. */
+  publisherDefaultFormat: PostFormat;
+  /** Default Publisher editorial intent preselected in the compose UI. Defaults 'story'. */
+  publisherDefaultIntent: PublisherIntent;
+  /** Default Publisher generation model preselected in the compose UI. Defaults 'claude-sonnet-4-6'. */
+  publisherDefaultModel: PublisherModel;
 }
 
 /**
@@ -148,6 +280,8 @@ export interface AppState {
   chatSessions: ChatSessionsState;
   /** Persisted in-app activity log (metadata only; secret-free). */
   activityLog: ActivityLogState;
+  /** Persisted Publisher generation history (metadata + copy; guidance never stored). */
+  publisherHistory: PublisherHistoryState;
 }
 
 /** Latest CI (GitHub Actions) conclusion for the default branch. */
@@ -281,7 +415,9 @@ export type ActivityEventKind =
   | 'run_command_fired'
   | 'command_center_opened'
   | 'curator_run'
-  | 'user_note_written';
+  | 'user_note_written'
+  | 'publisher_draft_generated'
+  | 'publisher_published';
 
 /**
  * One persisted in-app activity event. Metadata-only and secret-free:
@@ -319,6 +455,11 @@ export function createEmptyAppState(): AppState {
       terminalTheme: 'mocha',
       bellAudioEnabled: false,
       bellVisualEnabled: true,
+      publisherAuthorVoice: '',
+      publisherDefaultTarget: 'linkedin',
+      publisherDefaultFormat: 'single',
+      publisherDefaultIntent: 'story',
+      publisherDefaultModel: 'claude-sonnet-4-6',
     },
     board: {
       inbox: [],
@@ -333,6 +474,7 @@ export function createEmptyAppState(): AppState {
     dayNotes: { notes: [] },
     chatSessions: { sessions: [] },
     activityLog: { events: [] },
+    publisherHistory: { entries: [] },
   };
 }
 

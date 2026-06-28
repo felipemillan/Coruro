@@ -13,10 +13,88 @@ import {
   type ChatSession,
   type ActivityEvent,
   type ActivityEventKind,
+  type PublisherIntent,
+  type PublisherModel,
+  type PublisherHistoryEntry,
+  type PublisherVariation,
   COLUMN_IDS,
+  MAX_PUBLISHER_HISTORY,
 } from '../types';
 
 type Settings = AppState['settings'];
+type PublisherTarget = Settings['publisherDefaultTarget'];
+type PostFormat = Settings['publisherDefaultFormat'];
+
+/** Max persisted length for the free-text author-voice prompt. */
+const MAX_AUTHOR_VOICE_LEN = 2000;
+
+/** The six confirmed Publisher networks. */
+const PUBLISHER_TARGETS = new Set<PublisherTarget>([
+  'linkedin',
+  'x',
+  'instagram',
+  'tiktok',
+  'facebook',
+  'reddit',
+]) satisfies Set<PublisherTarget>;
+
+/** The five confirmed post formats. */
+const POST_FORMATS = new Set<PostFormat>([
+  'single',
+  'thread',
+  'carousel',
+  'story',
+  'script',
+]) satisfies Set<PostFormat>;
+
+/**
+ * Set of all valid publisher intents, asserted in-sync with the union via
+ * `satisfies Set<PublisherIntent>` (drift guard; mirrors ACTIVITY_EVENT_KINDS).
+ */
+const PUBLISHER_INTENTS = new Set<PublisherIntent>([
+  'story',
+  'lesson',
+  'launch',
+  'behind_scenes',
+  'deep_dive',
+  'feedback',
+  'milestone',
+  'hot_take',
+]) satisfies Set<PublisherIntent>;
+
+/**
+ * Set of all valid publisher models, asserted in-sync with the union via
+ * `satisfies Set<PublisherModel>`. These are MATCH KEYS only — never args.
+ */
+const PUBLISHER_MODELS = new Set<PublisherModel>([
+  'claude-opus-4-8',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5',
+]) satisfies Set<PublisherModel>;
+
+/**
+ * Coerce the enum-ish Publisher defaults: each must be a member of its known
+ * Set or the existing default is kept. Split out of applyStringSettings to keep
+ * each validator's cyclomatic complexity within the lint budget.
+ */
+function applyPublisherDefaults(s: Record<string, unknown>, base: Settings): void {
+  const pdt = s.publisherDefaultTarget;
+  if (typeof pdt === 'string' && PUBLISHER_TARGETS.has(pdt as PublisherTarget)) {
+    base.publisherDefaultTarget = pdt as PublisherTarget;
+  }
+  const pdf = s.publisherDefaultFormat;
+  if (typeof pdf === 'string' && POST_FORMATS.has(pdf as PostFormat)) {
+    base.publisherDefaultFormat = pdf as PostFormat;
+  }
+  const pdi = s.publisherDefaultIntent;
+  if (typeof pdi === 'string' && PUBLISHER_INTENTS.has(pdi as PublisherIntent)) {
+    base.publisherDefaultIntent = pdi as PublisherIntent;
+  }
+  const pdm = s.publisherDefaultModel;
+  if (typeof pdm === 'string' && PUBLISHER_MODELS.has(pdm as PublisherModel)) {
+    base.publisherDefaultModel = pdm as PublisherModel;
+  }
+}
 
 /** rootDirectory accepts any string; the rest must be non-empty. */
 function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
@@ -25,6 +103,12 @@ function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
     const v = s[k];
     if (typeof v === 'string' && v.length > 0) base[k] = v;
   }
+  // publisherAuthorVoice accepts any string; cap (truncate) overlong input.
+  const pav = s.publisherAuthorVoice;
+  if (typeof pav === 'string') {
+    base.publisherAuthorVoice = pav.slice(0, MAX_AUTHOR_VOICE_LEN);
+  }
+  applyPublisherDefaults(s, base);
 }
 
 function applyBooleanSettings(s: Record<string, unknown>, base: Settings): void {
@@ -226,6 +310,8 @@ const ACTIVITY_EVENT_KINDS = new Set<ActivityEventKind>([
   'command_center_opened',
   'curator_run',
   'user_note_written',
+  'publisher_draft_generated',
+  'publisher_published',
 ]) satisfies Set<ActivityEventKind>;
 
 /**
@@ -282,6 +368,111 @@ export function validateActivityLog(
       events.length > MAX_ACTIVITY_EVENTS
         ? events.slice(events.length - MAX_ACTIVITY_EVENTS)
         : events;
+  }
+  return base;
+}
+
+/** Per-entry variation cap; extra variations are dropped to bound disk. */
+const MAX_PUBLISHER_VARIATIONS = 8;
+
+/** Per-segment text cap; longer copy is truncated to bound disk. */
+const MAX_PUBLISHER_SEGMENT_LEN = 8000;
+
+/** Per-variation title cap; longer titles are truncated to bound disk. */
+const MAX_PUBLISHER_TITLE_LEN = 300;
+
+/**
+ * repoName guard mirroring isValidActivityLabel's path defence (P0): a
+ * persisted slug must be a string and must not be path-shaped (leading `/` or
+ * `\`), so an absolute filesystem path can never survive hydration.
+ */
+function isValidPublisherRepoName(repoName: unknown): repoName is string {
+  return typeof repoName === 'string' && !repoName.startsWith('/') && !repoName.startsWith('\\');
+}
+
+/**
+ * Sanitise one persisted variation: keep a string|null title and an array of
+ * `{ text: string }` segments, capping count and per-segment length so a hand-
+ * edited file can't balloon the on-disk state. Returns null when unrecoverable.
+ */
+function sanitisePublisherVariation(raw: unknown): PublisherVariation | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const v = raw as Record<string, unknown>;
+  if (typeof v.id !== 'string') return null;
+  if (!(typeof v.title === 'string' || v.title === null)) return null;
+  if (!Array.isArray(v.segments)) return null;
+  // Cap (truncate) the title so a hand-edited file can't balloon disk via it.
+  const title = typeof v.title === 'string' ? v.title.slice(0, MAX_PUBLISHER_TITLE_LEN) : v.title;
+  const segments = v.segments
+    .filter((seg): seg is Record<string, unknown> => typeof seg === 'object' && seg !== null)
+    .filter((seg) => typeof seg.text === 'string')
+    .map((seg) => ({ text: (seg.text as string).slice(0, MAX_PUBLISHER_SEGMENT_LEN) }));
+  return { id: v.id, title, segments };
+}
+
+/**
+ * Each of target/format/intent/model must be a member of its known Set.
+ * Split out so sanitisePublisherEntry stays within the complexity budget.
+ */
+function hasValidPublisherEnums(e: Record<string, unknown>): boolean {
+  return (
+    typeof e.target === 'string' &&
+    PUBLISHER_TARGETS.has(e.target as PublisherTarget) &&
+    typeof e.format === 'string' &&
+    POST_FORMATS.has(e.format as PostFormat) &&
+    typeof e.intent === 'string' &&
+    PUBLISHER_INTENTS.has(e.intent as PublisherIntent) &&
+    typeof e.model === 'string' &&
+    PUBLISHER_MODELS.has(e.model as PublisherModel)
+  );
+}
+
+/** Typed guard + sanitiser for one persisted PublisherHistoryEntry. */
+function sanitisePublisherEntry(raw: unknown): PublisherHistoryEntry | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const e = raw as Record<string, unknown>;
+  if (typeof e.id !== 'string') return null;
+  if (!isValidPublisherRepoName(e.repoName)) return null;
+  if (!hasValidPublisherEnums(e)) return null;
+  if (typeof e.generatedAt !== 'string') return null;
+  if (!Array.isArray(e.variations)) return null;
+  const variations = e.variations
+    .map(sanitisePublisherVariation)
+    .filter((v): v is PublisherVariation => v !== null)
+    .slice(0, MAX_PUBLISHER_VARIATIONS);
+  return {
+    id: e.id,
+    repoName: e.repoName,
+    target: e.target as PublisherTarget,
+    format: e.format as PostFormat,
+    intent: e.intent as PublisherIntent,
+    model: e.model as PublisherModel,
+    generatedAt: e.generatedAt,
+    variations,
+  };
+}
+
+/**
+ * Keep only well-shaped entries; drop anything malformed, then cap to the newest
+ * MAX_PUBLISHER_HISTORY (tail slice) on load. The free-text guidance box is
+ * never persisted, so there is nothing path-shaped to defend beyond repoName.
+ * Returns `base` on missing/malformed input so corrupt state never crashes
+ * hydration.
+ */
+export function validatePublisherHistory(
+  raw: unknown,
+  base: AppState['publisherHistory'],
+): AppState['publisherHistory'] {
+  if (!raw || typeof raw !== 'object') return base;
+  const ph = raw as Record<string, unknown>;
+  if (Array.isArray(ph.entries)) {
+    const entries = ph.entries
+      .map(sanitisePublisherEntry)
+      .filter((e): e is PublisherHistoryEntry => e !== null);
+    base.entries =
+      entries.length > MAX_PUBLISHER_HISTORY
+        ? entries.slice(entries.length - MAX_PUBLISHER_HISTORY)
+        : entries;
   }
   return base;
 }

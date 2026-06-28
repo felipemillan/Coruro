@@ -6,7 +6,23 @@ import {
   validateDayNotes,
   validateChatSessions,
   validateAiCache,
+  validatePublisherHistory,
 } from './appStateValidation';
+
+/** A minimal, well-shaped persisted Publisher entry for history tests. */
+function makePublisherEntry(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'e1',
+    repoName: 'my-repo',
+    target: 'linkedin',
+    format: 'single',
+    intent: 'story',
+    model: 'claude-sonnet-4-6',
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    variations: [{ id: 'v1', title: 'Hello', segments: [{ text: 'body' }] }],
+    ...over,
+  };
+}
 
 describe('appStateValidation', () => {
   it('returns the default slice for non-object input', () => {
@@ -71,5 +87,72 @@ describe('appStateValidation', () => {
       createEmptyAppState().aiCache,
     );
     expect(Object.keys(ai)).toEqual(['good']);
+  });
+
+  it('keeps the newest entries when over the 200-entry cap (tail slice)', () => {
+    const entries = Array.from({ length: 205 }, (_, i) =>
+      makePublisherEntry({ id: `e${i}`, generatedAt: `2026-01-01T00:00:${i}.000Z` }),
+    );
+    const ph = validatePublisherHistory({ entries }, createEmptyAppState().publisherHistory);
+    expect(ph.entries).toHaveLength(200);
+    // Tail slice → oldest 5 dropped, newest (e204) retained.
+    expect(ph.entries[0].id).toBe('e5');
+    expect(ph.entries[199].id).toBe('e204');
+  });
+
+  it('drops an entry whose repoName is path-shaped (P0 no raw paths)', () => {
+    const ph = validatePublisherHistory(
+      {
+        entries: [
+          makePublisherEntry({ id: 'ok' }),
+          makePublisherEntry({ id: 'absolute', repoName: '/Users/x/secret' }),
+          makePublisherEntry({ id: 'win', repoName: '\\\\server\\share' }),
+        ],
+      },
+      createEmptyAppState().publisherHistory,
+    );
+    expect(ph.entries.map((e) => e.id)).toEqual(['ok']);
+  });
+
+  it('truncates segment text, title, and caps variation count', () => {
+    const ph = validatePublisherHistory(
+      {
+        entries: [
+          makePublisherEntry({
+            variations: Array.from({ length: 12 }, (_, i) => ({
+              id: `v${i}`,
+              title: 'T'.repeat(500),
+              segments: [{ text: 'x'.repeat(9000) }],
+            })),
+          }),
+        ],
+      },
+      createEmptyAppState().publisherHistory,
+    );
+    const v = ph.entries[0].variations;
+    expect(v).toHaveLength(8); // MAX_PUBLISHER_VARIATIONS
+    expect(v[0].title).toHaveLength(300); // MAX_PUBLISHER_TITLE_LEN
+    expect(v[0].segments[0].text).toHaveLength(8000); // MAX_PUBLISHER_SEGMENT_LEN
+  });
+
+  it('drops malformed entries without throwing, keeps well-shaped ones', () => {
+    const ph = validatePublisherHistory(
+      {
+        entries: [
+          makePublisherEntry({ id: 'good' }),
+          null,
+          { id: 5 },
+          makePublisherEntry({ id: 'badTarget', target: 'myspace' }),
+          makePublisherEntry({ id: 'noVariations', variations: 'nope' }),
+        ],
+      },
+      createEmptyAppState().publisherHistory,
+    );
+    expect(ph.entries.map((e) => e.id)).toEqual(['good']);
+  });
+
+  it('returns the default publisher-history slice for non-object input', () => {
+    const base = createEmptyAppState().publisherHistory;
+    expect(validatePublisherHistory(42, base)).toBe(base);
   });
 });

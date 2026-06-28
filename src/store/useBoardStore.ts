@@ -27,6 +27,7 @@ import { createEnrichSlice } from './enrichSlice';
 import { createDayNotesSlice } from './dayNotesSlice';
 import { createChatSessionsSlice } from './chatSessionsSlice';
 import { createActivityLogSlice } from './activityLogSlice';
+import { createPublisherHistorySlice } from './publisherHistorySlice';
 import { createSettingsSlice } from './settingsSlice';
 
 export type { BoardStore } from './boardStoreTypes';
@@ -46,5 +47,6 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   ...createDayNotesSlice(set, get),
   ...createChatSessionsSlice(set, get),
   ...createActivityLogSlice(set, get),
+  ...createPublisherHistorySlice(set, get),
   ...createSettingsSlice(set, get),
 }));

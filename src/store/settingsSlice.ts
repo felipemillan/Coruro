@@ -15,6 +15,11 @@ type SettingsSlice = Pick<
   | 'setTerminalTheme'
   | 'setBellAudioEnabled'
   | 'setBellVisualEnabled'
+  | 'setPublisherAuthorVoice'
+  | 'setPublisherDefaultTarget'
+  | 'setPublisherDefaultFormat'
+  | 'setPublisherDefaultIntent'
+  | 'setPublisherDefaultModel'
 >;
 
 export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice {
@@ -56,6 +61,31 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
 
     setBellVisualEnabled: async (enabled) => {
       set((s) => ({ settings: { ...s.settings, bellVisualEnabled: enabled } }));
+      await get().save();
+    },
+
+    setPublisherAuthorVoice: async (voice) => {
+      set((s) => ({ settings: { ...s.settings, publisherAuthorVoice: voice } }));
+      await get().save();
+    },
+
+    setPublisherDefaultTarget: async (t) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultTarget: t } }));
+      await get().save();
+    },
+
+    setPublisherDefaultFormat: async (f) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultFormat: f } }));
+      await get().save();
+    },
+
+    setPublisherDefaultIntent: async (i) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultIntent: i } }));
+      await get().save();
+    },
+
+    setPublisherDefaultModel: async (m) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultModel: m } }));
       await get().save();
     },
   };
