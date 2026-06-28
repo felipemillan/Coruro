@@ -32,6 +32,13 @@ React  ──1. invoke()──▶  Rust (#[tauri::command])  ──2. std::proce
    pseudo-terminal; output streams to xterm.js via `pty-output` events. This is
    plan-billed and entirely separate from the FoundationModels path.
 
+The **Publisher** generates social copy through this same plan-billed `claude`
+tier — but headless, via `claude -p` over stdio (`publisher.rs`
+`run_claude_headless`), not the PTY. It is **not a new boundary**: `claude` is the
+user's own already-authorized CLI, so this neither adds nor removes a network path
+relative to the on-device FoundationModels sidecar. Generation is **text-only** —
+the image renderer that briefly existed in an earlier draft was removed.
+
 ## Front-end layering
 
 `src/` is a strict, acyclic, downward DAG:
@@ -66,12 +73,27 @@ These are load-bearing guarantees, machine-checked where possible:
 
 ## IPC command set
 
-22 commands. `commands.rs`: `store_token`, `get_token`, `open_in_editor`,
+25 commands. `commands.rs`: `store_token`, `get_token`, `open_in_editor`,
 `open_in_terminal`, `git_ahead_behind`, `git_branches`, `git_fetch`,
 `git_local_stats`, `git_recent_commits`, `git_commits_since`,
 `git_commits_since_numstat`, `git_dirty_stat`, `ai_analyze`, `ai_day_notes`,
 `ai_enrich`, `ai_curate`, `detect_repo_type`. `pty.rs`: `pty_spawn`,
-`pty_write`, `pty_resize`, `pty_kill`, `pty_spawn_cmd`.
+`pty_write`, `pty_resize`, `pty_kill`, `pty_spawn_cmd`, `pty_spawn_shell`.
+`publisher.rs`: `publisher_open_compose`, `publisher_generate`.
+
+## Publisher
+
+The Publisher is **assisted-manual**: it generates social copy locally (headless
+`claude -p`), the user copies a draft, and `publisher_open_compose` opens the
+platform's own compose page in the real browser. There is **no auto-posting, no
+cookies, no API keys** — the human pastes and clicks post. Generation is locked
+down for safety: `claude` runs from a neutral `std::env::temp_dir()` cwd (never a
+repo path), with `--disallowedTools` blocking Bash/Write/Edit/NotebookEdit/WebFetch/WebSearch,
+and the caller-supplied model is resolved through a Rust whitelist (`resolve_model`)
+before any spawn. Post history plus the author-voice and default intent/target/format
+live in `Settings` (persisted); the in-flight draft is runtime-only. **No repo
+content leaves the machine** except through the user's own already-authorized
+`claude` CLI — see [docs/publisher.md](docs/publisher.md).
 
 ## Persistence
 
