@@ -17,6 +17,8 @@ import {
   type PublisherIntent,
   type PublisherModel,
   type PublisherHistoryEntry,
+  type PublisherRole,
+  type PublisherSeniority,
 } from '../types';
 
 export interface BoardStore extends AppState {
@@ -109,6 +111,12 @@ export interface BoardStore extends AppState {
   setPublisherDefaultIntent: (i: PublisherIntent) => Promise<void>;
   /** Set the default Publisher generation model and persist. */
   setPublisherDefaultModel: (m: PublisherModel) => Promise<void>;
+  /** Set the default Publisher author role(s) and persist. */
+  setPublisherDefaultRoles: (r: PublisherRole[]) => Promise<void>;
+  /** Set the default Publisher author seniority and persist. */
+  setPublisherDefaultSeniority: (s: PublisherSeniority) => Promise<void>;
+  /** Set the default Publisher target audience and persist. */
+  setPublisherDefaultAudience: (a: string) => Promise<void>;
 
   /** Append a Publisher history entry; trims to 200 (drop oldest) and persists. */
   addPublisherHistoryEntry: (entry: PublisherHistoryEntry) => void;

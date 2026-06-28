@@ -1,4 +1,12 @@
-import type { PublisherTarget, PostFormat, PublisherIntent } from '../types';
+import type {
+  PublisherTarget,
+  PostFormat,
+  PublisherIntent,
+  PublisherRole,
+  PublisherSeniority,
+  PublisherQuestion,
+} from '../types';
+import { PUBLISHER_DEV_ROLES } from '../types';
 
 // NOTE: This prompt targets a headless `claude -p` call (the `publisher_generate`
 // Tauri command), the same plan-billed claude tier as the interactive PTY but
@@ -232,85 +240,52 @@ function intentFraming(intent: PublisherIntent, guidance: string): string {
   return lines.join('\n');
 }
 
-/**
- * Build the content-generation instruction block for a headless `claude -p`
- * call. Pure function. Composes the prompt in weighted layers:
- * identity -> intent+guidance -> forbidden words -> general voice ->
- * (reddit guide) -> target -> format -> count -> grounding -> output contract.
- *
- * The intent+guidance layer sits directly under identity so the post's SUBJECT
- * (the angle) is pinned BEFORE any voice or grounding copy. This is the v3 fix:
- * v2 posts over-indexed on the stack/commits instead of the angle.
- *
- * The returned string is the full prompt. It instructs the model to emit ONLY
- * a JSON object describing N voice-driven variations grounded strictly in the
- * supplied git context.
- */
-export function buildPublisherPrompt(input: {
-  repoName: string;
-  target: PublisherTarget;
-  format: PostFormat;
-  intent: PublisherIntent;
-  guidance: string;
-  count: number;
-  authorVoice: string;
-  recentCommits: string[];
-  stats: string;
-  readmeExcerpt: string;
-}): string {
-  const {
-    repoName,
-    target,
-    format,
-    intent,
-    guidance,
-    count,
-    authorVoice,
-    recentCommits,
-    stats,
-    readmeExcerpt,
-  } = input;
-
-  // Layer 1 — IDENTITY (highest weight, top of prompt).
-  const voice =
-    authorVoice.trim().length > 0 ? authorVoice.trim() : 'the engineer who wrote this code';
-  const identity = [
+function buildIdentityBlock(
+  voice: string,
+  roles: PublisherRole[],
+  seniority: PublisherSeniority,
+): string {
+  const v = voice.trim().length > 0 ? voice.trim() : 'the engineer who wrote this code';
+  const roleStr = roles.length > 0 ? roles.join(', ') : 'builder';
+  const lines = [
     'Write as this author.',
-    `Identity and voice: ${voice}.`,
+    `Identity and voice: ${v}.`,
+    `Role: ${roleStr}. Seniority: ${seniority}.`,
     'Sound like this specific person, not a brand.',
-  ].join('\n');
+  ];
+  const allDev = roles.length > 0 && roles.every((r) => PUBLISHER_DEV_ROLES.has(r));
+  if (allDev) {
+    lines.push('The codebase details are supporting evidence for the angle, not the subject.');
+  }
+  return lines.join('\n');
+}
 
-  // Layer 2 — INTENT + GUIDANCE. Pins the angle (the SUBJECT of the post)
-  // directly under identity, above every voice/grounding instruction.
-  const intentBlock = intentFraming(intent, guidance);
+function buildAudienceBlock(audience: string): string {
+  const a = audience.trim();
+  return a.length > 0 ? `AUDIENCE: ${a}` : '';
+}
 
-  // Layer 3 — forbidden words line (built from the array so it stays in sync).
-  const forbiddenLine =
-    `${FORBIDDEN_LINE_MARKER} ${FORBIDDEN_BUZZWORDS.join(', ')}. ` +
-    'Also drop announcement phrases ("I\'d be happy to", "let me explain") and ' +
-    'journey-language ("on this journey", "throughout this process").';
+function buildAnswersBlock(
+  answers: Record<string, string>,
+  questions: PublisherQuestion[],
+): string {
+  const pairs: string[] = [];
+  for (const q of questions) {
+    const ans = answers[q.id];
+    if (typeof ans === 'string' && ans.trim().length > 0) {
+      pairs.push(`Q: ${q.prompt}\nA: ${ans.trim()}`);
+    }
+  }
+  if (pairs.length === 0) return '';
+  return ['AUTHOR CONTEXT (answers to guided questions):', ...pairs].join('\n');
+}
 
-  // Layer 6 — COUNT.
-  const n = Math.max(1, Math.floor(count));
-  const countLine =
-    `Produce exactly ${n} variation${n === 1 ? '' : 's'}. ` +
-    'Each MUST use a different hook/angle; never reuse an opening line.';
-
-  // Layer 7 — GROUNDING.
-  const commitsBlock =
-    recentCommits.length > 0
-      ? recentCommits.map((c) => `- ${c}`).join('\n')
-      : '(no recent commits supplied)';
-  const readmeBlock =
-    readmeExcerpt.trim().length > 0 ? readmeExcerpt.trim() : '(no README excerpt supplied)';
-  const statsBlock = stats.trim().length > 0 ? stats.trim() : '(no stats supplied)';
-
-  // Layer 8 — OUTPUT CONTRACT.
+function buildOutputContract(n: number, target: PublisherTarget, format: PostFormat): string {
   const titleRule =
     target === 'reddit' || format === 'story'
       ? 'title is a short non-null string.'
       : 'title is null.';
-  const outputContract = [
+  return [
     'OUTPUT — read carefully:',
     'Emit ONLY a single JSON object of this exact shape and nothing else:',
     '{"variations":[{"title": string|null, "segments": [string]}]}',
@@ -319,21 +294,22 @@ export function buildPublisherPrompt(input: {
     `- The array holds exactly ${n} variation object${n === 1 ? '' : 's'}.`,
     '- NO prose before or after. NO markdown. NO code fence. JSON only.',
   ].join('\n');
+}
 
-  const layers = [identity, '', intentBlock, '', forbiddenLine, '', GENERAL_VOICE_GUIDE];
-
-  if (target === 'reddit') {
-    layers.push('', REDDIT_GUIDE);
-  }
-
-  layers.push(
-    '',
-    targetFraming(target),
-    '',
-    formatFraming(format),
-    '',
-    countLine,
-    '',
+function buildGroundingLines(
+  repoName: string,
+  recentCommits: string[],
+  stats: string,
+  readmeExcerpt: string,
+): string[] {
+  const commitsBlock =
+    recentCommits.length > 0
+      ? recentCommits.map((c) => `- ${c}`).join('\n')
+      : '(no recent commits supplied)';
+  const readmeBlock =
+    readmeExcerpt.trim().length > 0 ? readmeExcerpt.trim() : '(no README excerpt supplied)';
+  const statsBlock = stats.trim().length > 0 ? stats.trim() : '(no stats supplied)';
+  return [
     `GROUNDING — repository "${repoName}". The commits, stats, and README below are`,
     'SUPPORTING EVIDENCE for the angle, never the subject of the post. Do not lead',
     'with the stack, the languages, or the commit list. Use only the details that',
@@ -349,9 +325,71 @@ export function buildPublisherPrompt(input: {
     '',
     'README excerpt:',
     readmeBlock,
-    '',
-    outputContract,
-  );
+  ];
+}
+
+/**
+ * Build the content-generation instruction block for a headless `claude -p`
+ * call. Pure function. Composes the prompt in weighted layers:
+ * identity -> intent+guidance -> audience -> forbidden words -> general voice ->
+ * (reddit guide) -> target -> format -> count -> answers -> grounding -> output contract.
+ */
+export function buildPublisherPrompt(input: {
+  repoName: string;
+  target: PublisherTarget;
+  format: PostFormat;
+  intent: PublisherIntent;
+  guidance: string;
+  count: number;
+  authorVoice: string;
+  recentCommits: string[];
+  stats: string;
+  readmeExcerpt: string;
+  roles?: PublisherRole[];
+  seniority?: PublisherSeniority;
+  audience?: string;
+  answers?: Record<string, string>;
+  questions?: PublisherQuestion[];
+}): string {
+  const {
+    repoName,
+    target,
+    format,
+    intent,
+    guidance,
+    count,
+    authorVoice,
+    recentCommits,
+    stats,
+    readmeExcerpt,
+    roles = [],
+    seniority = 'senior',
+    audience = '',
+    answers = {},
+    questions = [],
+  } = input;
+
+  const identity = buildIdentityBlock(authorVoice, roles, seniority);
+  const intentBlock = intentFraming(intent, guidance);
+  const audienceBlock = buildAudienceBlock(audience);
+  const forbiddenLine =
+    `${FORBIDDEN_LINE_MARKER} ${FORBIDDEN_BUZZWORDS.join(', ')}. ` +
+    'Also drop announcement phrases ("I\'d be happy to", "let me explain") and ' +
+    'journey-language ("on this journey", "throughout this process").';
+  const n = Math.max(1, Math.floor(count));
+  const countLine =
+    `Produce exactly ${n} variation${n === 1 ? '' : 's'}. ` +
+    'Each MUST use a different hook/angle; never reuse an opening line.';
+  const answersBlock = buildAnswersBlock(answers, questions);
+
+  const layers = [identity, '', intentBlock];
+  if (audienceBlock) layers.push('', audienceBlock);
+  layers.push('', forbiddenLine, '', GENERAL_VOICE_GUIDE);
+  if (target === 'reddit') layers.push('', REDDIT_GUIDE);
+  if (answersBlock) layers.push('', answersBlock);
+  layers.push('', targetFraming(target), '', formatFraming(format), '', countLine);
+  layers.push('', ...buildGroundingLines(repoName, recentCommits, stats, readmeExcerpt));
+  layers.push('', buildOutputContract(n, target, format));
 
   return layers.join('\n');
 }

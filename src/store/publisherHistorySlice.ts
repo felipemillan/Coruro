@@ -1,12 +1,15 @@
 // Publisher-history slice: append / delete / clear persisted Publisher
-// generations. Metadata + generated copy only — the free-text guidance steering
-// box is NEVER stored here (P0). Mirrors the activityLogSlice contract.
+// generations. Each entry stores the generated copy plus the full PublisherBrief
+// (roles, seniority, audience, intent, guidance, answers) — user-authored text +
+// a `repoName` slug, secret-free and path-free. The validator length-caps the
+// free-text brief fields and rejects a path-shaped repoName on load. Mirrors the
+// activityLogSlice contract.
 //
 // P0 invariants this file must uphold:
 //   #1 (zero-network AI): every action is synchronous; none triggers a sidecar
 //      call or any network request.
 //   #2 (no raw paths): entries carry a `repoName` slug only — the validator
-//      rejects path-shaped values on load. `guidance` is never persisted.
+//      rejects path-shaped values on load.
 
 import type { PublisherHistoryEntry, PublisherHistoryState } from '../types';
 import { MAX_PUBLISHER_HISTORY } from '../types';
