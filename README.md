@@ -144,21 +144,21 @@ commands that encode the project's architecture rules so you don't have to read
 
 ### Agents
 
-| Agent | When to use |
-|---|---|
+| Agent              | When to use                                                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `coruro-architect` | Plan a non-trivial feature before writing any code — returns a numbered file sequence with type changes first and invariant checks. |
-| `coruro-reviewer` | Review a diff after implementation — returns severity-tagged findings and a `Gate-readiness: PASS / FAIL` verdict. |
-| `coruro-explorer` | Understand how an existing feature works — returns a file-and-line-anchored data-flow trace. |
+| `coruro-reviewer`  | Review a diff after implementation — returns severity-tagged findings and a `Gate-readiness: PASS / FAIL` verdict.                  |
+| `coruro-explorer`  | Understand how an existing feature works — returns a file-and-line-anchored data-flow trace.                                        |
 
 Invoke any agent via the `--agent` flag or the `@agent` mention in a Claude Code
 session, e.g. `@coruro-architect plan a new settings panel`.
 
 ### Slash commands
 
-| Command | What it does |
-|---|---|
-| `/project:gate` | Runs `just gate` (TypeScript + Rust + Swift + lint + tests) and summarises any failures. |
-| `/project:add-feature` | Guided five-step workflow: classify layer → read contracts → implement → gate → commit. |
+| Command                | What it does                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| `/project:gate`        | Runs `just gate` (TypeScript + Rust + Swift + lint + tests) and summarises any failures. |
+| `/project:add-feature` | Guided five-step workflow: classify layer → read contracts → implement → gate → commit.  |
 
 ## License
 
