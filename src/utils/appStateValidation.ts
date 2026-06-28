@@ -17,8 +17,14 @@ import {
   type PublisherModel,
   type PublisherHistoryEntry,
   type PublisherVariation,
+  type PublisherRole,
+  type PublisherSeniority,
+  type PublisherBrief,
   COLUMN_IDS,
   MAX_PUBLISHER_HISTORY,
+  MAX_PUBLISHER_AUDIENCE_LEN,
+  MAX_PUBLISHER_ANSWER_LEN,
+  MAX_PUBLISHER_ANSWERS,
 } from '../types';
 
 type Settings = AppState['settings'];
@@ -72,6 +78,27 @@ const PUBLISHER_MODELS = new Set<PublisherModel>([
   'claude-haiku-4-5',
 ]) satisfies Set<PublisherModel>;
 
+/** All valid publisher roles, drift-guarded against PublisherRole union. */
+const PUBLISHER_ROLES_SET = new Set<PublisherRole>([
+  'vibe-coder',
+  'founder',
+  'cto',
+  'developer',
+  'cmo',
+  'growth-marketer',
+  'designer',
+  'devrel',
+]) satisfies Set<PublisherRole>;
+
+/** All valid publisher seniorities, drift-guarded against PublisherSeniority union. */
+const PUBLISHER_SENIORITIES_SET = new Set<PublisherSeniority>([
+  'junior',
+  'mid',
+  'senior',
+  'lead',
+  'exec',
+]) satisfies Set<PublisherSeniority>;
+
 /**
  * Coerce the enum-ish Publisher defaults: each must be a member of its known
  * Set or the existing default is kept. Split out of applyStringSettings to keep
@@ -93,6 +120,26 @@ function applyPublisherDefaults(s: Record<string, unknown>, base: Settings): voi
   const pdm = s.publisherDefaultModel;
   if (typeof pdm === 'string' && PUBLISHER_MODELS.has(pdm as PublisherModel)) {
     base.publisherDefaultModel = pdm as PublisherModel;
+  }
+  applyPublisherBriefDefaults(s, base);
+}
+
+function applyPublisherBriefDefaults(s: Record<string, unknown>, base: Settings): void {
+  const pdr = s.publisherDefaultRoles;
+  if (Array.isArray(pdr)) {
+    const filtered = pdr.filter(
+      (r): r is PublisherRole =>
+        typeof r === 'string' && PUBLISHER_ROLES_SET.has(r as PublisherRole),
+    );
+    if (filtered.length > 0) base.publisherDefaultRoles = filtered;
+  }
+  const pds = s.publisherDefaultSeniority;
+  if (typeof pds === 'string' && PUBLISHER_SENIORITIES_SET.has(pds as PublisherSeniority)) {
+    base.publisherDefaultSeniority = pds as PublisherSeniority;
+  }
+  const pda = s.publisherDefaultAudience;
+  if (typeof pda === 'string') {
+    base.publisherDefaultAudience = pda.slice(0, MAX_PUBLISHER_AUDIENCE_LEN);
   }
 }
 
@@ -427,6 +474,61 @@ function hasValidPublisherEnums(e: Record<string, unknown>): boolean {
   );
 }
 
+/** Validate and sanitise the roles array for a brief. */
+function sanitiseBriefRoles(raw: unknown): PublisherRole[] {
+  if (!Array.isArray(raw)) return ['vibe-coder'];
+  const filtered = raw.filter(
+    (r): r is PublisherRole => typeof r === 'string' && PUBLISHER_ROLES_SET.has(r as PublisherRole),
+  );
+  return filtered.length > 0 ? filtered : ['vibe-coder'];
+}
+
+/** Validate and sanitise the answers map for a brief. */
+function sanitiseBriefAnswers(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  const obj = raw as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  let count = 0;
+  for (const [k, v] of Object.entries(obj)) {
+    if (count >= MAX_PUBLISHER_ANSWERS) break;
+    if (typeof v === 'string') {
+      result[k] = v.slice(0, MAX_PUBLISHER_ANSWER_LEN);
+      count++;
+    }
+  }
+  return result;
+}
+
+/**
+ * Sanitise a raw PublisherBrief from persisted state. Returns null only when
+ * the repoName field is path-shaped (P0 guard); all other fields fall back to
+ * safe defaults. Backward-compat: callers synthesize a brief when this returns
+ * null (missing brief on old entries).
+ */
+function sanitisePublisherBrief(raw: unknown): PublisherBrief | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const b = raw as Record<string, unknown>;
+  if (!isValidPublisherRepoName(b.repoName)) return null;
+  const roles = sanitiseBriefRoles(b.roles);
+  const sen = b.seniority;
+  const seniority: PublisherSeniority =
+    typeof sen === 'string' && PUBLISHER_SENIORITIES_SET.has(sen as PublisherSeniority)
+      ? (sen as PublisherSeniority)
+      : 'senior';
+  const aud = b.audience;
+  const audience = typeof aud === 'string' ? aud.slice(0, MAX_PUBLISHER_AUDIENCE_LEN) : '';
+  const int = b.intent;
+  const intent: PublisherIntent =
+    typeof int === 'string' && PUBLISHER_INTENTS.has(int as PublisherIntent)
+      ? (int as PublisherIntent)
+      : 'story';
+  const guid = b.guidance;
+  const guidance = typeof guid === 'string' ? guid.slice(0, MAX_PUBLISHER_ANSWER_LEN) : '';
+  const answers = sanitiseBriefAnswers(b.answers);
+  const repoName = b.repoName as string;
+  return { roles, seniority, audience, intent, guidance, answers, repoName };
+}
+
 /** Typed guard + sanitiser for one persisted PublisherHistoryEntry. */
 function sanitisePublisherEntry(raw: unknown): PublisherHistoryEntry | null {
   if (typeof raw !== 'object' || raw === null) return null;
@@ -440,6 +542,16 @@ function sanitisePublisherEntry(raw: unknown): PublisherHistoryEntry | null {
     .map(sanitisePublisherVariation)
     .filter((v): v is PublisherVariation => v !== null)
     .slice(0, MAX_PUBLISHER_VARIATIONS);
+  // Backward-compat: synthesize brief from entry fields when missing/invalid.
+  const brief: PublisherBrief = sanitisePublisherBrief(e.brief) ?? {
+    roles: ['vibe-coder'],
+    seniority: 'senior',
+    audience: '',
+    intent: e.intent as PublisherIntent,
+    guidance: '',
+    answers: {},
+    repoName: e.repoName as string,
+  };
   return {
     id: e.id,
     repoName: e.repoName,
@@ -449,13 +561,15 @@ function sanitisePublisherEntry(raw: unknown): PublisherHistoryEntry | null {
     model: e.model as PublisherModel,
     generatedAt: e.generatedAt,
     variations,
+    brief,
   };
 }
 
 /**
  * Keep only well-shaped entries; drop anything malformed, then cap to the newest
- * MAX_PUBLISHER_HISTORY (tail slice) on load. The free-text guidance box is
- * never persisted, so there is nothing path-shaped to defend beyond repoName.
+ * MAX_PUBLISHER_HISTORY (tail slice) on load. Each entry persists the full brief;
+ * its free-text fields (audience, guidance, answers) are length-capped and the
+ * `repoName` slug is path-shape-guarded on load (see sanitisePublisherBrief).
  * Returns `base` on missing/malformed input so corrupt state never crashes
  * hydration.
  */

@@ -4,6 +4,7 @@
 
 import type { BoardStore } from './boardStoreTypes';
 import { type BoardSet, type BoardGet } from './boardStoreShared';
+import { type PublisherRole, type PublisherSeniority, MAX_PUBLISHER_AUDIENCE_LEN } from '../types';
 
 type SettingsSlice = Pick<
   BoardStore,
@@ -20,6 +21,9 @@ type SettingsSlice = Pick<
   | 'setPublisherDefaultFormat'
   | 'setPublisherDefaultIntent'
   | 'setPublisherDefaultModel'
+  | 'setPublisherDefaultRoles'
+  | 'setPublisherDefaultSeniority'
+  | 'setPublisherDefaultAudience'
 >;
 
 export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice {
@@ -86,6 +90,22 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
 
     setPublisherDefaultModel: async (m) => {
       set((s) => ({ settings: { ...s.settings, publisherDefaultModel: m } }));
+      await get().save();
+    },
+
+    setPublisherDefaultRoles: async (r: PublisherRole[]) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultRoles: r } }));
+      await get().save();
+    },
+
+    setPublisherDefaultSeniority: async (seniority: PublisherSeniority) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultSeniority: seniority } }));
+      await get().save();
+    },
+
+    setPublisherDefaultAudience: async (a: string) => {
+      const capped = a.slice(0, MAX_PUBLISHER_AUDIENCE_LEN);
+      set((s) => ({ settings: { ...s.settings, publisherDefaultAudience: capped } }));
       await get().save();
     },
   };
