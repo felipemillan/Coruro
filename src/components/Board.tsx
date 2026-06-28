@@ -21,6 +21,7 @@
 // indie-pastel palette tokens from index.css.
 
 import { useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { COLUMN_IDS, type ColumnId, type Repo } from '../types';
 import { useBoardStore } from '../store/useBoardStore';
@@ -139,15 +140,28 @@ export function Board() {
                           index={index}
                           isDragDisabled={!dragEnabled}
                         >
-                          {(dragProvided) => (
-                            <div
-                              ref={dragProvided.innerRef}
-                              {...dragProvided.draggableProps}
-                              {...dragProvided.dragHandleProps}
-                            >
-                              <RepoCard repo={repo} selected={repo.path === selectedPath} />
-                            </div>
-                          )}
+                          {(dragProvided, dragSnapshot) => {
+                            // While dragging, render the card into a body-level
+                            // portal. @hello-pangea/dnd positions the lifted clone
+                            // with `position: fixed`, but any ancestor with a
+                            // `transform`/`filter`/`backdrop-filter` (the column's
+                            // `backdrop-blur-sm`) becomes its containing block and
+                            // offsets it from the pointer. Portalling to <body>
+                            // escapes that containing block so the clone tracks the
+                            // cursor correctly.
+                            const card = (
+                              <div
+                                ref={dragProvided.innerRef}
+                                {...dragProvided.draggableProps}
+                                {...dragProvided.dragHandleProps}
+                              >
+                                <RepoCard repo={repo} selected={repo.path === selectedPath} />
+                              </div>
+                            );
+                            return dragSnapshot.isDragging
+                              ? createPortal(card, document.body)
+                              : card;
+                          }}
                         </Draggable>
                       ))}
                       {provided.placeholder}
