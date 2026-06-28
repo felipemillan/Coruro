@@ -1,7 +1,0 @@
-# Playwright + npm install artifacts — never committed.
-node_modules/
-
-# Local render output (PNG carousel pages) if produced inside the package.
-*.png
-out/
-output/

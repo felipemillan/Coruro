@@ -1,39 +1,37 @@
 // usePublisherStore — runtime-only Zustand store for the assisted-manual
-// Publisher. Holds the CURRENT PublisherDraft and the actions that drive it.
+// Publisher (v2). Holds the CURRENT PublisherDraft and the actions that drive it.
 //
 // P0 invariants honoured here:
-//   - Persists NOTHING. The whole store is ephemeral; only `publisherOutputDir`
-//     + `publisherDefaultTarget` (in Settings, owned by useBoardStore) and the
-//     resulting ActivityEvent slugs ever touch disk — and those are written by
-//     the component layer, not here.
+//   - Persists NOTHING. The whole store is ephemeral: the draft, its variations,
+//     and its segments are runtime-only and never touch disk. The only Publisher
+//     state that persists (publisherAuthorVoice / publisherDefaultTarget /
+//     publisherDefaultFormat) lives in Settings, owned by useBoardStore, and is
+//     passed IN via `generate(..., opts)` so this store never reaches up into a
+//     component or another store.
 //   - AI text generation routes through a HEADLESS `claude -p` call (the same
 //     plan-billed claude path the PTY uses, NOT the FoundationModels sidecar):
-//     `generate()` builds a prompt and invokes `publisher_generate`, which spawns
-//     claude in a neutral temp dir with mutation tools disabled. The draft body
-//     fills in-app — no terminal tab, no paste-back. No sidecar, no URLSession.
+//     `generate()` builds a content-only prompt and invokes `publisher_generate`,
+//     which spawns claude in a neutral temp dir with mutation tools disabled. The
+//     model returns text only — it cannot touch a repo. No sidecar, no URLSession.
 //   - Git stays read-only: reuses the existing `git_recent_commits`,
 //     `git_local_stats`, `git_commits_since` invoke commands. No new git command.
-//   - Asset render is LOCAL ONLY: `publisher_render_assets` spawns the local
-//     Node renderer over stdio. A renderer-absent Err is tolerated (assets stay
-//     empty + a soft note) and does NOT flip the draft into an error state.
+//   - No image generation, no local renderer, no filesystem output dir. The whole
+//     asset-render path is gone in v2 — Publisher emits copy-ready text only.
 //   - Publishing is assisted-manual: `openCompose()` only opens the platform
-//     compose URL in the real browser via `publisher_open_compose`.
+//     compose URL in the real browser via `publisher_open_compose`, and copy
+//     actions place text on the clipboard for manual paste.
 //
-// DAG: this store imports types, the prompt util, and the Tauri invoke/fs/path
-// libs only. It imports NO component. Settings (outDir) and activity logging are
-// passed in / done by the component so this store never reaches up into
-// useBoardStore.
+// DAG (components -> stores -> utils -> types): this store imports types, the two
+// publisher utils, and the Tauri invoke/fs/path libs only. It imports NO
+// component and NO other store.
 
 import { create } from 'zustand';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { readTextFile, exists } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import type { PublisherDraft, PublisherTarget, PublisherAsset, Repo } from '../types';
+import type { PublisherDraft, PublisherTarget, PostFormat, Repo } from '../types';
 import { buildPublisherPrompt } from '../utils/publisherPrompt';
-
-/** Soft note surfaced when the local renderer can't run. Mirrors the Rust side. */
-const RENDERER_MISSING_HINT =
-  'Renderer not installed — drafts work, image export is off. Run `npm install` in publisher-renderer/.';
+import { defaultFormatFor, joinSegments, parsePublisherOutput } from '../utils/publisherFormats';
 
 /** Lookback window (days) used to summarise recent commit activity for the prompt. */
 const ACTIVITY_WINDOW_DAYS = 14;
@@ -41,8 +39,16 @@ const ACTIVITY_WINDOW_DAYS = 14;
 /** Cap the README excerpt fed into the prompt (matches aiContext budgeting). */
 const README_EXCERPT_CHARS = 1200;
 
-function freshDraft(target: PublisherTarget): PublisherDraft {
-  return { repoName: '', target, body: '', assets: [], status: 'idle' };
+function freshDraft(target: PublisherTarget, format: PostFormat): PublisherDraft {
+  return {
+    repoName: '',
+    target,
+    format,
+    count: 1,
+    variations: [],
+    selectedVariation: 0,
+    status: 'idle',
+  };
 }
 
 /** Read-only: recent one-line commit subjects. Degrades to [] on any failure. */
@@ -104,60 +110,100 @@ async function gatherReadmeExcerpt(path: string): Promise<string> {
   return '';
 }
 
+/** Optional inputs the component supplies from persisted Settings. */
+export interface GenerateOptions {
+  /** Settings.publisherAuthorVoice — the author identity/voice. Defaults to ''. */
+  authorVoice?: string;
+}
+
 interface PublisherStore {
   /** The single in-flight draft. Runtime-only — never persisted. */
   draft: PublisherDraft;
-  /** Soft, non-fatal note (e.g. renderer not installed). null when clean. */
+  /** Soft, non-fatal note surfaced on error. null when clean. */
   note: string | null;
 
-  /** Set the target platform (LinkedIn / Reddit). */
+  /**
+   * Set the target platform. Resets `format` to the recommended default for the
+   * new target and clamps `selectedVariation` back to 0.
+   */
   setTarget: (target: PublisherTarget) => void;
+  /** Set the post format (caller is responsible for validity vs. the target). */
+  setFormat: (format: PostFormat) => void;
+  /** Set the requested variation count, clamped to 1–5. */
+  setCount: (count: number) => void;
   /** Set the draft's repo slug (display only; `generate` uses the full Repo). */
   setRepo: (repoName: string) => void;
-  /** Replace the editable draft body (textarea two-way binding). */
-  setBody: (body: string) => void;
+  /** Select the active variation by index, clamped to the available range. */
+  selectVariation: (index: number) => void;
 
   /**
-   * Build a grounded prompt from read-only git context + README and generate the
-   * post body HEADLESS via the `publisher_generate` Tauri command (claude -p in
-   * a neutral temp dir). The body fills the editable draft in-app. Then, when an
-   * `outDir` is configured, render share assets LOCALLY — tolerating a
-   * renderer-absent Err by leaving assets empty and setting a soft note.
-   *
-   * `outDir` is supplied by the component (Settings.publisherOutputDir) so this
-   * store never imports useBoardStore. Signature adapted from generate(repo).
+   * Build a grounded, content-only prompt from read-only git context + README and
+   * generate N voice-driven variations HEADLESS via the `publisher_generate`
+   * Tauri command (claude -p in a neutral temp dir). The parsed variations fill
+   * the draft in-app. target/format/count come from the current draft;
+   * `opts.authorVoice` is supplied by the component from persisted Settings so
+   * this store never imports useBoardStore. On any Err (including CLAUDE_MISSING)
+   * the draft flips to 'error' with a soft note — it never crashes the tab.
    */
-  generate: (repo: Repo, outDir: string | null) => Promise<void>;
+  generate: (repo: Repo, opts?: GenerateOptions) => Promise<void>;
 
-  /** Copy the current draft body to the clipboard for manual paste. */
-  copyDraft: () => Promise<void>;
+  /** Copy the selected variation (joined per format) to the clipboard. */
+  copyVariation: () => Promise<void>;
+  /** Copy a single segment of the selected variation to the clipboard. */
+  copySegment: (index: number) => Promise<void>;
   /** Open the platform compose page in the real browser (assisted-manual). */
   openCompose: () => Promise<void>;
 
-  /** Reset back to an idle draft, preserving the chosen target. */
+  /** Reset back to an idle draft, preserving the chosen target + format. */
   reset: () => void;
 }
 
 export const usePublisherStore = create<PublisherStore>((set, get) => ({
-  draft: freshDraft('linkedin'),
+  draft: freshDraft('linkedin', defaultFormatFor('linkedin')),
   note: null,
 
   setTarget: (target) => {
-    set((s) => ({ draft: { ...s.draft, target } }));
+    set((s) => ({
+      draft: {
+        ...s.draft,
+        target,
+        format: defaultFormatFor(target),
+        selectedVariation: 0,
+      },
+    }));
+  },
+
+  setFormat: (format) => {
+    set((s) => ({ draft: { ...s.draft, format } }));
+  },
+
+  setCount: (count) => {
+    const clamped = Math.min(5, Math.max(1, Math.floor(count))) as PublisherDraft['count'];
+    set((s) => ({ draft: { ...s.draft, count: clamped } }));
   },
 
   setRepo: (repoName) => {
     set((s) => ({ draft: { ...s.draft, repoName } }));
   },
 
-  setBody: (body) => {
-    set((s) => ({ draft: { ...s.draft, body } }));
+  selectVariation: (index) => {
+    set((s) => {
+      const max = Math.max(0, s.draft.variations.length - 1);
+      const clamped = Math.min(max, Math.max(0, Math.floor(index)));
+      return { draft: { ...s.draft, selectedVariation: clamped } };
+    });
   },
 
-  generate: async (repo, outDir) => {
+  generate: async (repo, opts) => {
     set((s) => ({
       note: null,
-      draft: { ...s.draft, repoName: repo.name, assets: [], status: 'generating' },
+      draft: {
+        ...s.draft,
+        repoName: repo.name,
+        variations: [],
+        selectedVariation: 0,
+        status: 'generating',
+      },
     }));
 
     // ── Read-only git + README context (each helper degrades gracefully) ──
@@ -167,61 +213,46 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
       gatherReadmeExcerpt(repo.path),
     ]);
 
-    const { target } = get().draft;
+    const { target, format, count } = get().draft;
+    const authorVoice = opts?.authorVoice ?? '';
 
-    // ── Generate the post body HEADLESS via claude -p (the AI generation path) ──
+    // ── Generate the variations HEADLESS via claude -p (content-only) ──
     const prompt = buildPublisherPrompt({
       repoName: repo.name,
       target,
+      format,
+      count,
+      authorVoice,
       recentCommits,
       stats,
       readmeExcerpt,
     });
     try {
-      const body = await invoke<string>('publisher_generate', { prompt });
-      set((s) => ({ draft: { ...s.draft, body, status: 'ready' } }));
+      const raw = await invoke<string>('publisher_generate', { prompt });
+      const variations = parsePublisherOutput(raw);
+      set((s) => ({
+        draft: { ...s.draft, variations, selectedVariation: 0, status: 'ready' },
+        note: null,
+      }));
     } catch (err) {
       // claude missing or any generation failure: surface a soft note and flip
       // to the error state. Do not crash the tab.
       set((s) => ({ draft: { ...s.draft, status: 'error' }, note: String(err) }));
-      return;
-    }
-
-    // ── Optionally render share assets LOCALLY ──
-    if (!outDir) {
-      set((s) => ({
-        draft: { ...s.draft, status: 'ready' },
-        note: 'Set a Publisher output directory in Settings to render share images.',
-      }));
-      return;
-    }
-
-    set((s) => ({ draft: { ...s.draft, status: 'rendering' } }));
-    try {
-      // A single repo-card carousel page is a valid offscreen CardSpec.
-      const dataJson = JSON.stringify({ cards: [{ kind: 'repo-card', repo }] });
-      const paths = await invoke<string[]>('publisher_render_assets', {
-        repoName: repo.name,
-        target,
-        dataJson,
-        outDir,
-      });
-      const assets: PublisherAsset[] = paths.map((absPath) => ({ kind: 'carousel', absPath }));
-      set((s) => ({ draft: { ...s.draft, assets, status: 'ready' }, note: null }));
-    } catch (err) {
-      // Renderer-absent (or any render failure) is non-fatal: keep the draft
-      // usable, surface a soft note, do NOT enter the error state.
-      const msg = String(err);
-      const note = msg.includes('renderer not installed')
-        ? RENDERER_MISSING_HINT
-        : `Image export unavailable: ${msg}`;
-      set((s) => ({ draft: { ...s.draft, assets: [], status: 'ready' }, note }));
     }
   },
 
-  copyDraft: async () => {
-    const body = get().draft.body;
-    await navigator.clipboard.writeText(body);
+  copyVariation: async () => {
+    const { variations, selectedVariation, format } = get().draft;
+    const variation = variations[selectedVariation];
+    if (!variation) return;
+    await navigator.clipboard.writeText(joinSegments(variation, format));
+  },
+
+  copySegment: async (index) => {
+    const { variations, selectedVariation } = get().draft;
+    const segment = variations[selectedVariation]?.segments[index];
+    if (!segment) return;
+    await navigator.clipboard.writeText(segment.text);
   },
 
   openCompose: async () => {
@@ -230,12 +261,6 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
   },
 
   reset: () => {
-    set((s) => ({ draft: freshDraft(s.draft.target), note: null }));
+    set((s) => ({ draft: freshDraft(s.draft.target, s.draft.format), note: null }));
   },
 }));
-
-/** Re-export for the component layer: turn an absolute asset path into a
- *  webview-loadable src (local file://-backed, no network). */
-export function assetSrc(absPath: string): string {
-  return convertFileSrc(absPath);
-}

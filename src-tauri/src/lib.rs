@@ -38,7 +38,6 @@ pub fn run() {
             commands::detect_repo_type,
             pty::pty_spawn_cmd,
             pty::pty_spawn_shell,
-            publisher::publisher_render_assets,
             publisher::publisher_open_compose,
             publisher::publisher_generate
         ])

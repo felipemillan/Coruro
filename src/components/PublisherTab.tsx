@@ -1,52 +1,106 @@
-// PublisherTab — assisted-manual social Publisher.
+// PublisherTab — assisted-manual social Publisher (v2, multi-variation).
 //
 // Flow (all assisted-manual, nothing automated):
-//   1. Pick a repo + target (LinkedIn / Reddit).
-//   2. "Generate draft" gathers READ-ONLY git context + README and generates the
-//      post IN-APP via a headless `claude -p` call. The draft auto-fills the
-//      editable body below — no terminal, no paste-back. When an output dir is
-//      configured, share images are rendered LOCALLY (renderer-absent is
-//      tolerated with a soft note).
-//   3. "Copy draft" copies the body; "Open compose" opens the platform's real
-//      compose page in the browser. The human pastes and clicks post.
+//   1. Pick a repo + target network + post format + how many variations.
+//   2. "Generate" gathers READ-ONLY git context + README and generates N
+//      voice-driven variations IN-APP via a headless `claude -p` call. Output is
+//      content-only — it can never touch a repo. No terminal, no paste-back.
+//   3. Switch between variations, copy a single segment or the whole variation,
+//      then "Open compose" opens the platform's real compose page in the browser.
+//      The human pastes and clicks post.
 //
 // DAG: components -> stores -> utils -> types. This component reads useBoardStore
-// (repos, settings, activity log) and usePublisherStore; it owns no business
-// logic. Styling uses only the existing nb-* primitives — no new design language.
+// (repos, settings, activity log), usePublisherStore (runtime draft) and the
+// publisherFormats util; it owns no business logic. Styling uses only the
+// existing nb-* primitives — no new design language.
 
 import { useEffect, useState } from 'react';
 import { Megaphone, Copy, ExternalLink, Sparkles, Check } from 'lucide-react';
 import { useBoardStore } from '../store/useBoardStore';
-import { usePublisherStore, assetSrc } from '../store/usePublisherStore';
-import type { PublisherAsset, PublisherTarget, Repo } from '../types';
+import { usePublisherStore } from '../store/usePublisherStore';
+import { VALID_FORMATS, segmentLabel } from '../utils/publisherFormats';
+import type { PostFormat, PublisherDraft, PublisherTarget, Repo } from '../types';
 
 const TARGETS: { id: PublisherTarget; label: string }[] = [
   { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'x', label: 'X' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'facebook', label: 'Facebook' },
   { id: 'reddit', label: 'Reddit' },
 ];
 
-const LABEL = 'text-[10px] font-semibold uppercase tracking-widest text-navy-light';
+const FORMAT_LABEL: Record<PostFormat, string> = {
+  single: 'Single',
+  thread: 'Thread',
+  carousel: 'Carousel',
+  story: 'Story',
+  script: 'Script',
+};
 
-/** Repo picker + target toggle + Generate button. Presentational. */
+// Networks whose compose page does NOT accept prefilled text — user must paste.
+const NO_PREFILL: ReadonlySet<PublisherTarget> = new Set<PublisherTarget>([
+  'instagram',
+  'tiktok',
+  'facebook',
+]);
+
+const LABEL = 'text-[10px] font-semibold uppercase tracking-widest text-navy-light';
+const COUNTS: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5];
+
+/** Shared pill button used by the network / format / count selectors. */
+function Pill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'nb-chip text-[12px] px-3 py-1.5 font-medium transition-colors duration-150 cursor-pointer',
+        active ? 'bg-sage text-cream' : 'bg-cream text-navy-light hover:bg-warm-gray',
+      ].join(' ')}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Repo picker + network / format / count selectors + Generate button. */
 function ComposeControls({
   repos,
   selectedPath,
   target,
+  format,
+  count,
   busy,
   canGenerate,
   onPickRepo,
   onSelectTarget,
+  onSelectFormat,
+  onSelectCount,
   onGenerate,
 }: {
   repos: Repo[];
   selectedPath: string;
   target: PublisherTarget;
+  format: PostFormat;
+  count: number;
   busy: boolean;
   canGenerate: boolean;
   onPickRepo: (path: string) => void;
   onSelectTarget: (t: PublisherTarget) => void;
+  onSelectFormat: (f: PostFormat) => void;
+  onSelectCount: (n: number) => void;
   onGenerate: () => void;
 }) {
+  const validFormats = VALID_FORMATS[target];
   return (
     <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
@@ -66,24 +120,35 @@ function ComposeControls({
       </label>
 
       <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Target</span>
+        <span className={LABEL}>Network</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {TARGETS.map((t) => (
+            <Pill key={t.id} active={target === t.id} onClick={() => onSelectTarget(t.id)}>
+              {t.label}
+            </Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={LABEL}>Format</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {validFormats.map((f) => (
+            <Pill key={f} active={format === f} onClick={() => onSelectFormat(f)}>
+              {FORMAT_LABEL[f]}
+            </Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={LABEL}>Variations</span>
         <div className="flex items-center gap-2">
-          {TARGETS.map((t) => {
-            const active = target === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => onSelectTarget(t.id)}
-                className={[
-                  'nb-chip text-[12px] px-3 py-1.5 font-medium transition-colors duration-150 cursor-pointer',
-                  active ? 'bg-sage text-cream' : 'bg-cream text-navy-light hover:bg-warm-gray',
-                ].join(' ')}
-              >
-                {t.label}
-              </button>
-            );
-          })}
+          {COUNTS.map((n) => (
+            <Pill key={n} active={count === n} onClick={() => onSelectCount(n)}>
+              {n}
+            </Pill>
+          ))}
         </div>
       </div>
 
@@ -94,43 +159,209 @@ function ComposeControls({
         className="nb-btn nb-hover self-start flex items-center gap-2 bg-navy text-cream px-4 py-2.5 text-[12px] font-semibold tracking-wide disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
       >
         <Sparkles size={14} strokeWidth={1.75} />
-        {busy ? 'Working…' : 'Generate draft'}
+        {busy ? 'Working…' : 'Generate'}
       </button>
 
       <p className="text-[11px] text-navy-light/70 leading-relaxed">
-        Generate builds a grounded draft in-app and fills the body below. Edit it, then copy and
-        open the compose page.
+        Drafts generate in-app from read-only git context — content only, never touching the repo.
+        Pick a variation, copy it, then open the compose page.
       </p>
+    </div>
+  );
+}
+
+/** Tabs to switch between the generated variations. */
+function VariationTabs({
+  count,
+  selected,
+  titles,
+  onSelect,
+}: {
+  count: number;
+  selected: number;
+  titles: (string | null)[];
+  onSelect: (index: number) => void;
+}) {
+  if (count <= 1) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {Array.from({ length: count }, (_, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onSelect(i)}
+          className={[
+            'nb-chip text-[12px] px-3 py-1.5 font-medium transition-colors duration-150 cursor-pointer',
+            i === selected ? 'bg-navy text-cream' : 'bg-cream text-navy-light hover:bg-warm-gray',
+          ].join(' ')}
+        >
+          {titles[i]?.trim() ? titles[i] : `Variation ${i + 1}`}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** One copy button with a transient "Copied" confirmation. */
+function CopyButton({
+  copied,
+  disabled,
+  label,
+  onCopy,
+  tone = 'cream',
+}: {
+  copied: boolean;
+  disabled?: boolean;
+  label: string;
+  onCopy: () => void;
+  tone?: 'cream' | 'sage';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      disabled={disabled}
+      className={[
+        'nb-btn nb-hover flex items-center gap-2 px-3 py-2 text-[12px] font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
+        tone === 'sage' ? 'bg-sage text-cream' : 'bg-cream text-navy',
+      ].join(' ')}
+    >
+      {copied ? <Check size={14} strokeWidth={1.75} /> : <Copy size={14} strokeWidth={1.75} />}
+      {copied ? 'Copied' : label}
+    </button>
+  );
+}
+
+/** The generated-draft panel: variation tabs + segment cards + compose row. */
+function DraftView({
+  draft,
+  copiedKey,
+  onSelectVariation,
+  onCopyAll,
+  onCopySegment,
+  onOpenCompose,
+}: {
+  draft: PublisherDraft;
+  copiedKey: string | null;
+  onSelectVariation: (index: number) => void;
+  onCopyAll: () => void;
+  onCopySegment: (index: number) => void;
+  onOpenCompose: () => void;
+}) {
+  const selected = draft.variations[draft.selectedVariation];
+  const titles = draft.variations.map((v) => v.title);
+  if (!selected) {
+    return (
+      <p className="text-[12px] text-navy-light/70 italic px-1">
+        No draft yet — pick a repository and generate to see variations here.
+      </p>
+    );
+  }
+  const isSingleBody = draft.format === 'single' || draft.format === 'story';
+  const copyAll = (
+    <div className="flex justify-end">
+      <CopyButton copied={copiedKey === 'all'} label="Copy all" onCopy={onCopyAll} />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <VariationTabs
+        count={draft.variations.length}
+        selected={draft.selectedVariation}
+        titles={titles}
+        onSelect={onSelectVariation}
+      />
+
+      {isSingleBody ? (
+        <div className="nb-card bg-cream p-4 flex flex-col gap-2">
+          {draft.format === 'story' && selected.title && (
+            <span className="text-[13px] font-bold text-navy">{selected.title}</span>
+          )}
+          <textarea
+            value={selected.segments[0]?.text ?? ''}
+            readOnly
+            spellCheck
+            rows={10}
+            className="nb-input bg-cream text-[13px] leading-relaxed text-navy px-3 py-2.5 font-mono resize-y"
+          />
+          {copyAll}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {selected.segments.map((seg, i) => (
+            <div key={i} className="nb-card bg-cream p-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className={LABEL}>
+                  {segmentLabel(draft.format, i, selected.segments.length)}
+                </span>
+                <CopyButton
+                  copied={copiedKey === `seg-${i}`}
+                  label="Copy"
+                  onCopy={() => onCopySegment(i)}
+                />
+              </div>
+              <p className="text-[13px] leading-relaxed text-navy font-mono whitespace-pre-wrap">
+                {seg.text}
+              </p>
+            </div>
+          ))}
+          {copyAll}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2.5 pt-1">
+        <button
+          type="button"
+          onClick={onOpenCompose}
+          className="nb-btn nb-hover flex items-center gap-2 bg-sage text-cream px-4 py-2.5 text-[12px] font-semibold cursor-pointer"
+        >
+          <ExternalLink size={14} strokeWidth={1.75} />
+          Open compose
+        </button>
+      </div>
     </div>
   );
 }
 
 export function PublisherTab() {
   const repos = useBoardStore((s) => s.repos);
-  const outputDir = useBoardStore((s) => s.settings.publisherOutputDir);
   const defaultTarget = useBoardStore((s) => s.settings.publisherDefaultTarget);
+  const defaultFormat = useBoardStore((s) => s.settings.publisherDefaultFormat);
+  const authorVoice = useBoardStore((s) => s.settings.publisherAuthorVoice);
   const logActivity = useBoardStore((s) => s.logActivity);
 
   const draft = usePublisherStore((s) => s.draft);
   const note = usePublisherStore((s) => s.note);
   const setTarget = usePublisherStore((s) => s.setTarget);
+  const setFormat = usePublisherStore((s) => s.setFormat);
+  const setCount = usePublisherStore((s) => s.setCount);
   const setRepo = usePublisherStore((s) => s.setRepo);
-  const setBody = usePublisherStore((s) => s.setBody);
+  const selectVariation = usePublisherStore((s) => s.selectVariation);
   const generate = usePublisherStore((s) => s.generate);
-  const copyDraft = usePublisherStore((s) => s.copyDraft);
+  const copyVariation = usePublisherStore((s) => s.copyVariation);
+  const copySegment = usePublisherStore((s) => s.copySegment);
   const openCompose = usePublisherStore((s) => s.openCompose);
 
   const [selectedPath, setSelectedPath] = useState<string>('');
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Seed the target from the persisted default once, on first mount.
+  // Seed network + format from the persisted defaults once, on first mount.
   useEffect(() => {
     setTarget(defaultTarget);
+    if (VALID_FORMATS[defaultTarget].includes(defaultFormat)) {
+      setFormat(defaultFormat);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedRepo: Repo | undefined = repos.find((r) => r.path === selectedPath);
-  const busy = draft.status === 'generating' || draft.status === 'rendering';
+  const busy = draft.status === 'generating';
+
+  const flash = (key: string) => {
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1500);
+  };
 
   const onPickRepo = (path: string) => {
     setSelectedPath(path);
@@ -139,7 +370,7 @@ export function PublisherTab() {
 
   const onGenerate = async () => {
     if (!selectedRepo) return;
-    await generate(selectedRepo, outputDir);
+    await generate(selectedRepo, { authorVoice });
     logActivity({
       id: crypto.randomUUID(),
       ts: Date.now(),
@@ -149,10 +380,14 @@ export function PublisherTab() {
     });
   };
 
-  const onCopy = async () => {
-    await copyDraft();
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+  const onCopyAll = async () => {
+    await copyVariation();
+    flash('all');
+  };
+
+  const onCopySegment = async (index: number) => {
+    await copySegment(index);
+    flash(`seg-${index}`);
   };
 
   const onOpenCompose = async () => {
@@ -181,10 +416,14 @@ export function PublisherTab() {
           repos={repos}
           selectedPath={selectedPath}
           target={draft.target}
+          format={draft.format}
+          count={draft.count}
           busy={busy}
           canGenerate={selectedRepo !== undefined}
           onPickRepo={onPickRepo}
           onSelectTarget={setTarget}
+          onSelectFormat={setFormat}
+          onSelectCount={setCount}
           onGenerate={() => void onGenerate()}
         />
 
@@ -194,82 +433,22 @@ export function PublisherTab() {
           </div>
         )}
 
-        <label className="flex flex-col gap-1.5">
-          <span className={LABEL}>Draft body</span>
-          <textarea
-            value={draft.body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Generated draft appears here; edit before publishing…"
-            spellCheck
-            rows={10}
-            className="nb-input bg-cream text-[13px] leading-relaxed text-navy px-3 py-2.5 font-mono resize-y"
-          />
-        </label>
+        {NO_PREFILL.has(draft.target) && (
+          <div className="nb-card-sm bg-warm-gray/50 text-[11px] text-navy-light px-3 py-2 leading-relaxed">
+            Heads up: {TARGETS.find((t) => t.id === draft.target)?.label}'s compose page does not
+            prefill text. Copy the draft here, then paste it manually after the page opens.
+          </div>
+        )}
 
-        <AssetThumbs assets={draft.assets} />
-
-        <ActionRow
-          copied={copied}
-          canCopy={draft.body.trim().length > 0}
-          onCopy={() => void onCopy()}
+        <DraftView
+          draft={draft}
+          copiedKey={copiedKey}
+          onSelectVariation={selectVariation}
+          onCopyAll={() => void onCopyAll()}
+          onCopySegment={(i) => void onCopySegment(i)}
           onOpenCompose={() => void onOpenCompose()}
         />
       </div>
-    </div>
-  );
-}
-
-/** Local thumbnails for rendered share images (file://-backed, no network). */
-function AssetThumbs({ assets }: { assets: PublisherAsset[] }) {
-  if (assets.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className={LABEL}>Rendered images ({assets.length})</span>
-      <div className="flex flex-wrap gap-3">
-        {assets.map((a) => (
-          <img
-            key={a.absPath}
-            src={assetSrc(a.absPath)}
-            alt={a.kind}
-            className="nb-card-sm w-28 h-28 object-cover bg-warm-gray"
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Copy + Open-compose action buttons. Presentational. */
-function ActionRow({
-  copied,
-  canCopy,
-  onCopy,
-  onOpenCompose,
-}: {
-  copied: boolean;
-  canCopy: boolean;
-  onCopy: () => void;
-  onOpenCompose: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2.5 pt-1">
-      <button
-        type="button"
-        onClick={onCopy}
-        disabled={!canCopy}
-        className="nb-btn nb-hover flex items-center gap-2 bg-cream text-navy px-4 py-2.5 text-[12px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-      >
-        {copied ? <Check size={14} strokeWidth={1.75} /> : <Copy size={14} strokeWidth={1.75} />}
-        {copied ? 'Copied' : 'Copy draft'}
-      </button>
-      <button
-        type="button"
-        onClick={onOpenCompose}
-        className="nb-btn nb-hover flex items-center gap-2 bg-sage text-cream px-4 py-2.5 text-[12px] font-semibold cursor-pointer"
-      >
-        <ExternalLink size={14} strokeWidth={1.75} />
-        Open compose
-      </button>
     </div>
   );
 }
