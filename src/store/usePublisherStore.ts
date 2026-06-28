@@ -29,7 +29,15 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import { readTextFile, exists } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import type { PublisherDraft, PublisherTarget, PostFormat, Repo } from '../types';
+import type {
+  PublisherDraft,
+  PublisherTarget,
+  PostFormat,
+  PublisherIntent,
+  PublisherModel,
+  PublisherHistoryEntry,
+  Repo,
+} from '../types';
 import { buildPublisherPrompt } from '../utils/publisherPrompt';
 import { defaultFormatFor, joinSegments, parsePublisherOutput } from '../utils/publisherFormats';
 
@@ -44,6 +52,11 @@ function freshDraft(target: PublisherTarget, format: PostFormat): PublisherDraft
     repoName: '',
     target,
     format,
+    // v3 runtime-only fields; defaults mirror the Settings defaults. The v3 UI
+    // layer wires intent/guidance/model selection — these keep a fresh draft sound.
+    intent: 'story',
+    guidance: '',
+    model: 'claude-sonnet-4-6',
     count: 1,
     variations: [],
     selectedVariation: 0,
@@ -129,6 +142,12 @@ interface PublisherStore {
   setTarget: (target: PublisherTarget) => void;
   /** Set the post format (caller is responsible for validity vs. the target). */
   setFormat: (format: PostFormat) => void;
+  /** Set the editorial intent (angle) for the next generation. */
+  setIntent: (intent: PublisherIntent) => void;
+  /** Set the free-text steering guidance (runtime-only — never persisted). */
+  setGuidance: (guidance: string) => void;
+  /** Set the generation model match key (resolved to a whitelist in Rust). */
+  setModel: (model: PublisherModel) => void;
   /** Set the requested variation count, clamped to 1–5. */
   setCount: (count: number) => void;
   /** Set the draft's repo slug (display only; `generate` uses the full Repo). */
@@ -154,6 +173,14 @@ interface PublisherStore {
   /** Open the platform compose page in the real browser (assisted-manual). */
   openCompose: () => Promise<void>;
 
+  /**
+   * Repopulate the draft from a persisted history entry so the user can re-copy
+   * or tweak a past generation. Takes a PublisherHistoryEntry VALUE (never a
+   * store ref) to keep the DAG clean. `guidance` resets to '' because it is
+   * never persisted (P0); status becomes 'ready' and selection resets to 0.
+   */
+  loadFromHistory: (entry: PublisherHistoryEntry) => void;
+
   /** Reset back to an idle draft, preserving the chosen target + format. */
   reset: () => void;
 }
@@ -175,6 +202,18 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
 
   setFormat: (format) => {
     set((s) => ({ draft: { ...s.draft, format } }));
+  },
+
+  setIntent: (intent) => {
+    set((s) => ({ draft: { ...s.draft, intent } }));
+  },
+
+  setGuidance: (guidance) => {
+    set((s) => ({ draft: { ...s.draft, guidance } }));
+  },
+
+  setModel: (model) => {
+    set((s) => ({ draft: { ...s.draft, model } }));
   },
 
   setCount: (count) => {
@@ -213,7 +252,7 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
       gatherReadmeExcerpt(repo.path),
     ]);
 
-    const { target, format, count } = get().draft;
+    const { target, format, intent, guidance, model, count } = get().draft;
     const authorVoice = opts?.authorVoice ?? '';
 
     // ── Generate the variations HEADLESS via claude -p (content-only) ──
@@ -221,6 +260,8 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
       repoName: repo.name,
       target,
       format,
+      intent,
+      guidance,
       count,
       authorVoice,
       recentCommits,
@@ -228,7 +269,10 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
       readmeExcerpt,
     });
     try {
-      const raw = await invoke<string>('publisher_generate', { prompt });
+      // `model` is only a MATCH KEY: the Rust `publisher_generate` command maps
+      // it to a whitelisted 'static str via resolve_model. The raw string is
+      // never interpolated into claude args; an unknown id returns a clean Err.
+      const raw = await invoke<string>('publisher_generate', { prompt, model });
       const variations = parsePublisherOutput(raw);
       set((s) => ({
         draft: { ...s.draft, variations, selectedVariation: 0, status: 'ready' },
@@ -258,6 +302,26 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
   openCompose: async () => {
     const { target } = get().draft;
     await invoke('publisher_open_compose', { target });
+  },
+
+  loadFromHistory: (entry) => {
+    set((s) => ({
+      note: null,
+      draft: {
+        ...s.draft,
+        repoName: entry.repoName,
+        target: entry.target,
+        format: entry.format,
+        intent: entry.intent,
+        model: entry.model,
+        // guidance is never persisted (P0) — start fresh on reload.
+        guidance: '',
+        variations: entry.variations,
+        count: Math.min(5, Math.max(1, entry.variations.length || 1)) as PublisherDraft['count'],
+        selectedVariation: 0,
+        status: 'ready',
+      },
+    }));
   },
 
   reset: () => {

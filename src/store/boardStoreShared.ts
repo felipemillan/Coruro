@@ -16,6 +16,7 @@ import {
   validateDayNotes,
   validateChatSessions,
   validateActivityLog,
+  validatePublisherHistory,
 } from '../utils/appStateValidation';
 import type { BoardStore } from './boardStoreTypes';
 
@@ -72,6 +73,7 @@ export function validateAppState(raw: unknown): AppState {
     dayNotes: validateDayNotes(parsed.dayNotes, base.dayNotes),
     chatSessions: validateChatSessions(parsed.chatSessions, base.chatSessions),
     activityLog: validateActivityLog(parsed.activityLog, base.activityLog),
+    publisherHistory: validatePublisherHistory(parsed.publisherHistory, base.publisherHistory),
   };
 }
 
@@ -86,6 +88,7 @@ export function serialise(state: AppState): string {
     dayNotes: state.dayNotes,
     chatSessions: state.chatSessions,
     activityLog: state.activityLog,
+    publisherHistory: state.publisherHistory,
   };
   return JSON.stringify(snapshot, null, 2);
 }

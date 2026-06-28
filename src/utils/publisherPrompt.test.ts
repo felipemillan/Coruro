@@ -4,13 +4,16 @@ import {
   PUBLISHER_FORBIDDEN_BUZZWORDS,
   FORBIDDEN_LINE_MARKER,
 } from './publisherPrompt';
-import type { PublisherTarget, PostFormat } from '../types';
+import type { PublisherTarget, PostFormat, PublisherIntent } from '../types';
+import { PUBLISHER_INTENTS } from '../types';
 
 function baseInput(over: Partial<Parameters<typeof buildPublisherPrompt>[0]> = {}) {
   return {
     repoName: 'Coruro',
     target: 'linkedin' as PublisherTarget,
     format: 'single' as PostFormat,
+    intent: 'story' as PublisherIntent,
+    guidance: '',
     count: 3,
     authorVoice: '',
     recentCommits: [
@@ -46,6 +49,50 @@ describe('buildPublisherPrompt', () => {
     it('falls back to the engineer who wrote the code when voice is empty', () => {
       const prompt = buildPublisherPrompt(baseInput({ authorVoice: '   ' }));
       expect(prompt).toContain('Identity and voice: the engineer who wrote this code.');
+    });
+  });
+
+  describe('layer 2 — intent + guidance (the angle)', () => {
+    it('injects the intent angle line for the chosen intent', () => {
+      const prompt = buildPublisherPrompt(baseInput({ intent: 'hot_take' }));
+      expect(prompt).toContain('ANGLE: state a contrarian opinion plainly');
+      expect(prompt).toContain('The post is ABOUT this, not about the codebase.');
+    });
+
+    it('pins the angle directly under identity, above the voice guide', () => {
+      const prompt = buildPublisherPrompt(baseInput({ intent: 'lesson' }));
+      const idx = prompt.indexOf('ANGLE:');
+      expect(prompt.indexOf('Write as this author.')).toBeLessThan(idx);
+      expect(idx).toBeLessThan(prompt.indexOf('VOICE'));
+    });
+
+    it('appends author guidance as binding direction when provided', () => {
+      const prompt = buildPublisherPrompt(
+        baseInput({ guidance: 'mention the 3am debugging session' }),
+      );
+      expect(prompt).toContain('Extra direction from the author (treat as binding):');
+      expect(prompt).toContain('mention the 3am debugging session');
+    });
+
+    it('omits the guidance line entirely when guidance is empty or whitespace', () => {
+      expect(buildPublisherPrompt(baseInput({ guidance: '' }))).not.toContain(
+        'Extra direction from the author',
+      );
+      expect(buildPublisherPrompt(baseInput({ guidance: '   ' }))).not.toContain(
+        'Extra direction from the author',
+      );
+    });
+
+    it('keeps every baked INTENT_GUIDE angle free of forbidden words', () => {
+      for (const intent of PUBLISHER_INTENTS) {
+        const body = withoutForbiddenLine(
+          buildPublisherPrompt(baseInput({ intent })),
+        ).toLowerCase();
+        for (const word of PUBLISHER_FORBIDDEN_BUZZWORDS) {
+          const re = new RegExp(`\\b${word.toLowerCase().replace(/[-]/g, '\\-')}\\b`);
+          expect(re.test(body)).toBe(false);
+        }
+      }
     });
   });
 
@@ -183,11 +230,21 @@ describe('buildPublisherPrompt', () => {
       expect(buildPublisherPrompt(baseInput()).toLowerCase()).toContain('do not invent');
     });
 
+    it('subordinates the tech: evidence serves the angle, never leads', () => {
+      const prompt = buildPublisherPrompt(baseInput());
+      expect(prompt).toContain('SUPPORTING EVIDENCE for the angle, never the subject');
+      expect(prompt).toContain('Do not lead');
+      expect(prompt.toLowerCase()).toContain('serve the angle');
+      expect(prompt.toLowerCase()).toContain('never a tech inventory');
+    });
+
     it('falls back gracefully when context is empty', () => {
       const prompt = buildPublisherPrompt({
         repoName: 'Empty',
         target: 'reddit',
         format: 'single',
+        intent: 'story',
+        guidance: '',
         count: 1,
         authorVoice: '',
         recentCommits: [],
