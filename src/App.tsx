@@ -23,6 +23,7 @@ import { Settings } from './components/Settings';
 import { NotesTab } from './components/NotesTab';
 import { AskTab } from './components/AskTab';
 import { CommandCenterTab } from './components/CommandCenterTab';
+import { PublisherTab } from './components/PublisherTab';
 
 export default function App() {
   const load = useBoardStore((s) => s.load);
@@ -42,7 +43,9 @@ export default function App() {
   const setDetail = useViewStore((s) => s.setDetail);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeTab, setActiveTab] = React.useState<'board' | 'notes' | 'ask' | 'claude'>('notes');
+  const [activeTab, setActiveTab] = React.useState<
+    'board' | 'notes' | 'ask' | 'claude' | 'publisher'
+  >('notes');
   // AskTab mounts lazily on first visit, then stays mounted (hidden) so a
   // running Claude Code PTY session survives switching to Notes/Board.
   const [askVisited, setAskVisited] = useState(false);
@@ -304,6 +307,17 @@ export default function App() {
               >
                 Claude
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('publisher')}
+                className={`nb-btn px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest transition-colors cursor-pointer ${
+                  activeTab === 'publisher'
+                    ? 'text-navy bg-cream'
+                    : 'text-navy-light/60 hover:text-navy'
+                }`}
+              >
+                Publish
+              </button>
               {/* Settings gear — pushed to the far right of the global header */}
               <button
                 type="button"
@@ -325,6 +339,8 @@ export default function App() {
                 <Board />
               ) : activeTab === 'claude' ? (
                 <CommandCenterTab />
+              ) : activeTab === 'publisher' ? (
+                <PublisherTab />
               ) : null}
               {askVisited && (
                 <div className={activeTab === 'ask' ? 'flex flex-col flex-1 min-h-0' : 'hidden'}>

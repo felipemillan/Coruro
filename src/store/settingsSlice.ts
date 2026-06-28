@@ -15,6 +15,8 @@ type SettingsSlice = Pick<
   | 'setTerminalTheme'
   | 'setBellAudioEnabled'
   | 'setBellVisualEnabled'
+  | 'setPublisherOutputDir'
+  | 'setPublisherDefaultTarget'
 >;
 
 export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice {
@@ -56,6 +58,16 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
 
     setBellVisualEnabled: async (enabled) => {
       set((s) => ({ settings: { ...s.settings, bellVisualEnabled: enabled } }));
+      await get().save();
+    },
+
+    setPublisherOutputDir: async (dir) => {
+      set((s) => ({ settings: { ...s.settings, publisherOutputDir: dir } }));
+      await get().save();
+    },
+
+    setPublisherDefaultTarget: async (t) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultTarget: t } }));
       await get().save();
     },
   };

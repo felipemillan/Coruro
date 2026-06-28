@@ -12,6 +12,7 @@ import {
   type DayNote,
   type ChatSession,
   type ActivityEvent,
+  type PublisherTarget,
 } from '../types';
 
 export interface BoardStore extends AppState {
@@ -94,6 +95,10 @@ export interface BoardStore extends AppState {
   setBellAudioEnabled: (enabled: boolean) => Promise<void>;
   /** Toggle the terminal bell visual flash and persist. */
   setBellVisualEnabled: (enabled: boolean) => Promise<void>;
+  /** Set the Publisher asset output directory (null = unset) and persist. */
+  setPublisherOutputDir: (dir: string | null) => Promise<void>;
+  /** Set the default Publisher target ('linkedin' | 'reddit') and persist. */
+  setPublisherDefaultTarget: (t: PublisherTarget) => Promise<void>;
 
   /** Append a DayNote; trims the list to 90 entries and persists. */
   addDayNote: (note: DayNote) => void;

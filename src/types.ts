@@ -18,6 +18,36 @@ export const COLUMN_IDS: readonly ColumnId[] = [
 ] as const;
 
 /**
+ * Assisted-manual publishing target. Drives the compose URL opened in the
+ * user's real browser and the draft formatting. No automated posting — the
+ * human pastes and clicks.
+ */
+export type PublisherTarget = 'linkedin' | 'reddit';
+
+/**
+ * One rendered asset attached to a Publisher draft. RUNTIME-ONLY — `absPath`
+ * is an absolute filesystem path and must NEVER enter persisted AppState
+ * (P0: no raw filesystem paths in persisted state).
+ */
+export interface PublisherAsset {
+  kind: 'carousel' | 'screenshot';
+  absPath: string;
+}
+
+/**
+ * A composed-but-unpublished post. RUNTIME-ONLY — holds the repo slug, target,
+ * generated body, and rendered assets. Never persisted; only the resulting
+ * activity event (a `repoName` slug) lands in the activity log.
+ */
+export interface PublisherDraft {
+  repoName: string;
+  target: PublisherTarget;
+  body: string;
+  assets: PublisherAsset[];
+  status: 'idle' | 'generating' | 'rendering' | 'ready' | 'error';
+}
+
+/**
  * Persisted user settings.
  * `rootDirectory` is the absolute path of the folder scanned for repos
  * (null until the user picks one). `hasToken` mirrors Keychain presence —
@@ -70,6 +100,14 @@ export interface Settings {
    * a quiet, glanceable "task done" cue that replaces the audio bell.
    */
   bellVisualEnabled: boolean;
+  /**
+   * Absolute directory where the Publisher writes rendered assets (carousels,
+   * screenshots). null until the user picks one. Only this path persists — the
+   * generated PublisherAsset paths themselves are runtime-only.
+   */
+  publisherOutputDir: string | null;
+  /** Default Publisher target preselected in the compose UI. Defaults 'linkedin'. */
+  publisherDefaultTarget: PublisherTarget;
 }
 
 /**
@@ -281,7 +319,9 @@ export type ActivityEventKind =
   | 'run_command_fired'
   | 'command_center_opened'
   | 'curator_run'
-  | 'user_note_written';
+  | 'user_note_written'
+  | 'publisher_draft_generated'
+  | 'publisher_published';
 
 /**
  * One persisted in-app activity event. Metadata-only and secret-free:
@@ -319,6 +359,8 @@ export function createEmptyAppState(): AppState {
       terminalTheme: 'mocha',
       bellAudioEnabled: false,
       bellVisualEnabled: true,
+      publisherOutputDir: null,
+      publisherDefaultTarget: 'linkedin',
     },
     board: {
       inbox: [],

@@ -17,6 +17,7 @@ import { EditorSection } from './settings/EditorSection';
 import { TerminalSection } from './settings/TerminalSection';
 import { AutoRefreshSection } from './settings/AutoRefreshSection';
 import { AutoNotesSection } from './settings/AutoNotesSection';
+import { PublisherSection } from './settings/PublisherSection';
 import { DebugSection } from './settings/DebugSection';
 
 interface SettingsProps {
@@ -116,6 +117,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     <AutoRefreshSection />
                     <div className="border-t border-warm-gray" />
                     <AutoNotesSection />
+                    <div className="border-t border-warm-gray" />
+                    <PublisherSection />
                     <div className="border-t border-warm-gray" />
                     <DebugSection />
                   </div>
