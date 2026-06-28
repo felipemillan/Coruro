@@ -14,6 +14,9 @@ import {
   type ActivityEvent,
   type PublisherTarget,
   type PostFormat,
+  type PublisherIntent,
+  type PublisherModel,
+  type PublisherHistoryEntry,
 } from '../types';
 
 export interface BoardStore extends AppState {
@@ -102,6 +105,17 @@ export interface BoardStore extends AppState {
   setPublisherDefaultTarget: (t: PublisherTarget) => Promise<void>;
   /** Set the default Publisher post format and persist. */
   setPublisherDefaultFormat: (f: PostFormat) => Promise<void>;
+  /** Set the default Publisher editorial intent and persist. */
+  setPublisherDefaultIntent: (i: PublisherIntent) => Promise<void>;
+  /** Set the default Publisher generation model and persist. */
+  setPublisherDefaultModel: (m: PublisherModel) => Promise<void>;
+
+  /** Append a Publisher history entry; trims to 200 (drop oldest) and persists. */
+  addPublisherHistoryEntry: (entry: PublisherHistoryEntry) => void;
+  /** Delete one Publisher history entry by id and persist. */
+  deletePublisherHistoryEntry: (id: string) => void;
+  /** Clear all Publisher history entries and persist. */
+  clearPublisherHistory: () => void;
 
   /** Append a DayNote; trims the list to 90 entries and persists. */
   addDayNote: (note: DayNote) => void;

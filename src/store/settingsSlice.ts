@@ -18,6 +18,8 @@ type SettingsSlice = Pick<
   | 'setPublisherAuthorVoice'
   | 'setPublisherDefaultTarget'
   | 'setPublisherDefaultFormat'
+  | 'setPublisherDefaultIntent'
+  | 'setPublisherDefaultModel'
 >;
 
 export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice {
@@ -74,6 +76,16 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
 
     setPublisherDefaultFormat: async (f) => {
       set((s) => ({ settings: { ...s.settings, publisherDefaultFormat: f } }));
+      await get().save();
+    },
+
+    setPublisherDefaultIntent: async (i) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultIntent: i } }));
+      await get().save();
+    },
+
+    setPublisherDefaultModel: async (m) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultModel: m } }));
       await get().save();
     },
   };

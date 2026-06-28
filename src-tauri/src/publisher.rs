@@ -23,12 +23,36 @@ use tauri_plugin_opener::OpenerExt;
 const CLAUDE_MISSING: &str =
     "claude CLI not found (install Claude Code: https://claude.com/claude-code)";
 
+/// Resolve a caller-supplied model id to a whitelisted `'static str` literal.
+///
+/// The returned value is a compile-time string constant — NEVER the raw caller
+/// input — so it can be safely interpolated into the `--model=` flag without
+/// any risk of shell injection.
+///
+/// Accepted ids (exact match only):
+/// - `"claude-opus-4-8"`
+/// - `"claude-sonnet-4-6"`
+/// - `"claude-haiku-4-5"`
+///
+/// Any other string returns `Err` and must NEVER reach a spawn call.
+pub fn resolve_model(id: &str) -> Result<&'static str, String> {
+    match id {
+        "claude-opus-4-8" => Ok("claude-opus-4-8"),
+        "claude-sonnet-4-6" => Ok("claude-sonnet-4-6"),
+        "claude-haiku-4-5" => Ok("claude-haiku-4-5"),
+        other => Err(format!("unknown model: {other}")),
+    }
+}
+
 /// Blocking, injection-safe spawn of a HEADLESS `claude -p` content generation.
 ///
 /// The prompt rides in the `CORURO_PROMPT` env var and is referenced as
 /// `"$CORURO_PROMPT"` inside the script — it is NEVER interpolated into the
 /// script string, exactly like `pty.rs::pty_spawn`. This is the only safe way to
 /// pass arbitrary user/model text through a shell.
+///
+/// `model` MUST be a `'static str` returned by `resolve_model` — a whitelisted
+/// compile-time literal. It is the only value interpolated into the shell script.
 ///
 /// P0 invariants enforced here:
 ///   - cwd is a NEUTRAL directory (`std::env::temp_dir()`), NEVER any repo path.
@@ -41,17 +65,18 @@ const CLAUDE_MISSING: &str =
 /// Returns the raw stdout (a JSON object, `--output-format json`). A missing
 /// `claude` binary surfaces as `ErrorKind::NotFound` and is mapped to
 /// `CLAUDE_MISSING`.
-fn run_claude_headless(prompt: &str) -> std::io::Result<String> {
+fn run_claude_headless(prompt: &str, model: &'static str) -> std::io::Result<String> {
     // Login shell resolves PATH (a Finder-launched bundle has no shell PATH);
-    // the prompt rides in CORURO_PROMPT so no shell quoting of model/user input
-    // is ever needed. Model pinned to Sonnet 4.6 — same plan-billed tier as the
-    // interactive PTY path.
-    let script = "exec claude --model=claude-sonnet-4-6 -p \"$CORURO_PROMPT\" \
+    // the prompt rides in CORURO_PROMPT so no shell quoting of user input is
+    // ever needed. `model` is a whitelisted 'static literal — safe to format.
+    let script = format!(
+        "exec claude --model={model} -p \"$CORURO_PROMPT\" \
          --output-format json \
-         --disallowedTools \"Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch\"";
+         --disallowedTools \"Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch\""
+    );
 
     let mut child = Command::new("/bin/zsh")
-        .args(["-lc", script])
+        .args(["-lc", &script])
         .env("CORURO_PROMPT", prompt)
         // NEUTRAL cwd — never repo.path. Primary git-read-only guarantee.
         .current_dir(std::env::temp_dir())
@@ -79,13 +104,22 @@ fn run_claude_headless(prompt: &str) -> std::io::Result<String> {
 /// invariant 4 (git stays read-only): this command cannot mutate any working
 /// tree.
 ///
+/// `model` is validated through `resolve_model` BEFORE any spawn is attempted.
+/// An unknown model id returns `Err` immediately — no process is ever spawned.
+/// The resolved `'static str` (a whitelisted literal) is the only value that
+/// reaches the shell script; the raw caller string is never interpolated.
+///
 /// Runs the blocking spawn inside `spawn_blocking` under a ~120s timeout, the
 /// same async pattern as the `git_*` / sidecar commands. Parses the JSON object
 /// claude emits, returning the `"result"` string. An `is_error` flag, an empty
 /// result, or a spawn failure returns `Err` with an actionable message.
 #[tauri::command]
-pub async fn publisher_generate(prompt: String) -> Result<String, String> {
-    let work = tauri::async_runtime::spawn_blocking(move || run_claude_headless(&prompt));
+pub async fn publisher_generate(prompt: String, model: String) -> Result<String, String> {
+    // Whitelist check BEFORE spawn — an unknown id must never reach the shell.
+    let model_static: &'static str = resolve_model(&model)?;
+
+    let work =
+        tauri::async_runtime::spawn_blocking(move || run_claude_headless(&prompt, model_static));
 
     let raw = match tokio::time::timeout(std::time::Duration::from_secs(120), work).await {
         Ok(Ok(Ok(out))) => out,
@@ -165,6 +199,31 @@ pub fn publisher_open_compose(app: tauri::AppHandle, target: String) -> Result<(
 #[cfg(test)]
 mod publisher_tests {
     use super::*;
+
+    // --- resolve_model ---
+
+    #[test]
+    fn known_models_resolve() {
+        assert_eq!(resolve_model("claude-opus-4-8").unwrap(), "claude-opus-4-8");
+        assert_eq!(
+            resolve_model("claude-sonnet-4-6").unwrap(),
+            "claude-sonnet-4-6"
+        );
+        assert_eq!(
+            resolve_model("claude-haiku-4-5").unwrap(),
+            "claude-haiku-4-5"
+        );
+    }
+
+    #[test]
+    fn unknown_model_is_rejected() {
+        assert!(resolve_model("gpt-4").is_err());
+        assert!(resolve_model("claude-opus-4-5").is_err());
+        assert!(resolve_model("").is_err());
+        assert!(resolve_model("sonnet").is_err());
+    }
+
+    // --- compose_url_for ---
 
     #[test]
     fn known_targets_map_to_compose_urls() {

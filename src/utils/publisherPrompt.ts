@@ -1,4 +1,4 @@
-import type { PublisherTarget, PostFormat } from '../types';
+import type { PublisherTarget, PostFormat, PublisherIntent } from '../types';
 
 // NOTE: This prompt targets a headless `claude -p` call (the `publisher_generate`
 // Tauri command), the same plan-billed claude tier as the interactive PTY but
@@ -114,6 +114,27 @@ const REDDIT_GUIDE: string = [
   '- Soft call only: end on a real question, never "what do you think?". No hard sell.',
 ].join('\n');
 
+/**
+ * Per-intent angle declarations. Always injected as layer 2, directly under
+ * identity, so the post's SUBJECT is fixed BEFORE any voice or grounding copy.
+ * Each line names what the post is actually about — the angle — grounded in the
+ * hook formulas distilled from social_media.md. v2 posts drifted into reciting
+ * the stack; these lines exist to pin the angle first.
+ *
+ * MUST NOT contain any FORBIDDEN_BUZZWORDS token (the test scans every baked
+ * guide string). Keep each line plain and concrete.
+ */
+const INTENT_GUIDE: Record<PublisherIntent, string> = {
+  story: 'ANGLE: tell a short true story. Open with a specific moment, not a summary.',
+  lesson: 'ANGLE: a lesson learned, ideally from a mistake or surprise. The takeaway is the point.',
+  launch: 'ANGLE: announce what shipped and why it matters to the reader.',
+  behind_scenes: 'ANGLE: show the messy real process behind building it.',
+  deep_dive: 'ANGLE: teach one concrete technical thing the reader can use.',
+  feedback: "ANGLE: pose a real open question and ask the reader's take.",
+  milestone: 'ANGLE: mark a milestone with the human effort behind the number.',
+  hot_take: 'ANGLE: state a contrarian opinion plainly, then back it. The opinion is the subject.',
+};
+
 /** Per-target framing: char limits + shape. All 6 networks. Pure data. */
 function targetFraming(target: PublisherTarget): string {
   switch (target) {
@@ -198,10 +219,28 @@ function formatFraming(format: PostFormat): string {
 }
 
 /**
+ * Layer 2 builder — pins the angle (the SUBJECT of the post) plus any binding
+ * author guidance. Extracted so the main composer stays under the complexity
+ * cap. The free-text guidance is binding direction and is never persisted.
+ */
+function intentFraming(intent: PublisherIntent, guidance: string): string {
+  const lines = [INTENT_GUIDE[intent]];
+  if (guidance.trim().length > 0) {
+    lines.push(`Extra direction from the author (treat as binding): ${guidance.trim()}`);
+  }
+  lines.push('Lead with this angle. The post is ABOUT this, not about the codebase.');
+  return lines.join('\n');
+}
+
+/**
  * Build the content-generation instruction block for a headless `claude -p`
  * call. Pure function. Composes the prompt in weighted layers:
- * identity -> general voice -> (reddit guide) -> target -> format -> count ->
- * grounding -> output contract.
+ * identity -> intent+guidance -> forbidden words -> general voice ->
+ * (reddit guide) -> target -> format -> count -> grounding -> output contract.
+ *
+ * The intent+guidance layer sits directly under identity so the post's SUBJECT
+ * (the angle) is pinned BEFORE any voice or grounding copy. This is the v3 fix:
+ * v2 posts over-indexed on the stack/commits instead of the angle.
  *
  * The returned string is the full prompt. It instructs the model to emit ONLY
  * a JSON object describing N voice-driven variations grounded strictly in the
@@ -211,14 +250,26 @@ export function buildPublisherPrompt(input: {
   repoName: string;
   target: PublisherTarget;
   format: PostFormat;
+  intent: PublisherIntent;
+  guidance: string;
   count: number;
   authorVoice: string;
   recentCommits: string[];
   stats: string;
   readmeExcerpt: string;
 }): string {
-  const { repoName, target, format, count, authorVoice, recentCommits, stats, readmeExcerpt } =
-    input;
+  const {
+    repoName,
+    target,
+    format,
+    intent,
+    guidance,
+    count,
+    authorVoice,
+    recentCommits,
+    stats,
+    readmeExcerpt,
+  } = input;
 
   // Layer 1 — IDENTITY (highest weight, top of prompt).
   const voice =
@@ -229,7 +280,11 @@ export function buildPublisherPrompt(input: {
     'Sound like this specific person, not a brand.',
   ].join('\n');
 
-  // Layer 2 — forbidden words line (built from the array so it stays in sync).
+  // Layer 2 — INTENT + GUIDANCE. Pins the angle (the SUBJECT of the post)
+  // directly under identity, above every voice/grounding instruction.
+  const intentBlock = intentFraming(intent, guidance);
+
+  // Layer 3 — forbidden words line (built from the array so it stays in sync).
   const forbiddenLine =
     `${FORBIDDEN_LINE_MARKER} ${FORBIDDEN_BUZZWORDS.join(', ')}. ` +
     'Also drop announcement phrases ("I\'d be happy to", "let me explain") and ' +
@@ -265,7 +320,7 @@ export function buildPublisherPrompt(input: {
     '- NO prose before or after. NO markdown. NO code fence. JSON only.',
   ].join('\n');
 
-  const layers = [identity, '', GENERAL_VOICE_GUIDE, forbiddenLine];
+  const layers = [identity, '', intentBlock, '', forbiddenLine, '', GENERAL_VOICE_GUIDE];
 
   if (target === 'reddit') {
     layers.push('', REDDIT_GUIDE);
@@ -279,10 +334,12 @@ export function buildPublisherPrompt(input: {
     '',
     countLine,
     '',
-    `GROUNDING — repository "${repoName}". Ground every claim ONLY in the context`,
-    'below. Do not invent features, metrics, users, or capabilities that are not',
-    'evidenced by the commits, stats, or README. Thin context means a shorter,',
-    'honest post, never padding.',
+    `GROUNDING — repository "${repoName}". The commits, stats, and README below are`,
+    'SUPPORTING EVIDENCE for the angle, never the subject of the post. Do not lead',
+    'with the stack, the languages, or the commit list. Use only the details that',
+    'serve the angle and omit the rest. Do not invent features, metrics, users, or',
+    'capabilities the context does not show. Thin evidence means a shorter, honest',
+    'post, never a tech inventory.',
     '',
     'Recent commits:',
     commitsBlock,

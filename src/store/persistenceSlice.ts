@@ -54,6 +54,7 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
             dayNotes: state.dayNotes,
             chatSessions: state.chatSessions,
             activityLog: state.activityLog,
+            publisherHistory: state.publisherHistory,
             loaded: true,
           });
         } else {
@@ -83,6 +84,7 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
         dayNotes,
         chatSessions,
         activityLog,
+        publisherHistory,
       } = get();
       const payload = serialise({
         settings,
@@ -93,6 +95,7 @@ export function createPersistenceSlice(set: BoardSet, get: BoardGet): Persistenc
         dayNotes,
         chatSessions,
         activityLog,
+        publisherHistory,
       });
       return runtimeEffects.enqueueWrite(() =>
         writeTextFile(STATE_FILE, payload, { baseDir: BaseDirectory.Home }),

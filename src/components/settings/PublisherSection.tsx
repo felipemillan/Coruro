@@ -5,7 +5,14 @@
 
 import { useBoardStore } from '../../store/useBoardStore';
 import { VALID_FORMATS } from '../../utils/publisherFormats';
-import type { PostFormat, PublisherTarget } from '../../types';
+import {
+  PUBLISHER_INTENTS,
+  PUBLISHER_MODELS,
+  type PostFormat,
+  type PublisherIntent,
+  type PublisherModel,
+  type PublisherTarget,
+} from '../../types';
 import { SectionHeading } from './SectionHeading';
 
 const TARGET_OPTIONS: { id: PublisherTarget; label: string }[] = [
@@ -25,13 +32,34 @@ const FORMAT_LABEL: Record<PostFormat, string> = {
   script: 'Script',
 };
 
+const INTENT_LABEL: Record<PublisherIntent, string> = {
+  story: 'Story',
+  lesson: 'Lesson learned',
+  launch: 'Launch',
+  behind_scenes: 'Behind the scenes',
+  deep_dive: 'Technical deep-dive',
+  feedback: 'Ask for feedback',
+  milestone: 'Milestone',
+  hot_take: 'Hot take',
+};
+
+const MODEL_LABEL: Record<PublisherModel, string> = {
+  'claude-opus-4-8': 'Opus',
+  'claude-sonnet-4-6': 'Sonnet',
+  'claude-haiku-4-5': 'Haiku',
+};
+
 export function PublisherSection() {
   const authorVoice = useBoardStore((s) => s.settings.publisherAuthorVoice);
   const defaultTarget = useBoardStore((s) => s.settings.publisherDefaultTarget);
   const defaultFormat = useBoardStore((s) => s.settings.publisherDefaultFormat);
+  const defaultIntent = useBoardStore((s) => s.settings.publisherDefaultIntent);
+  const defaultModel = useBoardStore((s) => s.settings.publisherDefaultModel);
   const setPublisherAuthorVoice = useBoardStore((s) => s.setPublisherAuthorVoice);
   const setPublisherDefaultTarget = useBoardStore((s) => s.setPublisherDefaultTarget);
   const setPublisherDefaultFormat = useBoardStore((s) => s.setPublisherDefaultFormat);
+  const setPublisherDefaultIntent = useBoardStore((s) => s.setPublisherDefaultIntent);
+  const setPublisherDefaultModel = useBoardStore((s) => s.setPublisherDefaultModel);
 
   const validFormats = VALID_FORMATS[defaultTarget];
 
@@ -61,6 +89,32 @@ export function PublisherSection() {
         rows={5}
         className="nb-input w-full px-3 py-2 text-[12px] leading-relaxed text-navy resize-y"
       />
+
+      <label className="block text-[11px] text-navy-light mt-4 mb-1">Default angle</label>
+      <select
+        value={defaultIntent}
+        onChange={(e) => void setPublisherDefaultIntent(e.target.value as PublisherIntent)}
+        className="nb-input w-full px-3 py-2 text-[12px] text-navy transition-colors duration-150 cursor-pointer"
+      >
+        {PUBLISHER_INTENTS.map((i) => (
+          <option key={i} value={i}>
+            {INTENT_LABEL[i]}
+          </option>
+        ))}
+      </select>
+
+      <label className="block text-[11px] text-navy-light mt-4 mb-1">Default model</label>
+      <select
+        value={defaultModel}
+        onChange={(e) => void setPublisherDefaultModel(e.target.value as PublisherModel)}
+        className="nb-input w-full px-3 py-2 text-[12px] text-navy transition-colors duration-150 cursor-pointer"
+      >
+        {PUBLISHER_MODELS.map((m) => (
+          <option key={m} value={m}>
+            {MODEL_LABEL[m]}
+          </option>
+        ))}
+      </select>
 
       <label className="block text-[11px] text-navy-light mt-4 mb-1">Default network</label>
       <select
