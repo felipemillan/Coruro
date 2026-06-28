@@ -25,6 +25,12 @@ function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
     const v = s[k];
     if (typeof v === 'string' && v.length > 0) base[k] = v;
   }
+  // publisherOutputDir accepts any string or explicit null (default null).
+  const pod = s.publisherOutputDir;
+  if (typeof pod === 'string' || pod === null) base.publisherOutputDir = pod;
+  // publisherDefaultTarget must be a known target, else keep the default.
+  const pdt = s.publisherDefaultTarget;
+  if (pdt === 'linkedin' || pdt === 'reddit') base.publisherDefaultTarget = pdt;
 }
 
 function applyBooleanSettings(s: Record<string, unknown>, base: Settings): void {
@@ -226,6 +232,8 @@ const ACTIVITY_EVENT_KINDS = new Set<ActivityEventKind>([
   'command_center_opened',
   'curator_run',
   'user_note_written',
+  'publisher_draft_generated',
+  'publisher_published',
 ]) satisfies Set<ActivityEventKind>;
 
 /**

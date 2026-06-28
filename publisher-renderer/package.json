@@ -1,0 +1,13 @@
+{
+  "name": "coruro-publisher-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local headless Playwright renderer for the Coruro Publisher. Spawned by src-tauri/src/publisher.rs. Chromium-bearing, local-only. NOT the zero-network FoundationModels sidecar.",
+  "type": "module",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
