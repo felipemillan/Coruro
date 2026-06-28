@@ -138,7 +138,7 @@ build from source.
 ## Claude Code toolkit
 
 Coruro ships with a `.claude/` toolkit for anyone working on the codebase with
-[Claude Code](https://claude.ai/code). It includes three subagents and two slash
+[Claude Code](https://claude.ai/code). It includes four subagents and two slash
 commands that encode the project's architecture rules so you don't have to read
 `ARCHITECTURE.md` before every change.
 
@@ -149,6 +149,7 @@ commands that encode the project's architecture rules so you don't have to read
 | `coruro-architect` | Plan a non-trivial feature before writing any code — returns a numbered file sequence with type changes first and invariant checks. |
 | `coruro-reviewer`  | Review a diff after implementation — returns severity-tagged findings and a `Gate-readiness: PASS / FAIL` verdict.                  |
 | `coruro-explorer`  | Understand how an existing feature works — returns a file-and-line-anchored data-flow trace.                                        |
+| `coruro-designer`  | Implement or polish UI in React 19 + Tailwind 4 — enforces the Neo-Brutalist design system; front-end layer only.                   |
 
 Invoke any agent via the `--agent` flag or the `@agent` mention in a Claude Code
 session, e.g. `@coruro-architect plan a new settings panel`.
