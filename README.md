@@ -48,6 +48,13 @@ and tags — so you can read a project at a glance without opening it.
   repo type.
 - **Terminal bell notifications** — opt-in audio beep and/or border flash when
   Claude Code signals task-done (OSC-safe; both toggleable in Settings).
+- **Social Publisher** — an assisted-manual "Publisher" tab that turns a repo's
+  read-only git context into identity-driven, intent-steered posts for LinkedIn, X,
+  Instagram, TikTok, Facebook, and Reddit, with per-network formats (carousel,
+  thread, story, script, single). Pick an angle, generate 1–5 variations with a
+  model picker (Opus / Sonnet / Haiku), and keep a saved history of drafts. Copy a
+  draft and open the platform's compose page — no auto-posting. See
+  [docs/publisher.md](docs/publisher.md).
 - **Claude Command Center** — a "Claude" tab that scans your local `~/.claude`
   setup and inventories your MCP servers, skills, plugins, subagents, slash
   commands, hooks, settings, and session counts, with an on-device AI health
@@ -74,6 +81,8 @@ and tags — so you can read a project at a glance without opening it.
 - **Command Center is read-only and secret-free** — it scans `~/.claude` for an
   inventory only, capturing env var _names_ (never values), redacting MCP endpoint
   tokens, and never reading session transcripts or memory contents.
+- **Publisher generation** uses your own plan-billed Claude Code CLI (headless),
+  not a separate API key; drafts and saved history stay in the local state file.
 
 ## Build from source
 
