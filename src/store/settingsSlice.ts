@@ -15,8 +15,9 @@ type SettingsSlice = Pick<
   | 'setTerminalTheme'
   | 'setBellAudioEnabled'
   | 'setBellVisualEnabled'
-  | 'setPublisherOutputDir'
+  | 'setPublisherAuthorVoice'
   | 'setPublisherDefaultTarget'
+  | 'setPublisherDefaultFormat'
 >;
 
 export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice {
@@ -61,13 +62,18 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
       await get().save();
     },
 
-    setPublisherOutputDir: async (dir) => {
-      set((s) => ({ settings: { ...s.settings, publisherOutputDir: dir } }));
+    setPublisherAuthorVoice: async (voice) => {
+      set((s) => ({ settings: { ...s.settings, publisherAuthorVoice: voice } }));
       await get().save();
     },
 
     setPublisherDefaultTarget: async (t) => {
       set((s) => ({ settings: { ...s.settings, publisherDefaultTarget: t } }));
+      await get().save();
+    },
+
+    setPublisherDefaultFormat: async (f) => {
+      set((s) => ({ settings: { ...s.settings, publisherDefaultFormat: f } }));
       await get().save();
     },
   };

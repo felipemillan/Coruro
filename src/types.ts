@@ -22,29 +22,42 @@ export const COLUMN_IDS: readonly ColumnId[] = [
  * user's real browser and the draft formatting. No automated posting — the
  * human pastes and clicks.
  */
-export type PublisherTarget = 'linkedin' | 'reddit';
+export type PublisherTarget = 'linkedin' | 'x' | 'instagram' | 'tiktok' | 'facebook' | 'reddit';
 
 /**
- * One rendered asset attached to a Publisher draft. RUNTIME-ONLY — `absPath`
- * is an absolute filesystem path and must NEVER enter persisted AppState
- * (P0: no raw filesystem paths in persisted state).
+ * The shape a generated post takes for a given network. Drives how segments
+ * are composed and how the compose UI presents them.
  */
-export interface PublisherAsset {
-  kind: 'carousel' | 'screenshot';
-  absPath: string;
+export type PostFormat = 'single' | 'thread' | 'carousel' | 'story' | 'script';
+
+/** One unit of post copy (a single post, thread tweet, slide, or beat). */
+export interface PublisherSegment {
+  text: string;
+}
+
+/**
+ * One generated take on a post. RUNTIME-ONLY. `segments` holds the ordered
+ * copy units; `title` is an optional headline (null when the format has none).
+ */
+export interface PublisherVariation {
+  id: string;
+  title: string | null;
+  segments: PublisherSegment[];
 }
 
 /**
  * A composed-but-unpublished post. RUNTIME-ONLY — holds the repo slug, target,
- * generated body, and rendered assets. Never persisted; only the resulting
+ * format, and the generated variations. Never persisted; only the resulting
  * activity event (a `repoName` slug) lands in the activity log.
  */
 export interface PublisherDraft {
   repoName: string;
   target: PublisherTarget;
-  body: string;
-  assets: PublisherAsset[];
-  status: 'idle' | 'generating' | 'rendering' | 'ready' | 'error';
+  format: PostFormat;
+  count: 1 | 2 | 3 | 4 | 5;
+  variations: PublisherVariation[];
+  selectedVariation: number;
+  status: 'idle' | 'generating' | 'ready' | 'error';
 }
 
 /**
@@ -101,13 +114,14 @@ export interface Settings {
    */
   bellVisualEnabled: boolean;
   /**
-   * Absolute directory where the Publisher writes rendered assets (carousels,
-   * screenshots). null until the user picks one. Only this path persists — the
-   * generated PublisherAsset paths themselves are runtime-only.
+   * Author voice/style guidance prepended to the Publisher generation prompt.
+   * Free text, capped on load (see validateSettings). Defaults to ''.
    */
-  publisherOutputDir: string | null;
+  publisherAuthorVoice: string;
   /** Default Publisher target preselected in the compose UI. Defaults 'linkedin'. */
   publisherDefaultTarget: PublisherTarget;
+  /** Default Publisher post format preselected in the compose UI. Defaults 'single'. */
+  publisherDefaultFormat: PostFormat;
 }
 
 /**
@@ -359,8 +373,9 @@ export function createEmptyAppState(): AppState {
       terminalTheme: 'mocha',
       bellAudioEnabled: false,
       bellVisualEnabled: true,
-      publisherOutputDir: null,
+      publisherAuthorVoice: '',
       publisherDefaultTarget: 'linkedin',
+      publisherDefaultFormat: 'single',
     },
     board: {
       inbox: [],

@@ -17,6 +17,30 @@ import {
 } from '../types';
 
 type Settings = AppState['settings'];
+type PublisherTarget = Settings['publisherDefaultTarget'];
+type PostFormat = Settings['publisherDefaultFormat'];
+
+/** Max persisted length for the free-text author-voice prompt. */
+const MAX_AUTHOR_VOICE_LEN = 2000;
+
+/** The six confirmed Publisher networks. */
+const PUBLISHER_TARGETS = new Set<PublisherTarget>([
+  'linkedin',
+  'x',
+  'instagram',
+  'tiktok',
+  'facebook',
+  'reddit',
+]) satisfies Set<PublisherTarget>;
+
+/** The five confirmed post formats. */
+const POST_FORMATS = new Set<PostFormat>([
+  'single',
+  'thread',
+  'carousel',
+  'story',
+  'script',
+]) satisfies Set<PostFormat>;
 
 /** rootDirectory accepts any string; the rest must be non-empty. */
 function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
@@ -25,12 +49,21 @@ function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
     const v = s[k];
     if (typeof v === 'string' && v.length > 0) base[k] = v;
   }
-  // publisherOutputDir accepts any string or explicit null (default null).
-  const pod = s.publisherOutputDir;
-  if (typeof pod === 'string' || pod === null) base.publisherOutputDir = pod;
-  // publisherDefaultTarget must be a known target, else keep the default.
+  // publisherAuthorVoice accepts any string; cap (truncate) overlong input.
+  const pav = s.publisherAuthorVoice;
+  if (typeof pav === 'string') {
+    base.publisherAuthorVoice = pav.slice(0, MAX_AUTHOR_VOICE_LEN);
+  }
+  // publisherDefaultTarget must be a known network, else keep the default.
   const pdt = s.publisherDefaultTarget;
-  if (pdt === 'linkedin' || pdt === 'reddit') base.publisherDefaultTarget = pdt;
+  if (typeof pdt === 'string' && PUBLISHER_TARGETS.has(pdt as PublisherTarget)) {
+    base.publisherDefaultTarget = pdt as PublisherTarget;
+  }
+  // publisherDefaultFormat must be a known format, else keep the default.
+  const pdf = s.publisherDefaultFormat;
+  if (typeof pdf === 'string' && POST_FORMATS.has(pdf as PostFormat)) {
+    base.publisherDefaultFormat = pdf as PostFormat;
+  }
 }
 
 function applyBooleanSettings(s: Record<string, unknown>, base: Settings): void {
