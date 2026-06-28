@@ -2,11 +2,11 @@
 //
 // Flow (all assisted-manual, nothing automated):
 //   1. Pick a repo + target (LinkedIn / Reddit).
-//   2. "Generate draft" gathers READ-ONLY git context + README and pushes a
-//      grounded prompt into the Code-tab `claude` PTY (the ONLY AI path). The
-//      human's terminal session writes the post; they paste it back into the
-//      editable body below. When an output dir is configured, share images are
-//      rendered LOCALLY (renderer-absent is tolerated with a soft note).
+//   2. "Generate draft" gathers READ-ONLY git context + README and generates the
+//      post IN-APP via a headless `claude -p` call. The draft auto-fills the
+//      editable body below — no terminal, no paste-back. When an output dir is
+//      configured, share images are rendered LOCALLY (renderer-absent is
+//      tolerated with a soft note).
 //   3. "Copy draft" copies the body; "Open compose" opens the platform's real
 //      compose page in the browser. The human pastes and clicks post.
 //
@@ -98,8 +98,8 @@ function ComposeControls({
       </button>
 
       <p className="text-[11px] text-navy-light/70 leading-relaxed">
-        Generate pushes a grounded prompt into the Code tab&rsquo;s Claude session. Paste the result
-        back into the body below, then copy and open the compose page.
+        Generate builds a grounded draft in-app and fills the body below. Edit it, then copy and
+        open the compose page.
       </p>
     </div>
   );
@@ -199,7 +199,7 @@ export function PublisherTab() {
           <textarea
             value={draft.body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Paste the generated post here, then edit before publishing…"
+            placeholder="Generated draft appears here; edit before publishing…"
             spellCheck
             rows={10}
             className="nb-input bg-cream text-[13px] leading-relaxed text-navy px-3 py-2.5 font-mono resize-y"

@@ -1,9 +1,10 @@
 import type { PublisherTarget } from '../types';
 
-// NOTE: This prompt targets the interactive `claude` PTY path (the same path
-// driven by useViewStore.requestAskCommand / pty_spawn). It is NOT bound by the
-// 4096-token Apple FoundationModels sidecar budget — Coruro invariant 5 (the
-// on-device sidecar token cap) does not apply to text generated here.
+// NOTE: This prompt targets a headless `claude -p` call (the `publisher_generate`
+// Tauri command), the same plan-billed claude tier as the interactive PTY but
+// run non-interactively. It is NOT bound by the 4096-token Apple
+// FoundationModels sidecar budget — Coruro invariant 5 (the on-device sidecar
+// token cap) does not apply to text generated here.
 
 /**
  * Buzzwords the generated post must never contain. Kept lowercase; the

@@ -28,6 +28,121 @@ use tauri_plugin_opener::OpenerExt;
 /// of a panic or an opaque OS error.
 const RENDERER_MISSING: &str = "renderer not installed (run npm install in publisher-renderer/)";
 
+/// Graceful-degrade message reused when the `claude` CLI can't be spawned for
+/// headless draft generation. Mirrors `RENDERER_MISSING`: a clear, actionable
+/// string instead of a panic or an opaque OS error.
+const CLAUDE_MISSING: &str =
+    "claude CLI not found (install Claude Code: https://claude.com/claude-code)";
+
+/// Blocking, injection-safe spawn of a HEADLESS `claude -p` content generation.
+///
+/// The prompt rides in the `CORURO_PROMPT` env var and is referenced as
+/// `"$CORURO_PROMPT"` inside the script — it is NEVER interpolated into the
+/// script string, exactly like `pty.rs::pty_spawn`. This is the only safe way to
+/// pass arbitrary user/model text through a shell.
+///
+/// P0 invariants enforced here:
+///   - cwd is a NEUTRAL directory (`std::env::temp_dir()`), NEVER any repo path.
+///     This is the primary guarantee that generation cannot touch a working
+///     tree: claude runs nowhere near a git checkout.
+///   - Tools that could mutate the filesystem or reach the network are disabled
+///     via `--disallowedTools` (Bash, Write, Edit, NotebookEdit, WebFetch,
+///     WebSearch); no `--dangerously-skip-permissions` is passed.
+///
+/// Returns the raw stdout (a JSON object, `--output-format json`). A missing
+/// `claude` binary surfaces as `ErrorKind::NotFound` and is mapped to
+/// `CLAUDE_MISSING`.
+fn run_claude_headless(prompt: &str) -> std::io::Result<String> {
+    // Login shell resolves PATH (a Finder-launched bundle has no shell PATH);
+    // the prompt rides in CORURO_PROMPT so no shell quoting of model/user input
+    // is ever needed. Model pinned to Sonnet 4.6 — same plan-billed tier as the
+    // interactive PTY path.
+    let script = "exec claude --model=claude-sonnet-4-6 -p \"$CORURO_PROMPT\" \
+         --output-format json \
+         --disallowedTools \"Bash,Write,Edit,NotebookEdit,WebFetch,WebSearch\"";
+
+    let mut child = Command::new("/bin/zsh")
+        .args(["-lc", script])
+        .env("CORURO_PROMPT", prompt)
+        // NEUTRAL cwd — never repo.path. Primary git-read-only guarantee.
+        .current_dir(std::env::temp_dir())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    // Close stdin so claude sees EOF and runs purely headless (no REPL input).
+    drop(child.stdin.take());
+    let mut out = String::new();
+    if let Some(mut so) = child.stdout.take() {
+        so.read_to_string(&mut out)?;
+    }
+    let _ = child.wait();
+    Ok(out)
+}
+
+/// Generate a Publisher draft HEADLESS via `claude -p` and return the post body.
+///
+/// Same plan-billed `claude` path the interactive PTY uses — NOT the Apple
+/// FoundationModels sidecar, so invariant 1 (AI is on-device) is unaffected by
+/// this command (it neither adds nor removes a network path; `claude` is the
+/// user's own already-authorized CLI). The neutral temp_dir cwd + disabled
+/// mutation tools + absence of `--dangerously-skip-permissions` together hold
+/// invariant 4 (git stays read-only): this command cannot mutate any working
+/// tree.
+///
+/// Runs the blocking spawn inside `spawn_blocking` under a ~120s timeout, the
+/// same async pattern as the `git_*` / sidecar commands. Parses the JSON object
+/// claude emits, returning the `"result"` string. An `is_error` flag, an empty
+/// result, or a spawn failure returns `Err` with an actionable message.
+#[tauri::command]
+pub async fn publisher_generate(prompt: String) -> Result<String, String> {
+    let work = tauri::async_runtime::spawn_blocking(move || run_claude_headless(&prompt));
+
+    let raw = match tokio::time::timeout(std::time::Duration::from_secs(120), work).await {
+        Ok(Ok(Ok(out))) => out,
+        Ok(Ok(Err(e))) => {
+            // A missing `claude` binary surfaces as NotFound — actionable hint.
+            if e.kind() == std::io::ErrorKind::NotFound {
+                return Err(CLAUDE_MISSING.to_string());
+            }
+            return Err(format!("claude generation failed: {e}"));
+        }
+        Ok(Err(e)) => return Err(format!("claude generation join error: {e}")),
+        Err(_) => return Err("claude generation timed out".to_string()),
+    };
+
+    let line = raw.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
+    if line.is_empty() {
+        return Err(CLAUDE_MISSING.to_string());
+    }
+    let parsed: serde_json::Value =
+        serde_json::from_str(line).map_err(|e| format!("claude output not JSON: {e}"))?;
+
+    if parsed
+        .get("is_error")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        let msg = parsed
+            .get("result")
+            .and_then(serde_json::Value::as_str)
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or("claude reported an error");
+        return Err(msg.to_string());
+    }
+
+    let body = parsed
+        .get("result")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if body.is_empty() {
+        return Err("claude produced an empty draft".to_string());
+    }
+    Ok(body)
+}
+
 /// Locate the Node renderer entry by ABSOLUTE path. Mirrors
 /// `commands.rs::resolve_sidecar`: resolve `current_exe()` and probe known
 /// locations / names ourselves rather than trusting `shell().sidecar()` (which
@@ -70,12 +185,38 @@ fn resolve_renderer_entry() -> Option<PathBuf> {
     None
 }
 
+/// Resolve an absolute `node` binary. A Finder-launched bundle does not inherit
+/// a shell `PATH`, so a bare `Command::new("node")` surfaces as `NotFound` even
+/// when node is installed. Probe `PATH` (when present) and the common install
+/// locations, falling back to the bare name so a shell-inherited launch (e.g.
+/// `npm run tauri dev`) still works.
+fn resolve_node() -> std::ffi::OsString {
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            let candidate = dir.join("node");
+            if candidate.is_file() {
+                return candidate.into_os_string();
+            }
+        }
+    }
+    for candidate in [
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        "/usr/bin/node",
+    ] {
+        if Path::new(candidate).is_file() {
+            return candidate.into();
+        }
+    }
+    "node".into()
+}
+
 /// Blocking spawn of the renderer: write the request as ONE newline-terminated
 /// JSON line to stdin, then read the renderer's response from stdout. Mirrors
 /// `commands.rs::run_sidecar` (stdin write → EOF → read stdout). LOCAL ONLY —
 /// the renderer is a plain Node process; it never reaches the network.
 fn run_renderer(entry: &Path, payload: &[u8]) -> std::io::Result<String> {
-    let mut child = Command::new("node")
+    let mut child = Command::new(resolve_node())
         .arg(entry)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

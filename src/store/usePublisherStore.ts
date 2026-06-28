@@ -6,9 +6,11 @@
 //     + `publisherDefaultTarget` (in Settings, owned by useBoardStore) and the
 //     resulting ActivityEvent slugs ever touch disk — and those are written by
 //     the component layer, not here.
-//   - AI text generation routes ONLY through the existing PTY claude path:
-//     `generate()` builds a prompt and pushes it into the Code-tab terminal via
-//     `useViewStore.requestAskCommand(cwd, prompt)`. No sidecar, no URLSession.
+//   - AI text generation routes through a HEADLESS `claude -p` call (the same
+//     plan-billed claude path the PTY uses, NOT the FoundationModels sidecar):
+//     `generate()` builds a prompt and invokes `publisher_generate`, which spawns
+//     claude in a neutral temp dir with mutation tools disabled. The draft body
+//     fills in-app — no terminal tab, no paste-back. No sidecar, no URLSession.
 //   - Git stays read-only: reuses the existing `git_recent_commits`,
 //     `git_local_stats`, `git_commits_since` invoke commands. No new git command.
 //   - Asset render is LOCAL ONLY: `publisher_render_assets` spawns the local
@@ -17,10 +19,10 @@
 //   - Publishing is assisted-manual: `openCompose()` only opens the platform
 //     compose URL in the real browser via `publisher_open_compose`.
 //
-// DAG: this store imports types, the prompt util, the Tauri invoke/fs/path
-// libs, and `useViewStore` only. It imports NO component. Settings (outDir) and
-// activity logging are passed in / done by the component so this store never
-// reaches up into useBoardStore.
+// DAG: this store imports types, the prompt util, and the Tauri invoke/fs/path
+// libs only. It imports NO component. Settings (outDir) and activity logging are
+// passed in / done by the component so this store never reaches up into
+// useBoardStore.
 
 import { create } from 'zustand';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
@@ -28,7 +30,6 @@ import { readTextFile, exists } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import type { PublisherDraft, PublisherTarget, PublisherAsset, Repo } from '../types';
 import { buildPublisherPrompt } from '../utils/publisherPrompt';
-import { useViewStore } from './useViewStore';
 
 /** Soft note surfaced when the local renderer can't run. Mirrors the Rust side. */
 const RENDERER_MISSING_HINT =
@@ -117,9 +118,10 @@ interface PublisherStore {
   setBody: (body: string) => void;
 
   /**
-   * Build a grounded prompt from read-only git context + README and push it into
-   * the Code-tab PTY (the human's `claude` session writes the post). Then, when
-   * an `outDir` is configured, render share assets LOCALLY — tolerating a
+   * Build a grounded prompt from read-only git context + README and generate the
+   * post body HEADLESS via the `publisher_generate` Tauri command (claude -p in
+   * a neutral temp dir). The body fills the editable draft in-app. Then, when an
+   * `outDir` is configured, render share assets LOCALLY — tolerating a
    * renderer-absent Err by leaving assets empty and setting a soft note.
    *
    * `outDir` is supplied by the component (Settings.publisherOutputDir) so this
@@ -167,7 +169,7 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
 
     const { target } = get().draft;
 
-    // ── Push the prompt into the Code-tab PTY (the ONLY AI generation path) ──
+    // ── Generate the post body HEADLESS via claude -p (the AI generation path) ──
     const prompt = buildPublisherPrompt({
       repoName: repo.name,
       target,
@@ -175,7 +177,15 @@ export const usePublisherStore = create<PublisherStore>((set, get) => ({
       stats,
       readmeExcerpt,
     });
-    useViewStore.getState().requestAskCommand(repo.path, prompt);
+    try {
+      const body = await invoke<string>('publisher_generate', { prompt });
+      set((s) => ({ draft: { ...s.draft, body, status: 'ready' } }));
+    } catch (err) {
+      // claude missing or any generation failure: surface a soft note and flip
+      // to the error state. Do not crash the tab.
+      set((s) => ({ draft: { ...s.draft, status: 'error' }, note: String(err) }));
+      return;
+    }
 
     // ── Optionally render share assets LOCALLY ──
     if (!outDir) {

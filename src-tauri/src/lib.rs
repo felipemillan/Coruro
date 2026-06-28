@@ -39,7 +39,8 @@ pub fn run() {
             pty::pty_spawn_cmd,
             pty::pty_spawn_shell,
             publisher::publisher_render_assets,
-            publisher::publisher_open_compose
+            publisher::publisher_open_compose,
+            publisher::publisher_generate
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
