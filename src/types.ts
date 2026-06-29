@@ -70,6 +70,89 @@ export const PUBLISHER_MODELS: readonly PublisherModel[] = [
   'claude-haiku-4-5',
 ] as const;
 
+/**
+ * The author's role(s). MULTI-select — a person can write as a founder AND a
+ * developer in the same brief. Drives prompt framing only (Layer 1 identity);
+ * never any model arg. Persisted in the brief + as a default setting.
+ */
+export type PublisherRole =
+  | 'vibe-coder'
+  | 'founder'
+  | 'cto'
+  | 'developer'
+  | 'cmo'
+  | 'growth-marketer'
+  | 'designer'
+  | 'devrel';
+
+/** Ordered list of all publisher roles — single source of truth for iteration. */
+export const PUBLISHER_ROLES: readonly PublisherRole[] = [
+  'vibe-coder',
+  'founder',
+  'cto',
+  'developer',
+  'cmo',
+  'growth-marketer',
+  'designer',
+  'devrel',
+] as const;
+
+/**
+ * Roles that write code. Used by the prompt builder to decide whether the git
+ * context stays primary evidence or fades to optional detail (a non-dev author
+ * with answers leans on the brief, not the commit list).
+ */
+export const PUBLISHER_DEV_ROLES: ReadonlySet<PublisherRole> = new Set<PublisherRole>([
+  'vibe-coder',
+  'cto',
+  'developer',
+  'devrel',
+]);
+
+/** Author seniority. Steers register/tone in the prompt. Single-select. */
+export type PublisherSeniority = 'junior' | 'mid' | 'senior' | 'lead' | 'exec';
+
+/** Ordered list of all seniorities — single source of truth for iteration. */
+export const PUBLISHER_SENIORITIES: readonly PublisherSeniority[] = [
+  'junior',
+  'mid',
+  'senior',
+  'lead',
+  'exec',
+] as const;
+
+/** One guided question shown to the author. `id` keys the answer in the brief. */
+export interface PublisherQuestion {
+  id: string;
+  prompt: string;
+}
+
+/**
+ * The persisted, repurposable generation context. Captures WHO is writing
+ * (roles + seniority), WHO they write to (audience), the angle (intent), the
+ * free-text steering (guidance — now persisted, reversing the v3 decision), and
+ * the guided Q&A (answers, keyed by question id). All fields are user-authored
+ * text or enum members + a `repoName` SLUG — secret-free and path-free (P0-safe).
+ */
+export interface PublisherBrief {
+  roles: PublisherRole[];
+  seniority: PublisherSeniority;
+  audience: string;
+  intent: PublisherIntent;
+  guidance: string;
+  answers: Record<string, string>;
+  repoName: string;
+}
+
+/** Cap for the free-text audience field (brief + default setting). */
+export const MAX_PUBLISHER_AUDIENCE_LEN = 400;
+
+/** Cap for one guided answer's text (disk-balloon defence). */
+export const MAX_PUBLISHER_ANSWER_LEN = 2000;
+
+/** Cap for how many guided answers a brief may persist. */
+export const MAX_PUBLISHER_ANSWERS = 12;
+
 /** One unit of post copy (a single post, thread tweet, slide, or beat). */
 export interface PublisherSegment {
   text: string;
@@ -96,7 +179,11 @@ export interface PublisherDraft {
   format: PostFormat;
   /** Editorial angle for this draft. RUNTIME-ONLY — never persisted in the draft. */
   intent: PublisherIntent;
-  /** Free-text per-draft steering. RUNTIME-ONLY — NEVER persisted in history. */
+  /**
+   * Free-text per-draft steering. The draft is runtime-only, but this value is
+   * captured into the persisted PublisherBrief on generate (and restored on
+   * reload) — guidance is saved context, not throwaway. See PublisherBrief.
+   */
   guidance: string;
   /** Generation model match key. RUNTIME-ONLY — resolved to a whitelist in Rust. */
   model: PublisherModel;
@@ -104,11 +191,24 @@ export interface PublisherDraft {
   variations: PublisherVariation[];
   selectedVariation: number;
   status: 'idle' | 'generating' | 'ready' | 'error';
+  /** Author role(s) for this draft. RUNTIME-ONLY. */
+  roles: PublisherRole[];
+  /** Author seniority for this draft. RUNTIME-ONLY. */
+  seniority: PublisherSeniority;
+  /** Target audience free text. RUNTIME-ONLY. */
+  audience: string;
+  /** Guided-question answers keyed by question id. RUNTIME-ONLY. */
+  answers: Record<string, string>;
+  /** Tailored questions from AI, or null when using static defaults. RUNTIME-ONLY. */
+  tailoredQuestions: PublisherQuestion[] | null;
+  /** Status of the tailor-questions call. RUNTIME-ONLY. */
+  questionsStatus: 'idle' | 'tailoring' | 'error';
 }
 
 /**
- * One persisted Publisher generation. Metadata + generated copy only — the
- * free-text `guidance` steering box is DELIBERATELY NOT stored here (P0).
+ * One persisted Publisher generation. Metadata + copy + brief — the
+ * full brief (roles, seniority, audience, intent, guidance, answers, repoName)
+ * is persisted — user-authored text + repo slug; secret-free and path-free (P0-safe).
  * `repoName` is a slug (display name), never an absolute filesystem path; the
  * validator rejects path-shaped values on load. Mirrors the metadata-only
  * contract of {@link ActivityEvent}.
@@ -122,6 +222,7 @@ export interface PublisherHistoryEntry {
   model: PublisherModel;
   generatedAt: string; // ISO 8601
   variations: PublisherVariation[];
+  brief: PublisherBrief;
 }
 
 /** Persisted collection of Publisher generations (capped on load). */
@@ -202,6 +303,12 @@ export interface Settings {
   publisherDefaultIntent: PublisherIntent;
   /** Default Publisher generation model preselected in the compose UI. Defaults 'claude-sonnet-4-6'. */
   publisherDefaultModel: PublisherModel;
+  /** Default Publisher author role(s) preselected in the compose UI. Defaults ['vibe-coder']. */
+  publisherDefaultRoles: PublisherRole[];
+  /** Default Publisher author seniority. Defaults 'senior'. */
+  publisherDefaultSeniority: PublisherSeniority;
+  /** Default Publisher target audience. Defaults ''. */
+  publisherDefaultAudience: string;
 }
 
 /**
@@ -280,7 +387,7 @@ export interface AppState {
   chatSessions: ChatSessionsState;
   /** Persisted in-app activity log (metadata only; secret-free). */
   activityLog: ActivityLogState;
-  /** Persisted Publisher generation history (metadata + copy; guidance never stored). */
+  /** Persisted Publisher generation history (metadata + copy + brief). */
   publisherHistory: PublisherHistoryState;
 }
 
@@ -460,6 +567,9 @@ export function createEmptyAppState(): AppState {
       publisherDefaultFormat: 'single',
       publisherDefaultIntent: 'story',
       publisherDefaultModel: 'claude-sonnet-4-6',
+      publisherDefaultRoles: ['vibe-coder'],
+      publisherDefaultSeniority: 'senior',
+      publisherDefaultAudience: '',
     },
     board: {
       inbox: [],
