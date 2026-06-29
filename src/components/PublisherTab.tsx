@@ -1031,7 +1031,7 @@ function usePublisherTab() {
   };
 }
 
-/** Left 1/3 — sticky sidebar containing all INPUT controls. */
+/** Left 1/3 — sticky sidebar: identity (roles/seniority/audience) + guided questions only. */
 function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
   return (
     <aside className="lg:col-span-1 flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:pr-1">
@@ -1040,7 +1040,25 @@ function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) 
           Your role
         </span>
         <p className="text-[11px] text-navy-light/70 leading-relaxed">
-          Set your identity, intent, and guidance — then generate drafts.
+          Set your identity and answer guided questions to shape the voice of your draft.
+        </p>
+      </div>
+
+      <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
+    </aside>
+  );
+}
+
+/** Right 2/3 — compose controls + post editor showing generated drafts and history. */
+function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
+  return (
+    <section className="lg:col-span-2 flex flex-col gap-4">
+      <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light">
+          Post
+        </span>
+        <p className="text-[11px] text-navy-light/70 leading-relaxed">
+          Pick a repository, angle, and format — then generate variations and open compose.
         </p>
       </div>
 
@@ -1065,25 +1083,7 @@ function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) 
         onGenerate={() => void tab.onGenerate()}
       />
 
-      <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
-
       <ComposeNotes note={tab.note} target={tab.draft.target} />
-    </aside>
-  );
-}
-
-/** Right 2/3 — post editor showing generated drafts and history. */
-function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
-  return (
-    <section className="lg:col-span-2 flex flex-col gap-4">
-      <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light">
-          Post
-        </span>
-        <p className="text-[11px] text-navy-light/70 leading-relaxed">
-          Review variations, copy a segment or the full draft, then open compose.
-        </p>
-      </div>
 
       {tab.historyNote !== null && (
         <div className="nb-card-sm bg-warm-gray/50 text-[11px] text-navy-light px-3 py-2 leading-relaxed">
