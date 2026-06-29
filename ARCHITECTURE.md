@@ -86,12 +86,23 @@ These are load-bearing guarantees, machine-checked where possible:
 The Publisher is **assisted-manual**: it generates social copy locally (headless
 `claude -p`), the user copies a draft, and `publisher_open_compose` opens the
 platform's own compose page in the real browser. There is **no auto-posting, no
-cookies, no API keys** — the human pastes and clicks post. Generation is locked
-down for safety: `claude` runs from a neutral `std::env::temp_dir()` cwd (never a
-repo path), with `--disallowedTools` blocking Bash/Write/Edit/NotebookEdit/WebFetch/WebSearch,
-and the caller-supplied model is resolved through a Rust whitelist (`resolve_model`)
-before any spawn. Post history plus the author-voice and default intent/target/format
-live in `Settings` (persisted); the in-flight draft is runtime-only. **No repo
+cookies, no API keys** — the human pastes and clicks post.
+
+Generation is steered by a **Publisher Brief** — multi-select roles (vibe-coder,
+founder, CMO, devrel, and more), a seniority level, optional audience text, an
+intent preset, guided answers, and free-text guidance — injected as a layered
+identity + angle + context block. Guided questions are static templates per intent
+(zero extra network calls); an optional "Tailor with AI" step calls the existing
+`publisher_generate` command headless to refine the questions — **no new Tauri
+command; the IPC count is unchanged at 25**. Each history entry carries its full
+Brief, so a saved generation can be **repurposed** (brief restored, variations
+cleared) for a different network or format without re-filling. Author voice lives
+in `Settings`; the in-flight draft is runtime-only.
+
+Generation is locked down for safety: `claude` runs from a neutral
+`std::env::temp_dir()` cwd (never a repo path), with `--disallowedTools` blocking
+Bash/Write/Edit/NotebookEdit/WebFetch/WebSearch, and the caller-supplied model is
+resolved through a Rust whitelist (`resolve_model`) before any spawn. **No repo
 content leaves the machine** except through the user's own already-authorized
 `claude` CLI — see [docs/publisher.md](docs/publisher.md).
 
