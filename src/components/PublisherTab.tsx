@@ -1031,61 +1031,98 @@ function usePublisherTab() {
   };
 }
 
+/** Left 1/3 — sticky sidebar containing all INPUT controls. */
+function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
+  return (
+    <aside className="lg:col-span-1 flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:pr-1">
+      <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light">
+          Your role
+        </span>
+        <p className="text-[11px] text-navy-light/70 leading-relaxed">
+          Set your identity, intent, and guidance — then generate drafts.
+        </p>
+      </div>
+
+      <ComposeControls
+        repos={tab.repos}
+        selectedPath={tab.selectedPath}
+        intent={tab.draft.intent}
+        guidance={tab.draft.guidance}
+        target={tab.draft.target}
+        format={tab.draft.format}
+        model={tab.draft.model}
+        count={tab.draft.count}
+        busy={tab.busy}
+        canGenerate={tab.canGenerate}
+        onPickRepo={tab.onPickRepo}
+        onSelectIntent={tab.setIntent}
+        onChangeGuidance={tab.setGuidance}
+        onSelectTarget={tab.setTarget}
+        onSelectFormat={tab.setFormat}
+        onSelectModel={tab.setModel}
+        onSelectCount={tab.setCount}
+        onGenerate={() => void tab.onGenerate()}
+      />
+
+      <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
+
+      <ComposeNotes note={tab.note} target={tab.draft.target} />
+    </aside>
+  );
+}
+
+/** Right 2/3 — post editor showing generated drafts and history. */
+function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
+  return (
+    <section className="lg:col-span-2 flex flex-col gap-4">
+      <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light">
+          Post
+        </span>
+        <p className="text-[11px] text-navy-light/70 leading-relaxed">
+          Review variations, copy a segment or the full draft, then open compose.
+        </p>
+      </div>
+
+      {tab.historyNote !== null && (
+        <div className="nb-card-sm bg-warm-gray/50 text-[11px] text-navy-light px-3 py-2 leading-relaxed">
+          {tab.historyNote}
+        </div>
+      )}
+
+      <DraftView
+        draft={tab.draft}
+        copiedKey={tab.copiedKey}
+        onSelectVariation={tab.selectVariation}
+        onCopyAll={() => void tab.onCopyAll()}
+        onCopySegment={(i) => void tab.onCopySegment(i)}
+        onOpenCompose={() => void tab.onOpenCompose()}
+      />
+
+      <HistoryPanel
+        entries={tab.historyEntries}
+        onOpen={tab.onOpenHistory}
+        onCopy={copyHistoryEntry}
+        onDelete={tab.deletePublisherHistoryEntry}
+        onClear={tab.clearPublisherHistory}
+        onRepurpose={tab.onRepurpose}
+      />
+    </section>
+  );
+}
+
 export function PublisherTab() {
   const tab = usePublisherTab();
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-y-auto bg-cream">
-      <div className="mx-auto w-full max-w-3xl px-6 py-6 flex flex-col gap-5">
+      <div className="mx-auto w-full max-w-7xl px-6 py-6 flex flex-col gap-5">
         <PublisherHeader />
 
-        <ComposeControls
-          repos={tab.repos}
-          selectedPath={tab.selectedPath}
-          intent={tab.draft.intent}
-          guidance={tab.draft.guidance}
-          target={tab.draft.target}
-          format={tab.draft.format}
-          model={tab.draft.model}
-          count={tab.draft.count}
-          busy={tab.busy}
-          canGenerate={tab.canGenerate}
-          onPickRepo={tab.onPickRepo}
-          onSelectIntent={tab.setIntent}
-          onChangeGuidance={tab.setGuidance}
-          onSelectTarget={tab.setTarget}
-          onSelectFormat={tab.setFormat}
-          onSelectModel={tab.setModel}
-          onSelectCount={tab.setCount}
-          onGenerate={() => void tab.onGenerate()}
-        />
-
-        <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
-
-        <ComposeNotes note={tab.note} target={tab.draft.target} />
-
-        {tab.historyNote !== null && (
-          <div className="nb-card-sm bg-warm-gray/50 text-[11px] text-navy-light px-3 py-2 leading-relaxed">
-            {tab.historyNote}
-          </div>
-        )}
-
-        <DraftView
-          draft={tab.draft}
-          copiedKey={tab.copiedKey}
-          onSelectVariation={tab.selectVariation}
-          onCopyAll={() => void tab.onCopyAll()}
-          onCopySegment={(i) => void tab.onCopySegment(i)}
-          onOpenCompose={() => void tab.onOpenCompose()}
-        />
-
-        <HistoryPanel
-          entries={tab.historyEntries}
-          onOpen={tab.onOpenHistory}
-          onCopy={copyHistoryEntry}
-          onDelete={tab.deletePublisherHistoryEntry}
-          onClear={tab.clearPublisherHistory}
-          onRepurpose={tab.onRepurpose}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+          <PublisherSidebar tab={tab} />
+          <PublisherEditor tab={tab} />
+        </div>
       </div>
     </div>
   );
