@@ -1,16 +1,20 @@
 // Publisher section for the Settings modal.
-// Owns the author-voice guidance, the default network selector, and the
-// default-format selector (constrained to the chosen network's valid formats).
-// All three persist via the settings slice. No filesystem paths here.
+// Owns the author-voice guidance, default network/format/intent/model, and the
+// brief defaults (roles, seniority, audience). All persist via the settings slice.
 
 import { useBoardStore } from '../../store/useBoardStore';
 import { VALID_FORMATS } from '../../utils/publisherFormats';
 import {
   PUBLISHER_INTENTS,
   PUBLISHER_MODELS,
+  PUBLISHER_ROLES,
+  PUBLISHER_SENIORITIES,
+  MAX_PUBLISHER_AUDIENCE_LEN,
   type PostFormat,
   type PublisherIntent,
   type PublisherModel,
+  type PublisherRole,
+  type PublisherSeniority,
   type PublisherTarget,
 } from '../../types';
 import { SectionHeading } from './SectionHeading';
@@ -49,26 +53,77 @@ const MODEL_LABEL: Record<PublisherModel, string> = {
   'claude-haiku-4-5': 'Haiku',
 };
 
+const ROLE_LABEL: Record<PublisherRole, string> = {
+  'vibe-coder': 'Vibe-coder',
+  founder: 'Founder',
+  cto: 'CTO',
+  developer: 'Developer',
+  cmo: 'CMO',
+  'growth-marketer': 'Growth marketer',
+  designer: 'Designer',
+  devrel: 'DevRel',
+};
+
+const SENIORITY_LABEL: Record<PublisherSeniority, string> = {
+  junior: 'Junior',
+  mid: 'Mid',
+  senior: 'Senior',
+  lead: 'Lead',
+  exec: 'Exec',
+};
+
+function DefaultRoleToggles({
+  defaultRoles,
+  onToggle,
+}: {
+  defaultRoles: PublisherRole[];
+  onToggle: (r: PublisherRole, checked: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+      {PUBLISHER_ROLES.map((r) => (
+        <label key={r} className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={defaultRoles.includes(r)}
+            onChange={(e) => onToggle(r, e.target.checked)}
+            className="cursor-pointer"
+          />
+          <span className="text-[12px] text-navy">{ROLE_LABEL[r]}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export function PublisherSection() {
   const authorVoice = useBoardStore((s) => s.settings.publisherAuthorVoice);
   const defaultTarget = useBoardStore((s) => s.settings.publisherDefaultTarget);
   const defaultFormat = useBoardStore((s) => s.settings.publisherDefaultFormat);
   const defaultIntent = useBoardStore((s) => s.settings.publisherDefaultIntent);
   const defaultModel = useBoardStore((s) => s.settings.publisherDefaultModel);
+  const defaultRoles = useBoardStore((s) => s.settings.publisherDefaultRoles);
+  const defaultSeniority = useBoardStore((s) => s.settings.publisherDefaultSeniority);
+  const defaultAudience = useBoardStore((s) => s.settings.publisherDefaultAudience);
   const setPublisherAuthorVoice = useBoardStore((s) => s.setPublisherAuthorVoice);
   const setPublisherDefaultTarget = useBoardStore((s) => s.setPublisherDefaultTarget);
   const setPublisherDefaultFormat = useBoardStore((s) => s.setPublisherDefaultFormat);
   const setPublisherDefaultIntent = useBoardStore((s) => s.setPublisherDefaultIntent);
   const setPublisherDefaultModel = useBoardStore((s) => s.setPublisherDefaultModel);
-
-  const validFormats = VALID_FORMATS[defaultTarget];
+  const setPublisherDefaultRoles = useBoardStore((s) => s.setPublisherDefaultRoles);
+  const setPublisherDefaultSeniority = useBoardStore((s) => s.setPublisherDefaultSeniority);
+  const setPublisherDefaultAudience = useBoardStore((s) => s.setPublisherDefaultAudience);
 
   const onPickTarget = (next: PublisherTarget) => {
     void setPublisherDefaultTarget(next);
-    // Keep the default format valid for the newly chosen network.
     if (!VALID_FORMATS[next].includes(defaultFormat)) {
       void setPublisherDefaultFormat(VALID_FORMATS[next][0]);
     }
+  };
+
+  const onToggleRole = (r: PublisherRole, checked: boolean) => {
+    const next = checked ? [...defaultRoles, r] : defaultRoles.filter((x) => x !== r);
+    void setPublisherDefaultRoles(next);
   };
 
   return (
@@ -88,6 +143,36 @@ export function PublisherSection() {
         spellCheck
         rows={5}
         className="nb-input w-full px-3 py-2 text-[12px] leading-relaxed text-navy resize-y"
+      />
+
+      <label className="block text-[11px] text-navy-light mt-4 mb-1">Default roles</label>
+      <DefaultRoleToggles defaultRoles={defaultRoles} onToggle={onToggleRole} />
+
+      <label className="block text-[11px] text-navy-light mt-4 mb-1">Default seniority</label>
+      <select
+        value={defaultSeniority}
+        onChange={(e) => void setPublisherDefaultSeniority(e.target.value as PublisherSeniority)}
+        className="nb-input w-full px-3 py-2 text-[12px] text-navy transition-colors duration-150 cursor-pointer"
+      >
+        {PUBLISHER_SENIORITIES.map((s) => (
+          <option key={s} value={s}>
+            {SENIORITY_LABEL[s]}
+          </option>
+        ))}
+      </select>
+
+      <label className="block text-[11px] text-navy-light mt-4 mb-1">
+        Default audience (optional)
+      </label>
+      <input
+        type="text"
+        value={defaultAudience}
+        onChange={(e) =>
+          void setPublisherDefaultAudience(e.target.value.slice(0, MAX_PUBLISHER_AUDIENCE_LEN))
+        }
+        placeholder="e.g. indie hackers building SaaS tools"
+        maxLength={MAX_PUBLISHER_AUDIENCE_LEN}
+        className="nb-input w-full px-3 py-2 text-[12px] text-navy"
       />
 
       <label className="block text-[11px] text-navy-light mt-4 mb-1">Default angle</label>
@@ -135,7 +220,7 @@ export function PublisherSection() {
         onChange={(e) => void setPublisherDefaultFormat(e.target.value as PostFormat)}
         className="nb-input w-full px-3 py-2 text-[12px] text-navy transition-colors duration-150 cursor-pointer"
       >
-        {validFormats.map((f) => (
+        {VALID_FORMATS[defaultTarget].map((f) => (
           <option key={f} value={f}>
             {FORMAT_LABEL[f]}
           </option>

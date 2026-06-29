@@ -1,8 +1,9 @@
-// PublisherTab — assisted-manual social Publisher (v3, multi-variation + history).
+// PublisherTab — assisted-manual social Publisher (v4, brief + guided questions + repurpose).
 //
 // Flow (all assisted-manual, nothing automated):
 //   1. Pick a repo + intent (angle) + optional guidance + network + format +
-//      model + how many variations.
+//      model + how many variations. Set your role, seniority, audience, and
+//      optionally answer guided questions.
 //   2. "Generate" gathers READ-ONLY git context + README and generates N
 //      voice-driven variations IN-APP via a headless `claude -p` call. Output is
 //      content-only — it can never touch a repo. No terminal, no paste-back.
@@ -10,7 +11,7 @@
 //      then "Open compose" opens the platform's real compose page in the browser.
 //      The human pastes and clicks post.
 //   4. Every ready generation is saved to the persisted Publisher history so the
-//      user can reopen, re-copy, or delete a past draft.
+//      user can reopen, re-copy, repurpose to another network, or delete a past draft.
 //
 // DAG: components -> stores -> utils -> types. This component reads useBoardStore
 // (repos, settings, activity log, publisherHistory), usePublisherStore (runtime
@@ -33,15 +34,23 @@ import {
 import { useBoardStore } from '../store/useBoardStore';
 import { usePublisherStore } from '../store/usePublisherStore';
 import { VALID_FORMATS, segmentLabel, joinSegments } from '../utils/publisherFormats';
+import { staticQuestionsFor } from '../utils/publisherQuestions';
 import { relativeAge } from '../utils/repoStats';
 import {
   PUBLISHER_INTENTS,
   PUBLISHER_MODELS,
+  PUBLISHER_ROLES,
+  PUBLISHER_SENIORITIES,
+  MAX_PUBLISHER_AUDIENCE_LEN,
+  MAX_PUBLISHER_ANSWER_LEN,
   type PostFormat,
   type PublisherDraft,
   type PublisherHistoryEntry,
   type PublisherIntent,
   type PublisherModel,
+  type PublisherQuestion,
+  type PublisherRole,
+  type PublisherSeniority,
   type PublisherTarget,
   type Repo,
 } from '../types';
@@ -80,6 +89,25 @@ const MODEL_LABEL: Record<PublisherModel, string> = {
   'claude-haiku-4-5': 'Haiku',
 };
 
+const ROLE_LABEL: Record<PublisherRole, string> = {
+  'vibe-coder': 'Vibe-coder',
+  founder: 'Founder',
+  cto: 'CTO',
+  developer: 'Developer',
+  cmo: 'CMO',
+  'growth-marketer': 'Growth marketer',
+  designer: 'Designer',
+  devrel: 'DevRel',
+};
+
+const SENIORITY_LABEL: Record<PublisherSeniority, string> = {
+  junior: 'Junior',
+  mid: 'Mid',
+  senior: 'Senior',
+  lead: 'Lead',
+  exec: 'Exec',
+};
+
 // Networks whose compose page does NOT accept prefilled text — user must paste.
 const NO_PREFILL: ReadonlySet<PublisherTarget> = new Set<PublisherTarget>([
   'instagram',
@@ -109,6 +137,15 @@ function buildHistoryEntry(d: PublisherDraft): PublisherHistoryEntry {
     model: d.model,
     generatedAt,
     variations: d.variations,
+    brief: {
+      roles: d.roles,
+      seniority: d.seniority,
+      audience: d.audience,
+      intent: d.intent,
+      guidance: d.guidance,
+      answers: d.answers,
+      repoName: d.repoName,
+    },
   };
 }
 
@@ -119,7 +156,7 @@ async function copyHistoryEntry(entry: PublisherHistoryEntry): Promise<void> {
   await navigator.clipboard.writeText(joinSegments(variation, entry.format));
 }
 
-/** Shared pill button used by the network / format / model / count selectors. */
+/** Shared pill button used by the network / format / model / count / role / seniority selectors. */
 function Pill({
   active,
   onClick,
@@ -140,6 +177,156 @@ function Pill({
     >
       {children}
     </button>
+  );
+}
+
+/** Questions panel: one textarea per question + optional AI-tailor button. */
+function GuidedQuestionsPanel({
+  questions,
+  answers,
+  questionsStatus,
+  onSetAnswer,
+  onClearAnswers,
+  onTailor,
+}: {
+  questions: PublisherQuestion[];
+  answers: Record<string, string>;
+  questionsStatus: 'idle' | 'tailoring' | 'error';
+  onSetAnswer: (id: string, text: string) => void;
+  onClearAnswers: () => void;
+  onTailor: () => void;
+}) {
+  const hasAnswers = Object.values(answers).some((v) => v.trim().length > 0);
+  const isTailoring = questionsStatus === 'tailoring';
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className={LABEL}>Guided questions</span>
+        <div className="flex items-center gap-2">
+          {hasAnswers && (
+            <button
+              type="button"
+              onClick={onClearAnswers}
+              className="nb-chip text-[11px] px-2.5 py-1 font-medium bg-cream text-navy-light hover:bg-warm-gray cursor-pointer"
+            >
+              Clear answers
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onTailor}
+            disabled={isTailoring}
+            className="nb-chip text-[11px] px-2.5 py-1 font-medium bg-cream text-navy hover:bg-warm-gray cursor-pointer disabled:opacity-40 flex items-center gap-1"
+          >
+            <Sparkles size={11} strokeWidth={1.75} />
+            {isTailoring ? 'Tailoring…' : 'Tailor with AI'}
+          </button>
+        </div>
+      </div>
+      {questionsStatus === 'error' && (
+        <div className="nb-card-sm bg-terracotta/12 border-terracotta/40 text-[11px] text-navy px-3 py-2">
+          AI tailoring failed — using default questions.
+        </div>
+      )}
+      <div className="flex flex-col gap-3">
+        {questions.map((q) => (
+          <label key={q.id} className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium text-navy-light">{q.prompt}</span>
+            <textarea
+              value={answers[q.id] ?? ''}
+              onChange={(e) => onSetAnswer(q.id, e.target.value)}
+              placeholder="Optional — leave blank to let the draft speak for itself."
+              rows={2}
+              maxLength={MAX_PUBLISHER_ANSWER_LEN}
+              className="nb-input bg-cream text-[12px] leading-relaxed text-navy px-2.5 py-2 resize-y"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Role + seniority + audience + guided questions panel — reads/writes store directly. */
+function BriefPanel({
+  selectedRepo,
+  authorVoice,
+}: {
+  selectedRepo: Repo | undefined;
+  authorVoice: string;
+}) {
+  const roles = usePublisherStore((s) => s.draft.roles);
+  const seniority = usePublisherStore((s) => s.draft.seniority);
+  const audience = usePublisherStore((s) => s.draft.audience);
+  const answers = usePublisherStore((s) => s.draft.answers);
+  const questionsStatus = usePublisherStore((s) => s.draft.questionsStatus);
+  const tailoredQuestions = usePublisherStore((s) => s.draft.tailoredQuestions);
+  const intent = usePublisherStore((s) => s.draft.intent);
+  const setRoles = usePublisherStore((s) => s.setRoles);
+  const setSeniority = usePublisherStore((s) => s.setSeniority);
+  const setAudience = usePublisherStore((s) => s.setAudience);
+  const setAnswer = usePublisherStore((s) => s.setAnswer);
+  const clearAnswers = usePublisherStore((s) => s.clearAnswers);
+  const tailorQuestions = usePublisherStore((s) => s.tailorQuestions);
+
+  const questions = tailoredQuestions ?? staticQuestionsFor(intent, roles);
+
+  const onTailor = async () => {
+    if (!selectedRepo) return;
+    await tailorQuestions(selectedRepo, { authorVoice });
+  };
+
+  return (
+    <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <span className={LABEL}>Your role</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {PUBLISHER_ROLES.map((r) => (
+            <Pill
+              key={r}
+              active={roles.includes(r)}
+              onClick={() =>
+                setRoles(roles.includes(r) ? roles.filter((x) => x !== r) : [...roles, r])
+              }
+            >
+              {ROLE_LABEL[r]}
+            </Pill>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className={LABEL}>Seniority</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {PUBLISHER_SENIORITIES.map((s) => (
+            <Pill key={s} active={seniority === s} onClick={() => setSeniority(s)}>
+              {SENIORITY_LABEL[s]}
+            </Pill>
+          ))}
+        </div>
+      </div>
+
+      <label className="flex flex-col gap-1.5">
+        <span className={LABEL}>Audience (optional)</span>
+        <input
+          type="text"
+          value={audience}
+          onChange={(e) => setAudience(e.target.value.slice(0, MAX_PUBLISHER_AUDIENCE_LEN))}
+          placeholder="e.g. indie hackers building SaaS tools"
+          maxLength={MAX_PUBLISHER_AUDIENCE_LEN}
+          className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2"
+        />
+      </label>
+
+      <GuidedQuestionsPanel
+        questions={questions}
+        answers={answers}
+        questionsStatus={questionsStatus}
+        onSetAnswer={setAnswer}
+        onClearAnswers={clearAnswers}
+        onTailor={() => void onTailor()}
+      />
+    </div>
   );
 }
 
@@ -202,6 +389,7 @@ function ComposeTextFields({
           placeholder="Optional: extra context or angle, e.g. frame it around the 3am bug that started this."
           spellCheck
           rows={3}
+          maxLength={MAX_PUBLISHER_ANSWER_LEN}
           className="nb-input bg-cream text-[12px] leading-relaxed text-navy px-2.5 py-2 resize-y"
         />
       </label>
@@ -479,11 +667,11 @@ function DraftView({
               </p>
             </div>
           ))}
-          {copyAll}
         </div>
       )}
 
-      <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex items-center justify-between gap-3">
+        {!isSingleBody && copyAll}
         <button
           type="button"
           onClick={onOpenCompose}
@@ -497,19 +685,21 @@ function DraftView({
   );
 }
 
-/** One saved-history row: meta line + Open / Copy / Delete actions. */
+/** One saved-history row: meta line + Open / Repurpose / Copy / Delete actions. */
 function HistoryRow({
   entry,
   copied,
   onOpen,
   onCopy,
   onDelete,
+  onRepurpose,
 }: {
   entry: PublisherHistoryEntry;
   copied: boolean;
   onOpen: () => void;
   onCopy: () => void;
   onDelete: () => void;
+  onRepurpose?: () => void;
 }) {
   const age = relativeAge(entry.generatedAt) || 'just now';
   const meta = [
@@ -532,6 +722,15 @@ function HistoryRow({
         >
           Open
         </button>
+        {onRepurpose && (
+          <button
+            type="button"
+            onClick={onRepurpose}
+            className="nb-chip text-[11px] px-2.5 py-1 font-medium bg-cream text-navy-light hover:bg-warm-gray cursor-pointer"
+          >
+            Repurpose
+          </button>
+        )}
         <button
           type="button"
           onClick={onCopy}
@@ -560,12 +759,14 @@ function HistoryPanel({
   onCopy,
   onDelete,
   onClear,
+  onRepurpose,
 }: {
   entries: PublisherHistoryEntry[];
   onOpen: (entry: PublisherHistoryEntry) => void;
   onCopy: (entry: PublisherHistoryEntry) => Promise<void>;
   onDelete: (id: string) => void;
   onClear: () => void;
+  onRepurpose: (entry: PublisherHistoryEntry) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -645,6 +846,7 @@ function HistoryPanel({
                 onOpen={() => onOpen(entry)}
                 onCopy={() => void handleCopy(entry)}
                 onDelete={() => handleDelete(entry)}
+                onRepurpose={() => onRepurpose(entry)}
               />
             ))}
           </div>
@@ -664,6 +866,27 @@ function PublisherHeader() {
       </span>
     </div>
   );
+}
+
+/**
+ * Resolve the entry's repoName slug against the current repo list and update
+ * the component's selectedPath + historyNote accordingly.
+ */
+function resolveHistoryRepo(
+  entry: PublisherHistoryEntry,
+  repos: Repo[],
+  setSelectedPath: (p: string) => void,
+  setHistoryNote: (n: string | null) => void,
+) {
+  const match = repos.find((r) => r.name === entry.repoName);
+  if (match) {
+    setSelectedPath(match.path);
+    setHistoryNote(null);
+  } else {
+    setHistoryNote(
+      `"${entry.repoName}" isn't in the current repo list — pick a repository to re-generate.`,
+    );
+  }
 }
 
 /**
@@ -706,14 +929,17 @@ function usePublisherTab() {
   // current scan, so the user knows a fresh repo pick is needed to re-generate.
   const [historyNote, setHistoryNote] = useState<string | null>(null);
 
-  // Seed angle + model + network + format from persisted defaults once, on mount.
+  // Seed angle + model + network + format + brief defaults once, on mount.
   useEffect(() => {
     setIntent(defaultIntent);
     setModel(defaultModel);
     setTarget(defaultTarget);
-    if (VALID_FORMATS[defaultTarget].includes(defaultFormat)) {
-      setFormat(defaultFormat);
-    }
+    if (VALID_FORMATS[defaultTarget].includes(defaultFormat)) setFormat(defaultFormat);
+    const ps = useBoardStore.getState().settings;
+    usePublisherStore.getState().setRoles(ps.publisherDefaultRoles);
+    usePublisherStore.getState().setSeniority(ps.publisherDefaultSeniority);
+    if (ps.publisherDefaultAudience)
+      usePublisherStore.getState().setAudience(ps.publisherDefaultAudience);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -731,21 +957,10 @@ function usePublisherTab() {
   };
 
   // Open a saved draft: repopulate the runtime draft AND re-sync the component's
-  // repo selection so canGenerate / Generate aren't left stale. We resolve the
-  // entry's repoName slug against the current scan — we never invent or persist a
-  // path. If the repo isn't in the current list, keep selectedPath as-is and show
-  // a soft note that a repo pick is needed before re-generating.
+  // repo selection so canGenerate / Generate aren't left stale.
   const onOpenHistory = (entry: PublisherHistoryEntry) => {
-    loadFromHistory(entry);
-    const match = repos.find((r) => r.name === entry.repoName);
-    if (match) {
-      setSelectedPath(match.path);
-      setHistoryNote(null);
-    } else {
-      setHistoryNote(
-        `“${entry.repoName}” isn't in the current repo list — pick a repository to re-generate.`,
-      );
-    }
+    loadFromHistory(entry, 'view');
+    resolveHistoryRepo(entry, repos, setSelectedPath, setHistoryNote);
   };
 
   const onGenerate = async () => {
@@ -781,6 +996,8 @@ function usePublisherTab() {
     draft,
     note,
     selectedPath,
+    selectedRepo,
+    authorVoice,
     copiedKey,
     busy: draft.status === 'generating',
     canGenerate: selectedRepo !== undefined,
@@ -799,6 +1016,10 @@ function usePublisherTab() {
     onPickRepo,
     onGenerate,
     onOpenCompose,
+    onRepurpose: (entry: PublisherHistoryEntry) => {
+      loadFromHistory(entry, 'repurpose');
+      resolveHistoryRepo(entry, repos, setSelectedPath, setHistoryNote);
+    },
     onCopyAll: async () => {
       await copyVariation();
       flash('all');
@@ -838,6 +1059,8 @@ export function PublisherTab() {
           onGenerate={() => void tab.onGenerate()}
         />
 
+        <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
+
         <ComposeNotes note={tab.note} target={tab.draft.target} />
 
         {tab.historyNote !== null && (
@@ -861,6 +1084,7 @@ export function PublisherTab() {
           onCopy={copyHistoryEntry}
           onDelete={tab.deletePublisherHistoryEntry}
           onClear={tab.clearPublisherHistory}
+          onRepurpose={tab.onRepurpose}
         />
       </div>
     </div>

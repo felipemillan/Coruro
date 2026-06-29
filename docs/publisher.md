@@ -63,12 +63,23 @@ grounding copy:
 - **Author voice (identity).** `Settings.publisherAuthorVoice` is injected at the
   very top — "write as this author … sound like this specific person, not a brand."
   Empty voice falls back to "the engineer who wrote this code."
+- **Role + seniority.** Multi-select roles (vibe-coder, founder, developer, CMO, …) and
+  a seniority level (junior → exec) adjust the identity block. When all selected roles are
+  dev-only the prompt demotes git mechanics to supporting evidence; non-dev roles (CMO,
+  growth-marketer) bring a distribution-angle lens.
+- **Audience.** An optional free-text field (≤400 chars) surfaces the target reader
+  directly in the identity block: "Writing for: indie hackers building SaaS tools."
 - **Intent presets (the angle).** Eight presets — Story, Lesson learned, Launch,
   Behind the scenes, Technical deep-dive, Ask for feedback, Milestone, Hot take —
   each declare what the post is _about_, placed directly under identity so the model
   leads with the angle, not the stack.
+- **Guided questions.** Three baked questions per intent (stable ids, story-focused).
+  Optional free-text answers are injected as a `CONTEXT FROM AUTHOR` block above the
+  output contract. Blank answers are silently skipped. Answers can be AI-tailored via
+  a headless `claude -p` call (`src/utils/publisherQuestions.ts`).
 - **Guidance box.** Optional free text is treated as **binding direction** for the
-  next generation. It is steering only — it is **never persisted** (P0).
+  next generation. It is **saved as part of the brief** and restored when an entry
+  is reopened (view) or repurposed, so steering carries forward as reusable context.
 - **Voice + grounding guards.** A distilled voice guide (hook-first, specific over
   vague, no press-release tone) plus a banned-words list strip marketing buzzwords
   and "claude-isms." Reddit gets an extra skeptical-peer guide. The supplied commits,
@@ -101,14 +112,16 @@ throwing.
 Every ready generation is appended to `publisherHistory` in the local state file
 (`src/store/publisherHistorySlice.ts`).
 
-- **Metadata + copy only.** Each entry stores the repo **slug** (`repoName`), target,
-  format, intent, model, timestamp, and the generated variations. The free-text
-  **guidance is never stored**, and no raw filesystem path is persisted (P0).
+- **Metadata + brief.** Each entry stores the repo **slug** (`repoName`), target,
+  format, intent, model, timestamp, the generated variations, and the full
+  `PublisherBrief` (roles, seniority, audience, answers). No raw filesystem path is
+  persisted (P0).
 - **Capped at 200.** Oldest entries are evicted first (`MAX_PUBLISHER_HISTORY`).
-- **Re-openable.** A saved draft can be reopened (repopulating the runtime draft),
-  re-copied, or deleted (with a 5-second undo). Opening an entry whose repo isn't in
-  the current scan shows a soft note prompting a fresh repo pick before re-generating —
-  the slug is resolved against the live scan, never invented into a path.
+- **Re-openable.** A saved draft can be **Opened** (restores all fields + variations),
+  **Repurposed** (restores brief + intent, clears variations so you can re-generate for
+  a different network/format), re-copied, or deleted (with a 5-second undo).
+- **Backward compat.** `sanitisePublisherEntry` synthesises a `brief` from top-level
+  fields for entries written before v4 so old history loads cleanly.
 
 ---
 
@@ -142,8 +155,9 @@ The Publisher is built to leave every Coruro invariant intact:
   was added.
 - **No auto-posting.** Assisted-manual only — copy + open a compose URL. No cookies,
   no headless login, no automation.
-- **No secrets, no raw paths persisted.** History carries a repo **slug** only; the
-  guidance box and any filesystem path never reach disk.
+- **No secrets, no raw paths persisted.** History carries the brief's user-authored
+  text (roles, seniority, audience, guidance, answers) plus a repo **slug** — all
+  length-capped and slug-guarded on load. No filesystem path ever reaches disk.
 - **Text-only by design.** An image renderer existed briefly in an early draft and
   was **intentionally removed** — the Publisher emits copy-ready text and nothing
   else (no local renderer, no output directory).
@@ -152,15 +166,16 @@ The Publisher is built to leave every Coruro invariant intact:
 
 ## 8. Architecture / key files
 
-| File                                 | Role                                                                                                                            |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `src-tauri/src/publisher.rs`         | `publisher_generate` (headless `claude -p`, `resolve_model` whitelist) + `publisher_open_compose`                               |
-| `src/store/usePublisherStore.ts`     | Runtime-only draft store: gather read-only context, generate, copy, open compose, load history                                  |
-| `src/store/publisherHistorySlice.ts` | Persisted history slice: append (cap 200) / delete / clear                                                                      |
-| `src/utils/publisherPrompt.ts`       | `buildPublisherPrompt` — pure, layered identity → intent → voice → grounding → output contract                                  |
-| `src/utils/publisherFormats.ts`      | `VALID_FORMATS`, `defaultFormatFor`, `segmentLabel`, `joinSegments`, `parsePublisherOutput`                                     |
-| `src/components/PublisherTab.tsx`    | The tab UI: compose controls, variation tabs, segment cards, history panel                                                      |
-| `src/types.ts`                       | `PublisherTarget` / `PostFormat` / `PublisherIntent` / `PublisherModel` / `PublisherHistoryEntry` + `Settings` publisher fields |
+| File                                 | Role                                                                                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `src-tauri/src/publisher.rs`         | `publisher_generate` (headless `claude -p`, `resolve_model` whitelist) + `publisher_open_compose`                                |
+| `src/store/usePublisherStore.ts`     | Runtime-only draft store: gather read-only context, generate, copy, open compose, load history                                   |
+| `src/store/publisherHistorySlice.ts` | Persisted history slice: append (cap 200) / delete / clear                                                                       |
+| `src/utils/publisherPrompt.ts`       | `buildPublisherPrompt` — pure, layered identity → intent → voice → grounding → output contract                                   |
+| `src/utils/publisherFormats.ts`      | `VALID_FORMATS`, `defaultFormatFor`, `segmentLabel`, `joinSegments`, `parsePublisherOutput`                                      |
+| `src/components/PublisherTab.tsx`    | Tab UI: compose controls, brief panel (role/seniority/audience/questions), variation tabs, history panel with Repurpose          |
+| `src/utils/publisherQuestions.ts`    | `STATIC_QUESTIONS`, `staticQuestionsFor`, `buildTailorQuestionsPrompt`, `parseTailoredQuestions`                                 |
+| `src/types.ts`                       | `PublisherRole` / `PublisherSeniority` / `PublisherBrief` / `PublisherQuestion` + all existing publisher types + Settings fields |
 
 ---
 
