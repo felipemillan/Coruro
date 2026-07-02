@@ -157,9 +157,31 @@ fn spawn_in_pty(
     Ok(())
 }
 
+/// Resolve a caller-supplied terminal model id to a whitelisted `'static str`
+/// literal. Rejects anything not in the whitelist — this is the only value
+/// safe to interpolate into the `pty_spawn` shell script; the raw caller
+/// string is never used directly.
+fn resolve_terminal_model(id: &str) -> Result<&'static str, String> {
+    match id {
+        "claude-sonnet-5" => Ok("claude-sonnet-5"),
+        "claude-opus-4-8" => Ok("claude-opus-4-8"),
+        "claude-fable-5" => Ok("claude-fable-5"),
+        other => Err(format!("unknown terminal model: {other}")),
+    }
+}
+
 /// Spawn an interactive `claude` session in a PTY rooted at `cwd`.
-/// `prompt` (optional) becomes the initial question. Errors are surfaced as
-/// strings so the frontend can show them inline.
+/// `prompt` (optional) becomes the initial question. `model` is the
+/// frontend's `terminalDefaultModel` Settings value, resolved through
+/// `resolve_terminal_model` above before any spawn side effects — never
+/// interpolated raw. Errors are surfaced as strings so the frontend can show
+/// them inline.
+///
+/// 8 flat args mirrors the Tauri `invoke` call's argument object 1:1 — this is
+/// a `#[tauri::command]` boundary, not an internal API, so splitting into a
+/// param struct would only add indirection without reducing what the frontend
+/// must supply.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn pty_spawn(
     app: AppHandle,
@@ -167,27 +189,29 @@ pub fn pty_spawn(
     id: String,
     cwd: String,
     prompt: Option<String>,
+    model: String,
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
+    // Whitelist check BEFORE spawn — an unknown id must never reach the shell.
+    let model_static = resolve_terminal_model(&model)?;
+    let model_arg = format!("--model={model_static}");
+
     // Login shell resolves PATH; the prompt rides in an env var so no shell
     // quoting of user input is ever needed. Sessions launch through `dgc`
     // (graperoot dual-graph launcher: scans the project, then starts claude
     // with the MCP context server attached) when installed, falling back to
-    // plain `claude`. Model pinned to Sonnet 4.6 — interactive sessions bill
-    // against the user's plan, and Sonnet is the right cost/quality tier for
-    // repo Q&A.
-    const MODEL: &str = "--model=claude-sonnet-4-6";
+    // plain `claude`.
     let has_prompt = prompt.as_deref().is_some_and(|p| !p.trim().is_empty());
     let script = if has_prompt {
         format!(
-            "if command -v dgc >/dev/null 2>&1; then exec dgc . \"$CORURO_PROMPT\" {MODEL}; \
-             else exec claude {MODEL} \"$CORURO_PROMPT\"; fi"
+            "if command -v dgc >/dev/null 2>&1; then exec dgc . \"$CORURO_PROMPT\" {model_arg}; \
+             else exec claude {model_arg} \"$CORURO_PROMPT\"; fi"
         )
     } else {
         format!(
-            "if command -v dgc >/dev/null 2>&1; then exec dgc . {MODEL}; \
-             else exec claude {MODEL}; fi"
+            "if command -v dgc >/dev/null 2>&1; then exec dgc . {model_arg}; \
+             else exec claude {model_arg}; fi"
         )
     };
     let mut cmd = CommandBuilder::new("/bin/zsh");
@@ -321,5 +345,30 @@ mod pty_tests {
     fn unknown_repo_type_is_rejected() {
         assert!(run_script_for("Haskell").is_err());
         assert!(run_script_for("").is_err());
+    }
+
+    // --- resolve_terminal_model ---
+
+    #[test]
+    fn known_terminal_models_resolve() {
+        assert_eq!(
+            resolve_terminal_model("claude-sonnet-5").unwrap(),
+            "claude-sonnet-5"
+        );
+        assert_eq!(
+            resolve_terminal_model("claude-opus-4-8").unwrap(),
+            "claude-opus-4-8"
+        );
+        assert_eq!(
+            resolve_terminal_model("claude-fable-5").unwrap(),
+            "claude-fable-5"
+        );
+    }
+
+    #[test]
+    fn unknown_terminal_model_is_rejected() {
+        assert!(resolve_terminal_model("gpt-4").is_err());
+        assert!(resolve_terminal_model("sonnet").is_err());
+        assert!(resolve_terminal_model("").is_err());
     }
 }

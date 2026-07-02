@@ -14,6 +14,7 @@ type SettingsSlice = Pick<
   | 'setEditorApp'
   | 'setTerminalApp'
   | 'setTerminalTheme'
+  | 'setTerminalDefaultModel'
   | 'setBellAudioEnabled'
   | 'setBellVisualEnabled'
   | 'setPublisherAuthorVoice'
@@ -55,6 +56,11 @@ export function createSettingsSlice(set: BoardSet, get: BoardGet): SettingsSlice
 
     setTerminalTheme: async (theme) => {
       set((s) => ({ settings: { ...s.settings, terminalTheme: theme } }));
+      await get().save();
+    },
+
+    setTerminalDefaultModel: async (m) => {
+      set((s) => ({ settings: { ...s.settings, terminalDefaultModel: m } }));
       await get().save();
     },
 

@@ -19,6 +19,7 @@ import {
   type PublisherHistoryEntry,
   type PublisherRole,
   type PublisherSeniority,
+  type TerminalModel,
 } from '../types';
 
 export interface BoardStore extends AppState {
@@ -97,6 +98,8 @@ export interface BoardStore extends AppState {
   setTerminalApp: (app: string) => Promise<void>;
   /** Set the Catppuccin terminal colour theme ('mocha' | 'latte') and persist. */
   setTerminalTheme: (theme: 'mocha' | 'latte') => Promise<void>;
+  /** Set the default model for new Code-tab (Ask) `claude` sessions and persist. */
+  setTerminalDefaultModel: (m: TerminalModel) => Promise<void>;
   /** Toggle the terminal bell audio beep and persist. */
   setBellAudioEnabled: (enabled: boolean) => Promise<void>;
   /** Toggle the terminal bell visual flash and persist. */

@@ -37,10 +37,9 @@ import { VALID_FORMATS, segmentLabel, joinSegments } from '../utils/publisherFor
 import { staticQuestionsFor } from '../utils/publisherQuestions';
 import { relativeAge } from '../utils/repoStats';
 import {
+  PUBLISHER_AUDIENCES,
   PUBLISHER_INTENTS,
   PUBLISHER_MODELS,
-  PUBLISHER_ROLES,
-  PUBLISHER_SENIORITIES,
   MAX_PUBLISHER_AUDIENCE_LEN,
   MAX_PUBLISHER_ANSWER_LEN,
   type PostFormat,
@@ -49,8 +48,6 @@ import {
   type PublisherIntent,
   type PublisherModel,
   type PublisherQuestion,
-  type PublisherRole,
-  type PublisherSeniority,
   type PublisherTarget,
   type Repo,
 } from '../types';
@@ -87,25 +84,6 @@ const MODEL_LABEL: Record<PublisherModel, string> = {
   'claude-opus-4-8': 'Opus',
   'claude-sonnet-4-6': 'Sonnet',
   'claude-haiku-4-5': 'Haiku',
-};
-
-const ROLE_LABEL: Record<PublisherRole, string> = {
-  'vibe-coder': 'Vibe-coder',
-  founder: 'Founder',
-  cto: 'CTO',
-  developer: 'Developer',
-  cmo: 'CMO',
-  'growth-marketer': 'Growth marketer',
-  designer: 'Designer',
-  devrel: 'DevRel',
-};
-
-const SENIORITY_LABEL: Record<PublisherSeniority, string> = {
-  junior: 'Junior',
-  mid: 'Mid',
-  senior: 'Senior',
-  lead: 'Lead',
-  exec: 'Exec',
 };
 
 // Networks whose compose page does NOT accept prefilled text — user must paste.
@@ -256,14 +234,11 @@ function BriefPanel({
   authorVoice: string;
 }) {
   const roles = usePublisherStore((s) => s.draft.roles);
-  const seniority = usePublisherStore((s) => s.draft.seniority);
   const audience = usePublisherStore((s) => s.draft.audience);
   const answers = usePublisherStore((s) => s.draft.answers);
   const questionsStatus = usePublisherStore((s) => s.draft.questionsStatus);
   const tailoredQuestions = usePublisherStore((s) => s.draft.tailoredQuestions);
   const intent = usePublisherStore((s) => s.draft.intent);
-  const setRoles = usePublisherStore((s) => s.setRoles);
-  const setSeniority = usePublisherStore((s) => s.setSeniority);
   const setAudience = usePublisherStore((s) => s.setAudience);
   const setAnswer = usePublisherStore((s) => s.setAnswer);
   const clearAnswers = usePublisherStore((s) => s.clearAnswers);
@@ -279,35 +254,21 @@ function BriefPanel({
   return (
     <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Your role</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {PUBLISHER_ROLES.map((r) => (
-            <Pill
-              key={r}
-              active={roles.includes(r)}
-              onClick={() =>
-                setRoles(roles.includes(r) ? roles.filter((x) => x !== r) : [...roles, r])
-              }
-            >
-              {ROLE_LABEL[r]}
-            </Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Seniority</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {PUBLISHER_SENIORITIES.map((s) => (
-            <Pill key={s} active={seniority === s} onClick={() => setSeniority(s)}>
-              {SENIORITY_LABEL[s]}
-            </Pill>
-          ))}
-        </div>
-      </div>
-
-      <label className="flex flex-col gap-1.5">
         <span className={LABEL}>Audience (optional)</span>
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) setAudience(e.target.value);
+          }}
+          className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2 cursor-pointer"
+        >
+          <option value="">Custom — type your own below…</option>
+          {PUBLISHER_AUDIENCES.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           value={audience}
@@ -316,7 +277,7 @@ function BriefPanel({
           maxLength={MAX_PUBLISHER_AUDIENCE_LEN}
           className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2"
         />
-      </label>
+      </div>
 
       <GuidedQuestionsPanel
         questions={questions}
@@ -1035,15 +996,6 @@ function usePublisherTab() {
 function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
   return (
     <aside className="lg:col-span-1 flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:pr-1">
-      <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light">
-          Your role
-        </span>
-        <p className="text-[11px] text-navy-light/70 leading-relaxed">
-          Set your identity and answer guided questions to shape the voice of your draft.
-        </p>
-      </div>
-
       <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
     </aside>
   );
@@ -1053,15 +1005,6 @@ function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) 
 function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
   return (
     <section className="lg:col-span-2 flex flex-col gap-4">
-      <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-1">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-navy-light">
-          Post
-        </span>
-        <p className="text-[11px] text-navy-light/70 leading-relaxed">
-          Pick a repository, angle, and format — then generate variations and open compose.
-        </p>
-      </div>
-
       <ComposeControls
         repos={tab.repos}
         selectedPath={tab.selectedPath}
@@ -1099,15 +1042,6 @@ function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
         onCopySegment={(i) => void tab.onCopySegment(i)}
         onOpenCompose={() => void tab.onOpenCompose()}
       />
-
-      <HistoryPanel
-        entries={tab.historyEntries}
-        onOpen={tab.onOpenHistory}
-        onCopy={copyHistoryEntry}
-        onDelete={tab.deletePublisherHistoryEntry}
-        onClear={tab.clearPublisherHistory}
-        onRepurpose={tab.onRepurpose}
-      />
     </section>
   );
 }
@@ -1123,6 +1057,15 @@ export function PublisherTab() {
           <PublisherSidebar tab={tab} />
           <PublisherEditor tab={tab} />
         </div>
+
+        <HistoryPanel
+          entries={tab.historyEntries}
+          onOpen={tab.onOpenHistory}
+          onCopy={copyHistoryEntry}
+          onDelete={tab.deletePublisherHistoryEntry}
+          onClear={tab.clearPublisherHistory}
+          onRepurpose={tab.onRepurpose}
+        />
       </div>
     </div>
   );

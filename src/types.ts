@@ -144,6 +144,44 @@ export interface PublisherBrief {
   repoName: string;
 }
 
+/**
+ * Pre-defined audience presets shown as a picker in the Publish tab. Free-text
+ * entry is still allowed via a "Custom…" escape hatch — this list is a
+ * shortcut, not a whitelist.
+ */
+export const PUBLISHER_AUDIENCES: readonly string[] = [
+  'Indie hackers building SaaS tools',
+  'Solo founders / bootstrappers',
+  'VC-backed startup founders',
+  'Seed-stage investors',
+  'CTOs at small startups',
+  'Engineering managers',
+  'Senior backend engineers',
+  'Senior frontend engineers',
+  'Full-stack developers',
+  'Junior developers learning to ship',
+  'DevRel / developer advocates',
+  'Open-source maintainers',
+  'Growth marketers',
+  'Product marketers',
+  'B2B SaaS marketers',
+  'Product managers',
+  'UX / product designers',
+  'Design systems engineers',
+  'Technical recruiters',
+  'Engineering leaders hiring',
+  'AI/ML engineers',
+  'Data engineers',
+  'DevOps / platform engineers',
+  'Security engineers',
+  'Enterprise IT buyers',
+  'No-code / low-code builders',
+  'Freelance developers',
+  'Tech Twitter / X audience',
+  'LinkedIn professional network',
+  'General startup community',
+] as const;
+
 /** Cap for the free-text audience field (brief + default setting). */
 export const MAX_PUBLISHER_AUDIENCE_LEN = 400;
 
@@ -238,6 +276,21 @@ export interface PublisherHistoryState {
 export const MAX_PUBLISHER_HISTORY = 200;
 
 /**
+ * Model id for interactive Code-tab `claude` sessions (pty_spawn). MATCH KEY
+ * only — the Rust backend maps it to a whitelisted 'static str via
+ * resolve_terminal_model; the raw string is never interpolated into the
+ * shell command.
+ */
+export type TerminalModel = 'claude-sonnet-5' | 'claude-opus-4-8' | 'claude-fable-5';
+
+/** Ordered list of all terminal models — single source of truth for iteration. */
+export const TERMINAL_MODELS: readonly TerminalModel[] = [
+  'claude-sonnet-5',
+  'claude-opus-4-8',
+  'claude-fable-5',
+] as const;
+
+/**
  * Persisted user settings.
  * `rootDirectory` is the absolute path of the folder scanned for repos
  * (null until the user picks one). `hasToken` mirrors Keychain presence —
@@ -290,6 +343,11 @@ export interface Settings {
    * a quiet, glanceable "task done" cue that replaces the audio bell.
    */
   bellVisualEnabled: boolean;
+  /**
+   * Default model for interactive Code-tab `claude` sessions (pty_spawn).
+   * Defaults 'claude-sonnet-5'.
+   */
+  terminalDefaultModel: TerminalModel;
   /**
    * Author voice/style guidance prepended to the Publisher generation prompt.
    * Free text, capped on load (see validateSettings). Defaults to ''.
@@ -562,6 +620,7 @@ export function createEmptyAppState(): AppState {
       terminalTheme: 'mocha',
       bellAudioEnabled: false,
       bellVisualEnabled: true,
+      terminalDefaultModel: 'claude-sonnet-5',
       publisherAuthorVoice: '',
       publisherDefaultTarget: 'linkedin',
       publisherDefaultFormat: 'single',

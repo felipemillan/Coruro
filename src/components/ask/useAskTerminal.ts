@@ -155,6 +155,7 @@ export function useAskTerminal({
   isVisible,
 }: UseAskTerminalOptions): UseAskTerminalResult {
   const terminalTheme = useBoardStore((s) => s.settings.terminalTheme);
+  const terminalDefaultModel = useBoardStore((s) => s.settings.terminalDefaultModel);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   // Keep the latest onTerminalFocus callback in a ref so ensureTerminal's
@@ -382,6 +383,7 @@ export function useAskTerminal({
           id,
           cwd: effRepoPath,
           prompt: null,
+          model: terminalDefaultModel,
           cols: term.cols,
           rows: term.rows,
         });
@@ -403,6 +405,7 @@ export function useAskTerminal({
       updateChatSessionStatus,
       setQuestion,
       pumpOutput,
+      terminalDefaultModel,
     ],
   );
 

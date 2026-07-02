@@ -6,7 +6,14 @@
 import { useState } from 'react';
 import { TerminalSquare, Volume2, Eye } from 'lucide-react';
 import { useBoardStore } from '../../store/useBoardStore';
+import { TERMINAL_MODELS, type TerminalModel } from '../../types';
 import { SectionHeading } from './SectionHeading';
+
+const MODEL_LABEL: Record<TerminalModel, string> = {
+  'claude-sonnet-5': 'Sonnet 5',
+  'claude-opus-4-8': 'Opus 4.8',
+  'claude-fable-5': 'Fable 5',
+};
 
 export function TerminalSection() {
   const terminalApp = useBoardStore((s) => s.settings.terminalApp);
@@ -15,6 +22,8 @@ export function TerminalSection() {
   const setBellAudioEnabled = useBoardStore((s) => s.setBellAudioEnabled);
   const bellVisualEnabled = useBoardStore((s) => s.settings.bellVisualEnabled);
   const setBellVisualEnabled = useBoardStore((s) => s.setBellVisualEnabled);
+  const terminalDefaultModel = useBoardStore((s) => s.settings.terminalDefaultModel);
+  const setTerminalDefaultModel = useBoardStore((s) => s.setTerminalDefaultModel);
 
   const [terminalAppInput, setTerminalAppInput] = useState(terminalApp);
 
@@ -51,6 +60,21 @@ export function TerminalSection() {
         <span className="font-mono">iTerm</span>, <span className="font-mono">Ghostty</span>,{' '}
         <span className="font-mono">Warp</span>.
       </p>
+
+      {/* ── Code-tab default model ──────────────────────────────── */}
+      <div className="border-t border-warm-gray my-4" />
+      <label className="block text-[11px] text-navy-light mt-4 mb-1">Default model</label>
+      <select
+        value={terminalDefaultModel}
+        onChange={(e) => void setTerminalDefaultModel(e.target.value as TerminalModel)}
+        className="nb-input w-full px-3 py-2 text-[12px] text-navy transition-colors duration-150 cursor-pointer"
+      >
+        {TERMINAL_MODELS.map((m) => (
+          <option key={m} value={m}>
+            {MODEL_LABEL[m]}
+          </option>
+        ))}
+      </select>
 
       {/* ── Code-tab bell notifications ─────────────────────────── */}
       <div className="border-t border-warm-gray my-4" />

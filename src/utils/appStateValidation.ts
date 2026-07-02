@@ -20,6 +20,7 @@ import {
   type PublisherRole,
   type PublisherSeniority,
   type PublisherBrief,
+  type TerminalModel,
   COLUMN_IDS,
   MAX_PUBLISHER_HISTORY,
   MAX_PUBLISHER_AUDIENCE_LEN,
@@ -100,6 +101,17 @@ const PUBLISHER_SENIORITIES_SET = new Set<PublisherSeniority>([
 ]) satisfies Set<PublisherSeniority>;
 
 /**
+ * Set of all valid terminal models, asserted in-sync with the union via
+ * `satisfies Set<TerminalModel>` (drift guard; mirrors PUBLISHER_MODELS).
+ * These are MATCH KEYS only — never args.
+ */
+const TERMINAL_MODELS_SET = new Set<TerminalModel>([
+  'claude-sonnet-5',
+  'claude-opus-4-8',
+  'claude-fable-5',
+]) satisfies Set<TerminalModel>;
+
+/**
  * Coerce the enum-ish Publisher defaults: each must be a member of its known
  * Set or the existing default is kept. Split out of applyStringSettings to keep
  * each validator's cyclomatic complexity within the lint budget.
@@ -156,6 +168,10 @@ function applyStringSettings(s: Record<string, unknown>, base: Settings): void {
     base.publisherAuthorVoice = pav.slice(0, MAX_AUTHOR_VOICE_LEN);
   }
   applyPublisherDefaults(s, base);
+  const tdm = s.terminalDefaultModel;
+  if (typeof tdm === 'string' && TERMINAL_MODELS_SET.has(tdm as TerminalModel)) {
+    base.terminalDefaultModel = tdm as TerminalModel;
+  }
 }
 
 function applyBooleanSettings(s: Record<string, unknown>, base: Settings): void {
