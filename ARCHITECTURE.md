@@ -30,7 +30,10 @@ React  ──1. invoke()──▶  Rust (#[tauri::command])  ──2. std::proce
    goes in; one JSON line comes back.
 3. **Rust PTY bridge** — `pty.rs` runs the interactive `claude` CLI inside a
    pseudo-terminal; output streams to xterm.js via `pty-output` events. This is
-   plan-billed and entirely separate from the FoundationModels path.
+   plan-billed and entirely separate from the FoundationModels path. The `--model`
+   flag is user-configurable (`Settings.terminalDefaultModel`: Sonnet 5, Opus 4.8,
+   or Fable 5), resolved through a Rust whitelist (`resolve_terminal_model`) before
+   the CLI is spawned — never interpolated raw into the shell.
 
 The **Publisher** generates social copy through this same plan-billed `claude`
 tier — but headless, via `claude -p` over stdio (`publisher.rs`
@@ -89,7 +92,8 @@ platform's own compose page in the real browser. There is **no auto-posting, no
 cookies, no API keys** — the human pastes and clicks post.
 
 Generation is steered by a **Publisher Brief** — multi-select roles (vibe-coder,
-founder, CMO, devrel, and more), a seniority level, optional audience text, an
+founder, CMO, devrel, and more) and a seniority level (set once in Settings and
+applied to every draft), plus per-draft audience (30 presets or free text), an
 intent preset, guided answers, and free-text guidance — injected as a layered
 identity + angle + context block. Guided questions are static templates per intent
 (zero extra network calls); an optional "Tailor with AI" step calls the existing

@@ -45,17 +45,20 @@ and tags — so you can read a project at a glance without opening it.
   sessions inside the app. Sessions are tracked (with metadata only — transcripts
   are never stored), grouped by repo in a sidebar, and can be pinned or revisited.
   Includes a command palette (⌘K) and a run/build button that auto-detects the
-  repo type.
+  repo type. The default model for new Claude Code sessions (Sonnet 5, Opus 4.8,
+  or Fable 5) is user-configurable in Settings.
 - **Terminal bell notifications** — opt-in audio beep and/or border flash when
   Claude Code signals task-done (OSC-safe; both toggleable in Settings).
 - **Social Publisher** — an assisted-manual "Publisher" tab that turns a repo's
   read-only git context into identity-driven, intent-steered posts for LinkedIn, X,
   Instagram, TikTok, Facebook, and Reddit, with per-network formats (carousel,
-  thread, story, script, single). Build a reusable **Publisher Brief** — multi-select
-  roles (vibe-coder, founder, CMO, devrel, and more), seniority, and optional
-  audience text — then pick an angle and answer a few guided questions (static
-  templates per intent, or AI-tailored on demand). Generate 1–5 variations with a
-  model picker (Opus / Sonnet / Haiku); repurpose any saved history entry for a
+  thread, story, script, single). Your role (multi-select roles like vibe-coder,
+  founder, CMO, devrel, and more, plus seniority) is set once in Settings and
+  applied to every draft. In the Publish tab, build the rest of the **Publisher
+  Brief** — pick an audience (30 presets or free text), then an angle, and answer
+  a few guided questions (static templates per intent, or AI-tailored on demand).
+  Generate 1–5 variations with a model picker (Opus / Sonnet / Haiku); repurpose
+  any saved history entry for a
   different network without re-filling the brief. Copy a draft and open the
   platform's compose page — no auto-posting. See
   [docs/publisher.md](docs/publisher.md).

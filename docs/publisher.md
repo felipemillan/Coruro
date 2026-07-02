@@ -28,6 +28,19 @@ opens on your behalf is the network's real compose URL, in your real browser.
 4. Every successful generation is saved to a persisted **history** so you can reopen,
    re-copy, or delete a past draft.
 
+### Layout
+
+The tab is a full-width, two-column grid. The **left column** (1/3, `LeftControls`)
+holds every input in order: Repository, Angle, Audience (preset + free text), a
+Network/Format row (each sized to its own content, not a forced 50/50 split), a
+Model/Variations row, Context (optional guidance), Guided Questions, and Generate.
+The **right column** (2/3) shows the draft: before the first generation it renders
+a bento-style empty state (`EmptyDraftState`) — an invite-to-generate header tile
+plus six static content-idea tiles across different networks/formats — instead of
+sitting blank. **Saved drafts** (`HistoryPanel`) render as a single full-width box
+below both columns, not inside either one. Role and seniority are **not** in this
+tab at all — they're configured once in Settings and apply to every draft.
+
 ---
 
 ## 2. Networks × format matrix
@@ -64,10 +77,13 @@ grounding copy:
   very top — "write as this author … sound like this specific person, not a brand."
   Empty voice falls back to "the engineer who wrote this code."
 - **Role + seniority.** Multi-select roles (vibe-coder, founder, developer, CMO, …) and
-  a seniority level (junior → exec) adjust the identity block. When all selected roles are
-  dev-only the prompt demotes git mechanics to supporting evidence; non-dev roles (CMO,
-  growth-marketer) bring a distribution-angle lens.
-- **Audience.** An optional free-text field (≤400 chars) surfaces the target reader
+  a seniority level (junior → exec) adjust the identity block. Set once in **Settings**
+  (not per-draft in the Publish tab) and applied to every generation. When all selected
+  roles are dev-only the prompt demotes git mechanics to supporting evidence; non-dev
+  roles (CMO, growth-marketer) bring a distribution-angle lens.
+- **Audience.** A preset picker (`PUBLISHER_AUDIENCES`, 30 generic dev/founder presets,
+  e.g. "Indie hackers building SaaS tools", "Senior backend engineers") fills a
+  free-text field (≤400 chars) you can still edit by hand; it surfaces the target reader
   directly in the identity block: "Writing for: indie hackers building SaaS tools."
 - **Intent presets (the angle).** Eight presets — Story, Lesson learned, Launch,
   Behind the scenes, Technical deep-dive, Ask for feedback, Milestone, Hot take —
@@ -166,16 +182,16 @@ The Publisher is built to leave every Coruro invariant intact:
 
 ## 8. Architecture / key files
 
-| File                                 | Role                                                                                                                             |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `src-tauri/src/publisher.rs`         | `publisher_generate` (headless `claude -p`, `resolve_model` whitelist) + `publisher_open_compose`                                |
-| `src/store/usePublisherStore.ts`     | Runtime-only draft store: gather read-only context, generate, copy, open compose, load history                                   |
-| `src/store/publisherHistorySlice.ts` | Persisted history slice: append (cap 200) / delete / clear                                                                       |
-| `src/utils/publisherPrompt.ts`       | `buildPublisherPrompt` — pure, layered identity → intent → voice → grounding → output contract                                   |
-| `src/utils/publisherFormats.ts`      | `VALID_FORMATS`, `defaultFormatFor`, `segmentLabel`, `joinSegments`, `parsePublisherOutput`                                      |
-| `src/components/PublisherTab.tsx`    | Tab UI: compose controls, brief panel (role/seniority/audience/questions), variation tabs, history panel with Repurpose          |
-| `src/utils/publisherQuestions.ts`    | `STATIC_QUESTIONS`, `staticQuestionsFor`, `buildTailorQuestionsPrompt`, `parseTailoredQuestions`                                 |
-| `src/types.ts`                       | `PublisherRole` / `PublisherSeniority` / `PublisherBrief` / `PublisherQuestion` + all existing publisher types + Settings fields |
+| File                                 | Role                                                                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src-tauri/src/publisher.rs`         | `publisher_generate` (headless `claude -p`, `resolve_model` whitelist) + `publisher_open_compose`                                                                                                                        |
+| `src/store/usePublisherStore.ts`     | Runtime-only draft store: gather read-only context, generate, copy, open compose, load history                                                                                                                           |
+| `src/store/publisherHistorySlice.ts` | Persisted history slice: append (cap 200) / delete / clear                                                                                                                                                               |
+| `src/utils/publisherPrompt.ts`       | `buildPublisherPrompt` — pure, layered identity → intent → voice → grounding → output contract                                                                                                                           |
+| `src/utils/publisherFormats.ts`      | `VALID_FORMATS`, `defaultFormatFor`, `segmentLabel`, `joinSegments`, `parsePublisherOutput`                                                                                                                              |
+| `src/components/PublisherTab.tsx`    | Tab UI: left column (1/3, repository/angle/audience/network+format/model+variations/context/questions/generate), right column (2/3, draft view with a bento-style empty state), full-width history footer with Repurpose |
+| `src/utils/publisherQuestions.ts`    | `STATIC_QUESTIONS`, `staticQuestionsFor`, `buildTailorQuestionsPrompt`, `parseTailoredQuestions`                                                                                                                         |
+| `src/types.ts`                       | `PublisherRole` / `PublisherSeniority` / `PublisherBrief` / `PublisherQuestion` + all existing publisher types + Settings fields                                                                                         |
 
 ---
 
