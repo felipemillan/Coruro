@@ -225,26 +225,87 @@ function GuidedQuestionsPanel({
   );
 }
 
-/** Role + seniority + audience + guided questions panel — reads/writes store directly. */
-function BriefPanel({
+/** Network / format / model / count banner that does NOT prefill warning helper. */
+function ComposeNotes({ note, target }: { note: string | null; target: PublisherTarget }) {
+  return (
+    <>
+      {note !== null && (
+        <div className="nb-card-sm bg-terracotta/12 border-terracotta/40 text-[11px] text-navy px-3 py-2 font-mono">
+          {note}
+        </div>
+      )}
+      {NO_PREFILL.has(target) && (
+        <div className="nb-card-sm bg-warm-gray/50 text-[11px] text-navy-light px-3 py-2 leading-relaxed">
+          Heads up: {TARGETS.find((t) => t.id === target)?.label}'s compose page does not prefill
+          text. Copy the draft here, then paste it manually after the page opens.
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * The full left-column control panel: repository, angle, audience, network +
+ * format (2-up), model + variations (2-up), context (free-text guidance),
+ * guided questions, and Generate. Reads audience/answers/questions directly
+ * from usePublisherStore (like the panel it replaced); everything else comes
+ * in as props from the tab hook (like the compose controls it replaced).
+ */
+function LeftControls({
+  repos,
+  selectedPath,
   selectedRepo,
   authorVoice,
+  intent,
+  guidance,
+  target,
+  format,
+  model,
+  count,
+  busy,
+  canGenerate,
+  onPickRepo,
+  onSelectIntent,
+  onChangeGuidance,
+  onSelectTarget,
+  onSelectFormat,
+  onSelectModel,
+  onSelectCount,
+  onGenerate,
 }: {
+  repos: Repo[];
+  selectedPath: string;
   selectedRepo: Repo | undefined;
   authorVoice: string;
+  intent: PublisherIntent;
+  guidance: string;
+  target: PublisherTarget;
+  format: PostFormat;
+  model: PublisherModel;
+  count: number;
+  busy: boolean;
+  canGenerate: boolean;
+  onPickRepo: (path: string) => void;
+  onSelectIntent: (i: PublisherIntent) => void;
+  onChangeGuidance: (g: string) => void;
+  onSelectTarget: (t: PublisherTarget) => void;
+  onSelectFormat: (f: PostFormat) => void;
+  onSelectModel: (m: PublisherModel) => void;
+  onSelectCount: (n: number) => void;
+  onGenerate: () => void;
 }) {
   const roles = usePublisherStore((s) => s.draft.roles);
   const audience = usePublisherStore((s) => s.draft.audience);
   const answers = usePublisherStore((s) => s.draft.answers);
   const questionsStatus = usePublisherStore((s) => s.draft.questionsStatus);
   const tailoredQuestions = usePublisherStore((s) => s.draft.tailoredQuestions);
-  const intent = usePublisherStore((s) => s.draft.intent);
   const setAudience = usePublisherStore((s) => s.setAudience);
   const setAnswer = usePublisherStore((s) => s.setAnswer);
   const clearAnswers = usePublisherStore((s) => s.clearAnswers);
   const tailorQuestions = usePublisherStore((s) => s.tailorQuestions);
 
   const questions = tailoredQuestions ?? staticQuestionsFor(intent, roles);
+  const validFormats = VALID_FORMATS[target];
 
   const onTailor = async () => {
     if (!selectedRepo) return;
@@ -253,64 +314,6 @@ function BriefPanel({
 
   return (
     <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Audience (optional)</span>
-        <select
-          value=""
-          onChange={(e) => {
-            if (e.target.value) setAudience(e.target.value);
-          }}
-          className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2 cursor-pointer"
-        >
-          <option value="">Custom — type your own below…</option>
-          {PUBLISHER_AUDIENCES.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          value={audience}
-          onChange={(e) => setAudience(e.target.value.slice(0, MAX_PUBLISHER_AUDIENCE_LEN))}
-          placeholder="e.g. indie hackers building SaaS tools"
-          maxLength={MAX_PUBLISHER_AUDIENCE_LEN}
-          className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2"
-        />
-      </div>
-
-      <GuidedQuestionsPanel
-        questions={questions}
-        answers={answers}
-        questionsStatus={questionsStatus}
-        onSetAnswer={setAnswer}
-        onClearAnswers={clearAnswers}
-        onTailor={() => void onTailor()}
-      />
-    </div>
-  );
-}
-
-/** The three labelled text inputs: repository, angle (intent), free-text guidance. */
-function ComposeTextFields({
-  repos,
-  selectedPath,
-  intent,
-  guidance,
-  onPickRepo,
-  onSelectIntent,
-  onChangeGuidance,
-}: {
-  repos: Repo[];
-  selectedPath: string;
-  intent: PublisherIntent;
-  guidance: string;
-  onPickRepo: (path: string) => void;
-  onSelectIntent: (i: PublisherIntent) => void;
-  onChangeGuidance: (g: string) => void;
-}) {
-  return (
-    <>
       <label className="flex flex-col gap-1.5">
         <span className={LABEL}>Repository</span>
         <select
@@ -342,8 +345,82 @@ function ComposeTextFields({
         </select>
       </label>
 
+      <div className="flex flex-col gap-1.5">
+        <span className={LABEL}>Audience (optional)</span>
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) setAudience(e.target.value);
+          }}
+          className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2 cursor-pointer"
+        >
+          <option value="">Custom — type your own below…</option>
+          {PUBLISHER_AUDIENCES.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={audience}
+          onChange={(e) => setAudience(e.target.value.slice(0, MAX_PUBLISHER_AUDIENCE_LEN))}
+          placeholder="e.g. indie hackers building SaaS tools"
+          maxLength={MAX_PUBLISHER_AUDIENCE_LEN}
+          className="nb-input bg-cream text-[13px] text-navy px-2.5 py-2"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <span className={LABEL}>Network</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {TARGETS.map((t) => (
+              <Pill key={t.id} active={target === t.id} onClick={() => onSelectTarget(t.id)}>
+                {t.label}
+              </Pill>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className={LABEL}>Format</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {validFormats.map((f) => (
+              <Pill key={f} active={format === f} onClick={() => onSelectFormat(f)}>
+                {FORMAT_LABEL[f]}
+              </Pill>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <span className={LABEL}>Model</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {PUBLISHER_MODELS.map((m) => (
+              <Pill key={m} active={model === m} onClick={() => onSelectModel(m)}>
+                {MODEL_LABEL[m]}
+              </Pill>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className={LABEL}>Variations</span>
+          <div className="flex items-center gap-2">
+            {COUNTS.map((n) => (
+              <Pill key={n} active={count === n} onClick={() => onSelectCount(n)}>
+                {n}
+              </Pill>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <label className="flex flex-col gap-1.5">
-        <span className={LABEL}>Guidance (optional)</span>
+        <span className={LABEL}>Context (optional)</span>
         <textarea
           value={guidance}
           onChange={(e) => onChangeGuidance(e.target.value)}
@@ -354,125 +431,15 @@ function ComposeTextFields({
           className="nb-input bg-cream text-[12px] leading-relaxed text-navy px-2.5 py-2 resize-y"
         />
       </label>
-    </>
-  );
-}
 
-/** Network / format / model / count banner that does NOT prefill warning helper. */
-function ComposeNotes({ note, target }: { note: string | null; target: PublisherTarget }) {
-  return (
-    <>
-      {note !== null && (
-        <div className="nb-card-sm bg-terracotta/12 border-terracotta/40 text-[11px] text-navy px-3 py-2 font-mono">
-          {note}
-        </div>
-      )}
-      {NO_PREFILL.has(target) && (
-        <div className="nb-card-sm bg-warm-gray/50 text-[11px] text-navy-light px-3 py-2 leading-relaxed">
-          Heads up: {TARGETS.find((t) => t.id === target)?.label}'s compose page does not prefill
-          text. Copy the draft here, then paste it manually after the page opens.
-        </div>
-      )}
-    </>
-  );
-}
-
-/** Repo picker + intent + guidance + network / format / model / count + Generate. */
-function ComposeControls({
-  repos,
-  selectedPath,
-  intent,
-  guidance,
-  target,
-  format,
-  model,
-  count,
-  busy,
-  canGenerate,
-  onPickRepo,
-  onSelectIntent,
-  onChangeGuidance,
-  onSelectTarget,
-  onSelectFormat,
-  onSelectModel,
-  onSelectCount,
-  onGenerate,
-}: {
-  repos: Repo[];
-  selectedPath: string;
-  intent: PublisherIntent;
-  guidance: string;
-  target: PublisherTarget;
-  format: PostFormat;
-  model: PublisherModel;
-  count: number;
-  busy: boolean;
-  canGenerate: boolean;
-  onPickRepo: (path: string) => void;
-  onSelectIntent: (i: PublisherIntent) => void;
-  onChangeGuidance: (g: string) => void;
-  onSelectTarget: (t: PublisherTarget) => void;
-  onSelectFormat: (f: PostFormat) => void;
-  onSelectModel: (m: PublisherModel) => void;
-  onSelectCount: (n: number) => void;
-  onGenerate: () => void;
-}) {
-  const validFormats = VALID_FORMATS[target];
-  return (
-    <div className="nb-card bg-warm-gray/40 p-4 flex flex-col gap-4">
-      <ComposeTextFields
-        repos={repos}
-        selectedPath={selectedPath}
-        intent={intent}
-        guidance={guidance}
-        onPickRepo={onPickRepo}
-        onSelectIntent={onSelectIntent}
-        onChangeGuidance={onChangeGuidance}
+      <GuidedQuestionsPanel
+        questions={questions}
+        answers={answers}
+        questionsStatus={questionsStatus}
+        onSetAnswer={setAnswer}
+        onClearAnswers={clearAnswers}
+        onTailor={() => void onTailor()}
       />
-
-      <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Network</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {TARGETS.map((t) => (
-            <Pill key={t.id} active={target === t.id} onClick={() => onSelectTarget(t.id)}>
-              {t.label}
-            </Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Format</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {validFormats.map((f) => (
-            <Pill key={f} active={format === f} onClick={() => onSelectFormat(f)}>
-              {FORMAT_LABEL[f]}
-            </Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Model</span>
-        <div className="flex flex-wrap items-center gap-2">
-          {PUBLISHER_MODELS.map((m) => (
-            <Pill key={m} active={model === m} onClick={() => onSelectModel(m)}>
-              {MODEL_LABEL[m]}
-            </Pill>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <span className={LABEL}>Variations</span>
-        <div className="flex items-center gap-2">
-          {COUNTS.map((n) => (
-            <Pill key={n} active={count === n} onClick={() => onSelectCount(n)}>
-              {n}
-            </Pill>
-          ))}
-        </div>
-      </div>
 
       <button
         type="button"
@@ -992,22 +959,20 @@ function usePublisherTab() {
   };
 }
 
-/** Left 1/3 — sticky sidebar: identity (roles/seniority/audience) + guided questions only. */
+/**
+ * Left column — the full control panel (repository, angle, audience,
+ * network/format, model/variations, context, guided questions, Generate).
+ * Fixed 1/3 width, flush against the container's left edge (no page-level
+ * centering above this — see PublisherTab's outer wrapper).
+ */
 function PublisherSidebar({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
   return (
     <aside className="lg:col-span-1 flex flex-col gap-4 lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto lg:pr-1">
-      <BriefPanel selectedRepo={tab.selectedRepo} authorVoice={tab.authorVoice} />
-    </aside>
-  );
-}
-
-/** Right 2/3 — compose controls + post editor showing generated drafts and history. */
-function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
-  return (
-    <section className="lg:col-span-2 flex flex-col gap-4">
-      <ComposeControls
+      <LeftControls
         repos={tab.repos}
         selectedPath={tab.selectedPath}
+        selectedRepo={tab.selectedRepo}
+        authorVoice={tab.authorVoice}
         intent={tab.draft.intent}
         guidance={tab.draft.guidance}
         target={tab.draft.target}
@@ -1025,7 +990,14 @@ function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
         onSelectCount={tab.setCount}
         onGenerate={() => void tab.onGenerate()}
       />
+    </aside>
+  );
+}
 
+/** Right column — draft output only: compose notes + generated variations text box. Fills the rest of the viewport width. */
+function PublisherEditor({ tab }: { tab: ReturnType<typeof usePublisherTab> }) {
+  return (
+    <section className="lg:col-span-2 flex flex-col gap-4">
       <ComposeNotes note={tab.note} target={tab.draft.target} />
 
       {tab.historyNote !== null && (
@@ -1050,7 +1022,7 @@ export function PublisherTab() {
   const tab = usePublisherTab();
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-y-auto bg-cream">
-      <div className="mx-auto w-full max-w-7xl px-6 py-6 flex flex-col gap-5">
+      <div className="w-full px-6 py-6 flex flex-col gap-5">
         <PublisherHeader />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
