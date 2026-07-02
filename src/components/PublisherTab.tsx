@@ -371,8 +371,8 @@ function LeftControls({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-4 items-start">
+        <div className="flex flex-col gap-1.5 shrink-0">
           <span className={LABEL}>Network</span>
           <div className="flex flex-wrap items-center gap-2">
             {TARGETS.map((t) => (
@@ -383,7 +383,7 @@ function LeftControls({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 shrink-0">
           <span className={LABEL}>Format</span>
           <div className="flex flex-wrap items-center gap-2">
             {validFormats.map((f) => (
@@ -522,6 +522,59 @@ function CopyButton({
 }
 
 /** The generated-draft panel: variation tabs + segment cards + compose row. */
+/** Static angle ideas shown in the empty-draft state — inspiration, not a live prompt. */
+const IDEA_TILES: { network: string; format: string; text: string }[] = [
+  {
+    network: 'LinkedIn',
+    format: 'Carousel',
+    text: "Turn last week's hardest bug into a 5-slide lesson.",
+  },
+  { network: 'Reddit', format: 'Story', text: 'The 3am decision that almost broke the launch.' },
+  {
+    network: 'X',
+    format: 'Thread',
+    text: 'A short thread on the trade-off nobody warns you about.',
+  },
+  {
+    network: 'Instagram',
+    format: 'Single',
+    text: 'Before/after screenshot with a one-line story.',
+  },
+  {
+    network: 'LinkedIn',
+    format: 'Single',
+    text: 'Announce a feature by explaining the constraint it removes.',
+  },
+  {
+    network: 'TikTok',
+    format: 'Script',
+    text: 'A 30-second "here\'s what broke and how I fixed it."',
+  },
+];
+
+/** Bento-style empty state: invite to generate + a few angle ideas to borrow, so the draft column doesn't sit empty before the first generate. */
+function EmptyDraftState() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="sm:col-span-3 nb-card bg-cream p-5 flex flex-col gap-1.5">
+        <span className="text-[13px] font-bold text-navy">No draft yet</span>
+        <p className="text-[12px] text-navy-light leading-relaxed">
+          Pick a repository on the left and hit Generate — or borrow one of these angles to get
+          started.
+        </p>
+      </div>
+      {IDEA_TILES.map((idea, i) => (
+        <div key={i} className="nb-card bg-cream p-4 flex flex-col gap-1.5">
+          <span className={LABEL}>
+            {idea.network} · {idea.format}
+          </span>
+          <p className="text-[12px] text-navy leading-relaxed">{idea.text}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DraftView({
   draft,
   copiedKey,
@@ -540,11 +593,7 @@ function DraftView({
   const selected = draft.variations[draft.selectedVariation];
   const titles = draft.variations.map((v) => v.title);
   if (!selected) {
-    return (
-      <p className="text-[12px] text-navy-light/70 italic px-1">
-        No draft yet — pick a repository and generate to see variations here.
-      </p>
-    );
+    return <EmptyDraftState />;
   }
   const isSingleBody = draft.format === 'single' || draft.format === 'story';
   const copyAll = (
